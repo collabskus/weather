@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Weather.Infrastructure</RootNamespace>
+    <AssemblyName>Weather.Infrastructure</AssemblyName>
+    <Description>NWS HTTP client, SQLite/Dapper caches, the orchestrating weather service and the background neighbourhood warmer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Weather.Core\Weather.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The test project exercises the internal client, caches, weather service
+       and background warmer directly, so it needs access to internals. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Weather.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <!--
+    All first-party Microsoft packages (plus Dapper, which is MIT and free).
+    Microsoft.Extensions.Http.Resilience wraps Polly v8 and is the supported
+    way to add retry / circuit-breaker / timeout to an HttpClient today.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="System.Threading.RateLimiting" />
+  </ItemGroup>
+
+</Project>

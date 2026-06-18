@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Weather.Api</RootNamespace>
+    <AssemblyName>Weather.Api</AssemblyName>
+    <Description>Minimal-API backend that exposes cached NWS forecasts and the cache/observability surface.</Description>
+    <UserSecretsId>weather-api-6f1c0d2e</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Weather.Core\Weather.Core.csproj" />
+    <ProjectReference Include="..\Weather.Infrastructure\Weather.Infrastructure.csproj" />
+    <ProjectReference Include="..\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+</Project>

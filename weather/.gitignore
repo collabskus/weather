@@ -1,0 +1,32 @@
+## .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.user
+*.suo
+.vs/
+.vscode/
+*.userprefs
+
+## Test / coverage
+[Tt]est[Rr]esults/
+TestResults/
+coverage/
+*.coverage
+*.trx
+*.cobertura.xml
+
+## Rider
+.idea/
+
+## SQLite cache (generated at runtime)
+*.db
+*.db-shm
+*.db-wal
+weather-cache*.db*
+
+## OS noise
+.DS_Store
+Thumbs.db

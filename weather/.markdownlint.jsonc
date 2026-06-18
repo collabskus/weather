@@ -1,0 +1,12 @@
+{
+  // Sensible defaults, relaxed where they fight normal README prose.
+  "default": true,
+  // Long prose/URL lines are fine.
+  "MD013": false,
+  // Allow the occasional inline HTML element.
+  "MD033": false,
+  // Not every file must begin with a top-level heading.
+  "MD041": false,
+  // Allow duplicate sibling headings like repeated "Run it" across sections.
+  "MD024": { "siblings_only": true }
+}

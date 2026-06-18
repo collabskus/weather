@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="nuget.config" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Weather.Core/Weather.Core.csproj" />
+    <Project Path="src/Weather.Infrastructure/Weather.Infrastructure.csproj" />
+    <Project Path="src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj" />
+    <Project Path="src/Weather.Api/Weather.Api.csproj" />
+    <Project Path="src/Weather.Web/Weather.Web.csproj" />
+    <Project Path="src/Weather.AppHost/Weather.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Weather.Core.Tests/Weather.Core.Tests.csproj" />
+    <Project Path="tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Weather.Api.Tests/Weather.Api.Tests.csproj" />
+    <Project Path="tests/Weather.Web.Tests/Weather.Web.Tests.csproj" />
+  </Folder>
+</Solution>

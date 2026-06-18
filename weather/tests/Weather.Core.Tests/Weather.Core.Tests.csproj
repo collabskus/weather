@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- TUnit runs on Microsoft.Testing.Platform, so the test project is an
+         executable. TestingPlatformDotnetTestSupport lets `dotnet test` drive
+         it. Do NOT add Microsoft.NET.Test.Sdk — it conflicts with MTP. -->
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Weather.Core\Weather.Core.csproj" />
+  </ItemGroup>
+
+</Project>

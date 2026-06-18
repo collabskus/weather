@@ -1,0 +1,50 @@
+<Project>
+
+  <!--
+    Solution-wide build settings.
+    Applied to every project automatically by MSBuild because it sits at the
+    repository root. Keep project .csproj files lean by putting shared,
+    opinionated defaults here.
+  -->
+  <PropertyGroup>
+    <!-- Target the latest LTS runtime and the matching language version. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Modern C# ergonomics. -->
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Deterministic, reproducible builds. -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Analyzers: opt in to the full, latest rule set. -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!--
+      Warnings are NOT treated as errors by default so that a freshly cloned
+      repo always builds on the first try, even if a newer analyzer surfaces a
+      new suggestion. Flip this to 'true' (or build CI with '-warnaserror')
+      once the tree is green on your machine. See the root README.
+    -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!-- Generate XML docs for libraries but do not fail on missing comments. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Source Link + symbols so stack traces map back to source on GitHub. -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,475 @@
+@page "/"
+@using System.Globalization
+@using Weather.Web.Services
+@inject IGeolocationService Geolocation
+@inject IWeatherApiClient WeatherApi
+
+<PageTitle>Weather</PageTitle>
+
+@{
+    // Shared manual-entry block, reused by every "we couldn't place you" state.
+    // Defined once as a template so the three fallbacks stay identical.
+    RenderFragment manualEntry =@<div class="locate" data-testid="manual-entry">
+        <div class="locate__row">
+            <label class="field">
+                <span class="field__label">Latitude</span>
+                <input class="field__input" inputmode="decimal" autocomplete="off"
+                       placeholder="37.0879" @bind="_manualLat" @bind:event="oninput" />
+            </label>
+            <label class="field">
+                <span class="field__label">Longitude</span>
+                <input class="field__input" inputmode="decimal" autocomplete="off"
+                       placeholder="-76.4505" @bind="_manualLon" @bind:event="oninput" />
+            </label>
+        </div>
+        <div class="locate__actions">
+            <button type="button" class="button" @onclick="SubmitManualAsync">Get forecast</button>
+            <button type="button" class="button button--ghost" @onclick="UseSampleAsync">
+                Use sample (Newport News, VA)
+            </button>
+        </div>
+        @if (_manualError is not null)
+        {
+            <p class="field__error" role="alert">@_manualError</p>
+        }
+    </div>;
+}
+
+@switch (_state)
+{
+    case LoadState.Initializing:
+    case LoadState.RequestingLocation:
+        <section class="panel" data-testid="state-locating">
+            <h1 class="panel__title">Finding your location</h1>
+            <p class="panel__body">
+                Your browser is asking whether to share where you are. Allow it for a local
+                forecast, or enter coordinates yourself below.
+            </p>
+            <span class="pulse"><span class="pulse__dot" aria-hidden="true"></span>Waiting for the browser</span>
+            @manualEntry
+        </section>
+        break;
+
+    case LoadState.Loading:
+        <section class="panel" data-testid="state-loading">
+            <h1 class="panel__title">Loading the forecast</h1>
+            <p class="panel__body">Fetching the latest periods for your grid cell.</p>
+            <span class="pulse"><span class="pulse__dot" aria-hidden="true"></span>Reading the sky</span>
+        </section>
+        break;
+
+    case LoadState.LocationDenied:
+        <section class="panel" data-testid="state-denied">
+            <h1 class="panel__title">Location is off</h1>
+            <p class="panel__body">
+                You chose not to share your location, which is completely fine. Enter a latitude
+                and longitude to get a forecast, or use the sample location.
+            </p>
+            @manualEntry
+        </section>
+        break;
+
+    case LoadState.LocationUnavailable:
+        <section class="panel" data-testid="state-unavailable">
+            <h1 class="panel__title">Couldn't pin down where you are</h1>
+            <p class="panel__body">
+                The browser couldn't determine your position — no signal, no hardware, or the
+                request timed out. Enter coordinates to continue, or use the sample location.
+            </p>
+            @manualEntry
+        </section>
+        break;
+
+    case LoadState.NotCovered:
+        <section class="panel" data-testid="state-not-covered">
+            <h1 class="panel__title">No coverage for that spot</h1>
+            <p class="panel__body">
+                The National Weather Service covers the United States and its territories. The
+                coordinate <span class="coords">@CoordLabel</span> falls outside that. Try a point
+                inside the U.S., or use the sample location.
+            </p>
+            @manualEntry
+        </section>
+        break;
+
+    case LoadState.Error:
+        <section class="panel" data-testid="state-error">
+            <h1 class="panel__title">The forecast didn't load</h1>
+            <p class="panel__body">
+                The service didn't respond. This is usually temporary — try again in a moment.
+            </p>
+            <div class="panel__actions">
+                <button type="button" class="button" @onclick="RetryAsync">Try again</button>
+                <button type="button" class="button button--ghost" @onclick="UseSampleAsync">
+                    Use sample location
+                </button>
+            </div>
+            @if (_errorDetail is not null)
+            {
+                <details class="error-detail">
+                    <summary>Technical detail</summary>
+                    @_errorDetail
+                </details>
+            }
+        </section>
+        break;
+
+    case LoadState.Loaded:
+        @RenderLoaded()
+        break;
+}
+
+@code {
+    private enum LoadState
+    {
+        Initializing,
+        RequestingLocation,
+        LocationDenied,
+        LocationUnavailable,
+        Loading,
+        Loaded,
+        NotCovered,
+        Error,
+    }
+
+    // Newport News, VA — the worked example from the project brief.
+    private const double SampleLatitude = 37.0879;
+    private const double SampleLongitude = -76.4505;
+    private const int UpcomingCount = 8;
+
+    private LoadState _state = LoadState.Initializing;
+    private ForecastDto? _forecast;
+    private string? _errorDetail;
+
+    private double? _latitude;
+    private double? _longitude;
+
+    private string _manualLat = string.Empty;
+    private string _manualLon = string.Empty;
+    private string? _manualError;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Geolocation needs JS interop, which is only available once the
+        // component is interactive — i.e. after the first render.
+        if (firstRender)
+        {
+            await BeginGeolocationAsync();
+        }
+    }
+
+    private async Task BeginGeolocationAsync()
+    {
+        _state = LoadState.RequestingLocation;
+        StateHasChanged();
+
+        var result = await Geolocation.GetCurrentPositionAsync();
+
+        if (result.Success)
+        {
+            await LoadForecastAsync(result.Latitude, result.Longitude);
+            return;
+        }
+
+        // Denial gets its own copy; everything else (unavailable, timeout,
+        // unsupported, JS fault) lands on the same "couldn't pin you" path.
+        _state = result.Error == GeolocationError.PermissionDenied
+            ? LoadState.LocationDenied
+            : LoadState.LocationUnavailable;
+        StateHasChanged();
+    }
+
+    private async Task LoadForecastAsync(double latitude, double longitude)
+    {
+        _latitude = latitude;
+        _longitude = longitude;
+        _state = LoadState.Loading;
+        StateHasChanged();
+
+        try
+        {
+            var forecast = await WeatherApi.GetForecastAsync(latitude, longitude);
+
+            if (forecast is null || forecast.Periods.Count == 0)
+            {
+                _state = LoadState.NotCovered;
+            }
+            else
+            {
+                _forecast = forecast;
+                _errorDetail = null;
+                _state = LoadState.Loaded;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorDetail = ex.Message;
+            _state = LoadState.Error;
+        }
+        catch (TaskCanceledException)
+        {
+            _errorDetail = "The request timed out.";
+            _state = LoadState.Error;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task SubmitManualAsync()
+    {
+        _manualError = null;
+
+        if (!TryParseCoordinate(_manualLat, out var latitude) ||
+            !TryParseCoordinate(_manualLon, out var longitude))
+        {
+            _manualError = "Enter numbers, e.g. 37.0879 and -76.4505.";
+            return;
+        }
+
+        if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
+        {
+            _manualError = "Latitude is between -90 and 90; longitude between -180 and 180.";
+            return;
+        }
+
+        await LoadForecastAsync(latitude, longitude);
+    }
+
+    private Task UseSampleAsync() => LoadForecastAsync(SampleLatitude, SampleLongitude);
+
+    private async Task RetryAsync()
+    {
+        if (_latitude is { } latitude && _longitude is { } longitude)
+        {
+            await LoadForecastAsync(latitude, longitude);
+        }
+        else
+        {
+            await BeginGeolocationAsync();
+        }
+    }
+
+    private static bool TryParseCoordinate(string value, out double result) =>
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+
+    private string LocationLabel => _forecast is null
+        ? string.Empty
+        : $"NWS {_forecast.GridId} · {_forecast.GridX},{_forecast.GridY}";
+
+    private string CoordLabel => _latitude is { } latitude && _longitude is { } longitude
+        ? string.Create(CultureInfo.InvariantCulture, $"{latitude:0.####}, {longitude:0.####}")
+        : string.Empty;
+
+    private RenderFragment RenderLoaded() => builder =>
+    {
+        // Hand-built render fragment keeps the markup switch readable; the
+        // detailed layout lives here where the forecast is guaranteed non-null.
+        var forecast = _forecast!;
+        var hero = forecast.Periods[0];
+        var theme = SkyPalette.ForPeriod(hero.IsDaytime, hero.ShortForecast);
+        var heroStyle =
+            $"--sky-from:{theme.From};--sky-to:{theme.To};--sky-fg:{theme.Foreground};--sky-accent:{theme.Accent};";
+
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "data-testid", "forecast");
+        builder.AddContent(2, RenderHero(hero, theme, heroStyle));
+        builder.AddContent(3, RenderUpcoming(forecast));
+        builder.AddContent(4, RenderNotice());
+        builder.CloseElement();
+    };
+
+    private RenderFragment RenderHero(ForecastPeriodDto hero, SkyTheme theme, string heroStyle) => builder =>
+    {
+        builder.OpenElement(0, "section");
+        builder.AddAttribute(1, "class", "sky");
+        builder.AddAttribute(2, "style", heroStyle);
+        builder.AddAttribute(3, "data-testid", "hero");
+
+        builder.OpenElement(10, "div");
+        builder.AddAttribute(11, "class", "sky__inner");
+
+        // eyebrow: location + sky-state chip
+        builder.OpenElement(20, "div");
+        builder.AddAttribute(21, "class", "sky__eyebrow");
+        builder.OpenElement(22, "span");
+        builder.AddContent(23, LocationLabel);
+        builder.CloseElement();
+        builder.OpenElement(24, "span");
+        builder.AddAttribute(25, "class", "sky__state");
+        builder.AddContent(26, theme.Label);
+        builder.CloseElement();
+        builder.CloseElement(); // eyebrow
+
+        // headline: period name + short forecast
+        builder.OpenElement(30, "div");
+        builder.AddAttribute(31, "class", "sky__headline");
+        builder.OpenElement(32, "h1");
+        builder.AddAttribute(33, "class", "sky__name");
+        builder.AddContent(34, hero.Name);
+        builder.CloseElement();
+        builder.OpenElement(35, "p");
+        builder.AddAttribute(36, "class", "sky__short");
+        builder.AddContent(37, hero.ShortForecast);
+        builder.CloseElement();
+        builder.CloseElement(); // headline
+
+        // readout: big temperature
+        builder.OpenElement(40, "div");
+        builder.AddAttribute(41, "class", "sky__readout");
+        builder.OpenElement(42, "div");
+        builder.AddAttribute(43, "class", "sky__temp");
+        builder.AddAttribute(44, "data-testid", "hero-temp");
+        builder.AddContent(45, hero.Temperature.ToString(CultureInfo.InvariantCulture));
+        builder.OpenElement(46, "span");
+        builder.AddAttribute(47, "class", "sky__unit");
+        builder.AddContent(48, $"°{hero.TemperatureUnit}");
+        builder.CloseElement();
+        builder.CloseElement(); // temp
+        builder.CloseElement(); // readout
+
+        // detailed sentence
+        if (!string.IsNullOrWhiteSpace(hero.DetailedForecast))
+        {
+            builder.OpenElement(50, "p");
+            builder.AddAttribute(51, "class", "sky__detail");
+            builder.AddContent(52, hero.DetailedForecast);
+            builder.CloseElement();
+        }
+
+        // meta: precip + wind
+        builder.OpenElement(60, "div");
+        builder.AddAttribute(61, "class", "sky__meta");
+        builder.AddContent(62, MetaItem("Precip", FormatPrecip(hero.ProbabilityOfPrecipitation)));
+        builder.AddContent(63, MetaItem("Wind", FormatWind(hero)));
+        builder.CloseElement(); // meta
+
+        builder.CloseElement(); // inner
+        builder.CloseElement(); // section
+    };
+
+    private static RenderFragment MetaItem(string label, string value) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "sky__meta-item");
+        builder.OpenElement(2, "span");
+        builder.AddAttribute(3, "class", "sky__meta-label");
+        builder.AddContent(4, label);
+        builder.CloseElement();
+        builder.OpenElement(5, "span");
+        builder.AddAttribute(6, "class", "sky__meta-value");
+        builder.AddContent(7, value);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private RenderFragment RenderUpcoming(ForecastDto forecast) => builder =>
+    {
+        if (forecast.Periods.Count <= 1)
+        {
+            return;
+        }
+
+        builder.OpenElement(0, "section");
+        builder.AddAttribute(1, "class", "forecast");
+        builder.AddAttribute(2, "data-testid", "upcoming");
+
+        builder.OpenElement(10, "div");
+        builder.AddAttribute(11, "class", "forecast__head");
+        builder.OpenElement(12, "h2");
+        builder.AddAttribute(13, "class", "forecast__title");
+        builder.AddContent(14, "Coming up");
+        builder.CloseElement();
+        builder.OpenElement(15, "p");
+        builder.AddAttribute(16, "class", "forecast__sub");
+        builder.AddContent(17, "Next periods");
+        builder.CloseElement();
+        builder.CloseElement(); // head
+
+        builder.OpenElement(20, "div");
+        builder.AddAttribute(21, "class", "forecast__grid");
+
+        var sequence = 100;
+        foreach (var period in forecast.Periods.Skip(1).Take(UpcomingCount))
+        {
+            builder.AddContent(sequence++, RenderCard(period));
+        }
+
+        builder.CloseElement(); // grid
+        builder.CloseElement(); // section
+    };
+
+    private static RenderFragment RenderCard(ForecastPeriodDto period) => builder =>
+    {
+        var theme = SkyPalette.ForPeriod(period.IsDaytime, period.ShortForecast);
+
+        builder.OpenElement(0, "article");
+        builder.AddAttribute(1, "class", "card");
+
+        builder.OpenElement(2, "div");
+        builder.AddAttribute(3, "class", "card__name");
+        builder.OpenElement(4, "span");
+        builder.AddAttribute(5, "class", "card__chip");
+        builder.AddAttribute(6, "style", $"--chip:{theme.From}");
+        builder.AddAttribute(7, "title", theme.Label);
+        builder.CloseElement();
+        builder.AddContent(8, period.Name);
+        builder.CloseElement(); // name
+
+        builder.OpenElement(10, "div");
+        builder.AddAttribute(11, "class", "card__temp");
+        builder.AddContent(12, period.Temperature.ToString(CultureInfo.InvariantCulture));
+        builder.OpenElement(13, "span");
+        builder.AddAttribute(14, "class", "card__temp-unit");
+        builder.AddContent(15, $"°{period.TemperatureUnit}");
+        builder.CloseElement();
+        builder.CloseElement(); // temp
+
+        builder.OpenElement(16, "p");
+        builder.AddAttribute(17, "class", "card__short");
+        builder.AddContent(18, period.ShortForecast);
+        builder.CloseElement();
+
+        builder.OpenElement(20, "div");
+        builder.AddAttribute(21, "class", "card__rows");
+        builder.AddContent(22, CardRow("Precip", FormatPrecip(period.ProbabilityOfPrecipitation)));
+        builder.AddContent(23, CardRow("Wind", FormatWind(period)));
+        builder.CloseElement(); // rows
+
+        builder.CloseElement(); // article
+    };
+
+    private static RenderFragment CardRow(string label, string value) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "card__row");
+        builder.OpenElement(2, "span");
+        builder.AddAttribute(3, "class", "card__row-label");
+        builder.AddContent(4, label);
+        builder.CloseElement();
+        builder.OpenElement(5, "span");
+        builder.AddAttribute(6, "class", "card__row-value");
+        builder.AddContent(7, value);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private RenderFragment RenderNotice() => builder =>
+    {
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "notice");
+        builder.AddContent(2,
+            "Forecasts are cached for a short window and reused, so repeat views stay quick and " +
+            "the National Weather Service isn't polled more than it needs to be.");
+        builder.CloseElement();
+    };
+
+    private static string FormatPrecip(int? probability) =>
+        probability is { } value ? $"{value.ToString(CultureInfo.InvariantCulture)}%" : "—";
+
+    private static string FormatWind(ForecastPeriodDto period)
+    {
+        var direction = string.IsNullOrWhiteSpace(period.WindDirection) ? string.Empty : period.WindDirection + " ";
+        var speed = string.IsNullOrWhiteSpace(period.WindSpeed) ? "—" : period.WindSpeed;
+        return $"{direction}{speed}".Trim();
+    }
+}

@@ -1,0 +1,26 @@
+version: 2
+
+# Keeps the centrally-managed package versions (Directory.Packages.props) and
+# the GitHub Actions used in CI current. The version baseline in the repo is a
+# snapshot; these PRs are how it stays fresh.
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      # One PR per week for routine bumps keeps the noise down; majors still
+      # come through on their own so they get a proper look.
+      dotnet-dependencies:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10

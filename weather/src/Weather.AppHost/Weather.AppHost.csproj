@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Aspire app host needs its own MSBuild SDK in addition to the base
+       SDK. It generates the strongly-typed Projects.* references used in
+       Program.cs. Its version must match the Aspire.Hosting.AppHost package
+       (managed centrally in Directory.Packages.props); an SDK reference can't
+       be version-managed by Central Package Management, so it's pinned here. -->
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.5.1" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsAspireHost>true</IsAspireHost>
+    <RootNamespace>Weather.AppHost</RootNamespace>
+    <AssemblyName>Weather.AppHost</AssemblyName>
+    <Description>.NET Aspire app host: orchestrates the API and Blazor front end and exposes the dashboard.</Description>
+    <UserSecretsId>weather-apphost-7c2f9d10</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Weather.Api\Weather.Api.csproj" />
+    <ProjectReference Include="..\Weather.Web\Weather.Web.csproj" />
+  </ItemGroup>
+
+</Project>

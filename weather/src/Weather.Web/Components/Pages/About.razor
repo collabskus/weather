@@ -1,0 +1,25 @@
+@page "/about"
+
+<PageTitle>About · Weather</PageTitle>
+
+<section class="panel panel--plain">
+    <h1 class="panel__title">About this dashboard</h1>
+    <p class="panel__body">
+        A small weather dashboard built on the U.S. National Weather Service API. It asks your
+        browser for your location, resolves it to an NWS forecast grid cell, and shows the
+        forecast for that cell. If you'd rather not share your location, you can type coordinates
+        instead — the app works the same either way.
+    </p>
+    <p class="panel__body">
+        Forecasts don't change second to second, so responses are cached locally for a short
+        window and reused. That keeps the dashboard quick and keeps the weather service from
+        being polled more than it needs to be. The caching is invisible in normal use: you always
+        see current data, just faster on repeat views. When the service is briefly unreachable,
+        the last good forecast is shown rather than an error.
+    </p>
+    <p class="panel__body">
+        Behind the scenes the app records cache hit/miss ratios and the latency of every call to
+        the weather service, so slow responses or rate-limiting show up on a dashboard rather than
+        as a mystery. Coordinates are sent only to fetch a forecast and aren't stored.
+    </p>
+</section>

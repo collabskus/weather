@@ -1,0 +1,13 @@
+* text=auto eol=lf
+*.sln    text eol=crlf
+*.slnx   text eol=lf
+*.csproj text eol=lf
+*.cs     text eol=lf diff=csharp
+*.razor  text eol=lf
+*.props  text eol=lf
+*.targets text eol=lf
+*.json   text eol=lf
+*.yml    text eol=lf
+*.md     text eol=lf
+*.png binary
+*.db  binary

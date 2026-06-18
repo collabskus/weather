@@ -1,0 +1,36 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Least privilege: this workflow only needs to read the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (Release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          # Installs the SDK pinned in global.json (10.0.x feature band).
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore weather.slnx
+
+      - name: Build
+        run: dotnet build weather.slnx --configuration Release --no-restore

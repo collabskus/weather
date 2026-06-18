@@ -1,0 +1,30 @@
+name: markdown-lint
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**/*.md'
+      - '.markdownlint.jsonc'
+      - '.github/workflows/markdown-lint.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  markdownlint:
+    name: Lint Markdown
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      # markdownlint-cli2 reads .markdownlint.jsonc at the repo root.
+      - name: Lint Markdown
+        run: npx --yes markdownlint-cli2 "**/*.md" "#**/bin" "#**/obj"

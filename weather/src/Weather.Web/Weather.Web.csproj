@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Weather.Web</RootNamespace>
+    <AssemblyName>Weather.Web</AssemblyName>
+    <Description>Blazor Server dashboard: browser geolocation with graceful fallback, talking to the Weather API.</Description>
+    <UserSecretsId>weather-web-3a9b71c4</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

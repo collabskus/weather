@@ -1,0 +1,29 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <header class="app-header">
+        <div class="app-header__inner">
+            <a class="brand" href="/">
+                <span class="brand__mark" aria-hidden="true"></span>
+                <span class="brand__text">Weather</span>
+            </a>
+            <NavMenu />
+        </div>
+    </header>
+
+    <main class="app-main">
+        @Body
+    </main>
+
+    <footer class="app-footer">
+        <div class="app-footer__inner">
+            <span>Forecasts from the U.S. National Weather Service.</span>
+            <span>Cached locally to stay fast and light on the source.</span>
+        </div>
+    </footer>
+</div>
+
+<div id="blazor-error-ui">
+    Something went wrong. Reload the page to keep going.
+    <span class="dismiss">×</span>
+</div>

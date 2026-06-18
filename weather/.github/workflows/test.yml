@@ -1,0 +1,35 @@
+name: test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # TUnit runs on Microsoft.Testing.Platform; `dotnet test` drives it via
+      # the TestingPlatformDotnetTestSupport flag set in each test .csproj. We
+      # let `dotnet test` build the test projects so the runner and build stay
+      # in lock-step.
+      - name: Test
+        run: dotnet test weather.slnx --configuration Release

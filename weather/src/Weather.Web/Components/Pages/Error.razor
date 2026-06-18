@@ -1,0 +1,36 @@
+@page "/Error"
+@using System.Diagnostics
+@using Microsoft.AspNetCore.Components.Web
+
+<PageTitle>Error · Weather</PageTitle>
+
+<section class="panel" data-testid="state-page-error">
+    <h1 class="panel__title">Something went wrong</h1>
+    <p class="panel__body">
+        An unexpected error interrupted the page. Reloading usually clears it. If it keeps
+        happening, the weather service or API may be down for a moment.
+    </p>
+    <div class="panel__actions">
+        <a class="button" href="/">Back to the forecast</a>
+    </div>
+
+    @if (ShowRequestId)
+    {
+        <details class="error-detail">
+            <summary>Request reference</summary>
+            Request ID: @RequestId
+        </details>
+    }
+</section>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}
