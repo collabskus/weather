@@ -30,7 +30,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_permission_denied_the_manual_entry_form_is_shown()
+    public void WhenPermissionDeniedTheManualEntryFormIsShown()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PermissionDenied)),
@@ -43,7 +43,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_position_unavailable_the_manual_entry_form_is_shown()
+    public void WhenPositionUnavailableTheManualEntryFormIsShown()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PositionUnavailable)),
@@ -55,7 +55,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_location_and_api_succeed_the_forecast_is_rendered()
+    public void WhenLocationAndApiSucceedTheForecastIsRendered()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(Success()),
@@ -69,7 +69,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_the_api_reports_no_coverage_the_not_covered_state_is_shown()
+    public void WhenTheApiReportsNoCoverageTheNotCoveredStateIsShown()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(Success()),
@@ -81,7 +81,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_the_api_throws_the_error_state_is_shown()
+    public void WhenTheApiThrowsTheErrorStateIsShown()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(Success()),
@@ -93,7 +93,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void While_geolocation_is_pending_the_locating_state_is_shown_then_resolves()
+    public void WhileGeolocationIsPendingTheLocatingStateIsShownThenResolves()
     {
         var (geo, gate) = FakeGeolocationService.Gated();
         using var ctx = CreateContext(geo, FakeWeatherApiClient.Returning(SampleForecast()));
@@ -109,7 +109,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void Manual_submission_loads_the_forecast()
+    public void ManualSubmissionLoadsTheForecast()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PermissionDenied)),
@@ -127,7 +127,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void Use_sample_button_requests_the_sample_coordinates()
+    public void UseSampleButtonRequestsTheSampleCoordinates()
     {
         var api = FakeWeatherApiClient.Returning(SampleForecast());
         using var ctx = CreateContext(

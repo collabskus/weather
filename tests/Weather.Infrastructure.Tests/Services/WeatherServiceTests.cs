@@ -52,7 +52,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_on_full_miss_fetches_stores_and_schedules_warming()
+    public async Task GetForecastOnFullMissFetchesStoresAndSchedulesWarming()
     {
         var h = new Harness();
         h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(Meta());
@@ -69,7 +69,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_with_fresh_metadata_does_not_call_points()
+    public async Task GetForecastWithFreshMetadataDoesNotCallPoints()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -81,7 +81,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_with_fresh_forecast_does_not_call_forecast()
+    public async Task GetForecastWithFreshForecastDoesNotCallForecast()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -94,7 +94,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_stale_then_not_modified_renews_ttl_and_returns_cached()
+    public async Task GetForecastStaleThenNotModifiedRenewsTtlAndReturnsCached()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -115,7 +115,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_stale_then_unavailable_serves_stale_without_upsert()
+    public async Task GetForecastStaleThenUnavailableServesStaleWithoutUpsert()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -131,7 +131,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_not_found_without_cache_returns_null()
+    public async Task GetForecastNotFoundWithoutCacheReturnsNull()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -142,7 +142,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_with_unresolvable_metadata_and_no_cache_returns_null()
+    public async Task GetForecastWithUnresolvableMetadataAndNoCacheReturnsNull()
     {
         var h = new Harness();
         // metadata cache empty + NWS resolve returns null
@@ -156,7 +156,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_with_unresolvable_metadata_but_stale_cache_serves_stale_metadata()
+    public async Task GetForecastWithUnresolvableMetadataButStaleCacheServesStaleMetadata()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(StaleMeta());
@@ -172,7 +172,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetNeighborhood_returns_only_already_fresh_neighbors()
+    public async Task GetNeighborhoodReturnsOnlyAlreadyFreshNeighbors()
     {
         var h = new Harness();
         var neighborA = new GridPoint("AKQ", 82, 61);
@@ -194,7 +194,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetNeighborhood_without_metadata_returns_null()
+    public async Task GetNeighborhoodWithoutMetadataReturnsNull()
     {
         var h = new Harness();
         h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
@@ -204,7 +204,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecastByGrid_does_not_schedule_warming()
+    public async Task GetForecastByGridDoesNotScheduleWarming()
     {
         var h = new Harness();
         h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())

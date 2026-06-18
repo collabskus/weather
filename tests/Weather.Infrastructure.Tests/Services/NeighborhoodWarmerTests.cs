@@ -16,7 +16,7 @@ public sealed class NeighborhoodWarmerTests
     private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
 
     [Test]
-    public async Task RequestWarming_enqueues_the_origin_for_the_reader()
+    public async Task RequestWarmingEnqueuesTheOriginForTheReader()
     {
         var warmer = new NeighborhoodWarmer(NullLogger<NeighborhoodWarmer>.Instance);
 
@@ -26,7 +26,7 @@ public sealed class NeighborhoodWarmerTests
     }
 
     [Test]
-    public async Task BackgroundService_warms_all_eight_neighbours()
+    public async Task BackgroundServiceWarmsAllEightNeighbours()
     {
         var bag = new ConcurrentBag<GridPoint>();
         var fakeWeather = Substitute.For<IWeatherService>();
@@ -45,7 +45,7 @@ public sealed class NeighborhoodWarmerTests
     }
 
     [Test]
-    public async Task BackgroundService_skips_cells_that_are_already_fresh()
+    public async Task BackgroundServiceSkipsCellsThatAreAlreadyFresh()
     {
         var freshA = new GridPoint("AKQ", 82, 60);
         var freshB = new GridPoint("AKQ", 84, 62);

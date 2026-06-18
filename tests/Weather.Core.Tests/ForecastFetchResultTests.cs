@@ -9,7 +9,7 @@ public sealed class ForecastFetchResultTests
         Array.Empty<ForecastPeriod>());
 
     [Test]
-    public void Success_carries_forecast_etag_and_maxage()
+    public void SuccessCarriesForecastEtagAndMaxage()
     {
         var forecast = SampleForecast();
 
@@ -22,7 +22,7 @@ public sealed class ForecastFetchResultTests
     }
 
     [Test]
-    public void NotModified_carries_no_forecast()
+    public void NotModifiedCarriesNoForecast()
     {
         var result = ForecastFetchResult.NotModified("\"abc\"", TimeSpan.FromMinutes(10));
 
@@ -33,7 +33,7 @@ public sealed class ForecastFetchResultTests
     }
 
     [Test]
-    public void NotFound_is_a_terminal_outcome_with_no_payload()
+    public void NotFoundIsATerminalOutcomeWithNoPayload()
     {
         ForecastFetchResult.NotFound.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
         ForecastFetchResult.NotFound.Forecast.ShouldBeNull();
@@ -41,7 +41,7 @@ public sealed class ForecastFetchResultTests
     }
 
     [Test]
-    public void Unavailable_is_a_terminal_outcome_with_no_payload()
+    public void UnavailableIsATerminalOutcomeWithNoPayload()
     {
         ForecastFetchResult.Unavailable.Outcome.ShouldBe(NwsFetchOutcome.Unavailable);
         ForecastFetchResult.Unavailable.Forecast.ShouldBeNull();
@@ -52,19 +52,19 @@ public sealed class ForecastFetchResultTests
 public sealed class GridPointTests
 {
     [Test]
-    public void ToString_is_office_slash_x_comma_y() =>
+    public void ToStringIsOfficeSlashXCommaY() =>
         new GridPoint("AKQ", 83, 61).ToString().ShouldBe("AKQ/83,61");
 
     [Test]
-    public void Records_with_the_same_values_are_equal() =>
+    public void RecordsWithTheSameValuesAreEqual() =>
         new GridPoint("AKQ", 83, 61).ShouldBe(new GridPoint("AKQ", 83, 61));
 
     [Test]
-    public void Records_with_different_values_are_not_equal() =>
+    public void RecordsWithDifferentValuesAreNotEqual() =>
         new GridPoint("AKQ", 83, 61).ShouldNotBe(new GridPoint("AKQ", 83, 62));
 
     [Test]
-    public void With_expression_replaces_a_single_index()
+    public void WithExpressionReplacesASingleIndex()
     {
         var origin = new GridPoint("AKQ", 83, 61);
 

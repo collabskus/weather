@@ -5,7 +5,7 @@ public sealed class GridNeighborhoodTests
     private static readonly GridPoint Origin = new("AKQ", 83, 61);
 
     [Test]
-    public void Surrounding_returns_eight_cells_for_radius_one()
+    public void SurroundingReturnsEightCellsForRadiusOne()
     {
         var cells = GridNeighborhood.Surrounding(Origin);
 
@@ -13,7 +13,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_excludes_the_origin()
+    public void SurroundingExcludesTheOrigin()
     {
         var cells = GridNeighborhood.Surrounding(Origin);
 
@@ -21,7 +21,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_returns_the_expected_ring()
+    public void SurroundingReturnsTheExpectedRing()
     {
         var cells = GridNeighborhood.Surrounding(Origin);
 
@@ -36,7 +36,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_preserves_the_grid_id()
+    public void SurroundingPreservesTheGridId()
     {
         var cells = GridNeighborhood.Surrounding(Origin);
 
@@ -44,7 +44,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_drops_cells_with_negative_indices()
+    public void SurroundingDropsCellsWithNegativeIndices()
     {
         // Origin in the corner: cells at x = -1 or y = -1 must be dropped.
         var corner = new GridPoint("AKQ", 0, 0);
@@ -60,7 +60,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_with_radius_two_returns_twenty_four_cells()
+    public void SurroundingWithRadiusTwoReturnsTwentyFourCells()
     {
         var cells = GridNeighborhood.Surrounding(Origin, radius: 2);
 
@@ -71,6 +71,6 @@ public sealed class GridNeighborhoodTests
     [Test]
     [Arguments(0)]
     [Arguments(-1)]
-    public void Surrounding_rejects_non_positive_radius(int radius) =>
+    public void SurroundingRejectsNonPositiveRadius(int radius) =>
         Should.Throw<ArgumentOutOfRangeException>(() => GridNeighborhood.Surrounding(Origin, radius));
 }

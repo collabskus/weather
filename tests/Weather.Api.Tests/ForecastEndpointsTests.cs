@@ -8,7 +8,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     private readonly WeatherApiFactory _factory = new();
 
     [Test]
-    public async Task GetForecast_with_valid_coordinates_returns_200_and_a_forecast()
+    public async Task GetForecastWithValidCoordinatesReturns200AndAForecast()
     {
         using var client = _factory.CreateClient();
 
@@ -25,7 +25,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     }
 
     [Test]
-    public async Task GetForecast_with_invalid_latitude_returns_400()
+    public async Task GetForecastWithInvalidLatitudeReturns400()
     {
         using var client = _factory.CreateClient();
 
@@ -35,7 +35,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     }
 
     [Test]
-    public async Task GetForecast_for_an_uncovered_location_returns_404()
+    public async Task GetForecastForAnUncoveredLocationReturns404()
     {
         using var client = _factory.CreateClient();
 
@@ -46,7 +46,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     }
 
     [Test]
-    public async Task GetNeighborhood_with_valid_coordinates_returns_200()
+    public async Task GetNeighborhoodWithValidCoordinatesReturns200()
     {
         using var client = _factory.CreateClient();
 

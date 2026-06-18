@@ -23,7 +23,7 @@ public sealed class SkyPaletteTests
     [Arguments("Snow", true, "Snow")]
     [Arguments("Chance Snow Showers", false, "Snow")]
     [Arguments("Wintry Mix", true, "Snow")]
-    public void ForPeriod_maps_short_forecast_to_a_sky_state(string shortForecast, bool isDaytime, string expectedLabel)
+    public void ForPeriodMapsShortForecastToASkyState(string shortForecast, bool isDaytime, string expectedLabel)
     {
         var theme = SkyPalette.ForPeriod(isDaytime, shortForecast);
 
@@ -31,7 +31,7 @@ public sealed class SkyPaletteTests
     }
 
     [Test]
-    public void ForPeriod_is_case_insensitive()
+    public void ForPeriodIsCaseInsensitive()
     {
         SkyPalette.ForPeriod(true, "RAIN").Label.ShouldBe("Rain");
         SkyPalette.ForPeriod(true, "sUnNy").Label.ShouldBe("Clear");
@@ -41,11 +41,11 @@ public sealed class SkyPaletteTests
     [Arguments((string?)null)]
     [Arguments("")]
     [Arguments("   ")]
-    public void ForPeriod_defaults_to_clear_when_text_is_missing(string? shortForecast) =>
+    public void ForPeriodDefaultsToClearWhenTextIsMissing(string? shortForecast) =>
         SkyPalette.ForPeriod(true, shortForecast).Label.ShouldBe("Clear");
 
     [Test]
-    public void ForPeriod_always_produces_non_empty_colours()
+    public void ForPeriodAlwaysProducesNonEmptyColours()
     {
         var theme = SkyPalette.ForPeriod(true, "Sunny");
 
@@ -56,7 +56,7 @@ public sealed class SkyPaletteTests
     }
 
     [Test]
-    public void ForPeriod_uses_distinct_gradients_for_day_and_night()
+    public void ForPeriodUsesDistinctGradientsForDayAndNight()
     {
         var day = SkyPalette.ForPeriod(true, "Clear");
         var night = SkyPalette.ForPeriod(false, "Clear");
@@ -65,7 +65,7 @@ public sealed class SkyPaletteTests
     }
 
     [Test]
-    public void Thunderstorms_take_precedence_over_rain_keywords()
+    public void ThunderstormsTakePrecedenceOverRainKeywords()
     {
         // "Showers And Thunderstorms" contains both "shower" and "thunder";
         // the stormier reading must win.
@@ -73,7 +73,7 @@ public sealed class SkyPaletteTests
     }
 
     [Test]
-    public void Snow_takes_precedence_over_shower_keywords()
+    public void SnowTakesPrecedenceOverShowerKeywords()
     {
         SkyPalette.ForPeriod(false, "Snow Showers").Label.ShouldBe("Snow");
     }

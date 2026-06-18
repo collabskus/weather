@@ -22,7 +22,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetPointMetadata_parses_grid_and_location()
+    public async Task GetPointMetadataParsesGridAndLocation()
     {
         var handler = new StubHttpMessageHandler(_ =>
             StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
@@ -41,7 +41,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetPointMetadata_requests_the_rounded_coordinate_path()
+    public async Task GetPointMetadataRequestsTheRoundedCoordinatePath()
     {
         var handler = new StubHttpMessageHandler(_ =>
             StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
@@ -55,7 +55,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetPointMetadata_returns_null_when_uncovered()
+    public async Task GetPointMetadataReturnsNullWhenUncovered()
     {
         var handler = new StubHttpMessageHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.NotFound));
@@ -68,7 +68,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetPointMetadata_returns_null_on_server_error()
+    public async Task GetPointMetadataReturnsNullOnServerError()
     {
         var handler = new StubHttpMessageHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.InternalServerError));
@@ -79,7 +79,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_success_maps_periods_etag_and_maxage()
+    public async Task GetForecastSuccessMapsPeriodsEtagAndMaxage()
     {
         var handler = new StubHttpMessageHandler(_ =>
         {
@@ -115,7 +115,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_requests_the_grid_forecast_path()
+    public async Task GetForecastRequestsTheGridForecastPath()
     {
         var handler = new StubHttpMessageHandler(_ =>
             StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
@@ -128,7 +128,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_sends_conditional_header_and_maps_304()
+    public async Task GetForecastSendsConditionalHeaderAndMaps304()
     {
         const string etag = "\"abc123\"";
         var handler = new StubHttpMessageHandler(_ =>
@@ -152,7 +152,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_without_etag_sends_no_conditional_header()
+    public async Task GetForecastWithoutEtagSendsNoConditionalHeader()
     {
         var handler = new StubHttpMessageHandler(_ =>
             StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
@@ -165,7 +165,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_maps_404_to_NotFound()
+    public async Task GetForecastMaps404ToNotFound()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
         using var telemetry = new WeatherTelemetry();
@@ -175,7 +175,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_maps_429_to_Unavailable()
+    public async Task GetForecastMaps429ToUnavailable()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests));
         using var telemetry = new WeatherTelemetry();
@@ -185,7 +185,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_maps_500_to_Unavailable()
+    public async Task GetForecastMaps500ToUnavailable()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
         using var telemetry = new WeatherTelemetry();
@@ -195,7 +195,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_maps_transport_failure_to_Unavailable()
+    public async Task GetForecastMapsTransportFailureToUnavailable()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))
         {

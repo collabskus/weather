@@ -6,14 +6,14 @@ namespace Weather.Core.Tests;
 public sealed class WeatherTelemetryTests
 {
     [Test]
-    public void Names_match_the_constants_registered_with_opentelemetry()
+    public void NamesMatchTheConstantsRegisteredWithOpentelemetry()
     {
         WeatherTelemetry.MeterName.ShouldBe("Weather.Cache");
         WeatherTelemetry.ActivitySourceName.ShouldBe("Weather.Nws");
     }
 
     [Test]
-    public void ActivitySource_uses_the_published_name()
+    public void ActivitySourceUsesThePublishedName()
     {
         using var telemetry = new WeatherTelemetry();
 
@@ -21,7 +21,7 @@ public sealed class WeatherTelemetryTests
     }
 
     [Test]
-    public void Cache_hit_and_miss_are_recorded_with_cache_and_result_tags()
+    public void CacheHitAndMissAreRecordedWithCacheAndResultTags()
     {
         using var telemetry = new WeatherTelemetry();
         var measurements = new List<(long Value, string? Cache, string? Result)>();
@@ -64,7 +64,7 @@ public sealed class WeatherTelemetryTests
     }
 
     [Test]
-    public void Nws_request_duration_is_recorded_in_the_histogram()
+    public void NwsRequestDurationIsRecordedInTheHistogram()
     {
         using var telemetry = new WeatherTelemetry();
         var recorded = new List<double>();

@@ -23,7 +23,7 @@ public sealed class SqliteForecastCacheTests
             });
 
     [Test]
-    public async Task Upsert_then_get_round_trips_the_forecast()
+    public async Task UpsertThenGetRoundTripsTheForecast()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqliteForecastCache(harness.Factory);
@@ -47,7 +47,7 @@ public sealed class SqliteForecastCacheTests
     }
 
     [Test]
-    public async Task Get_returns_null_for_a_missing_grid()
+    public async Task GetReturnsNullForAMissingGrid()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqliteForecastCache(harness.Factory);
@@ -56,7 +56,7 @@ public sealed class SqliteForecastCacheTests
     }
 
     [Test]
-    public async Task Expired_entry_is_returned_but_reports_not_fresh()
+    public async Task ExpiredEntryIsReturnedButReportsNotFresh()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqliteForecastCache(harness.Factory);
@@ -71,7 +71,7 @@ public sealed class SqliteForecastCacheTests
     }
 
     [Test]
-    public async Task Upsert_overwrites_an_existing_entry_for_the_same_grid()
+    public async Task UpsertOverwritesAnExistingEntryForTheSameGrid()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqliteForecastCache(harness.Factory);
