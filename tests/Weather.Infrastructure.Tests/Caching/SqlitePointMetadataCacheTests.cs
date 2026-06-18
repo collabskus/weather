@@ -18,7 +18,7 @@ public sealed class SqlitePointMetadataCacheTests
             RadarStation: "KAKQ");
 
     [Test]
-    public async Task UpsertThenGetRoundTripsTheMetadata()
+    public async Task UpsertThenGetRoundTripsTheMetadataAsync()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqlitePointMetadataCache(harness.Factory);
@@ -40,7 +40,7 @@ public sealed class SqlitePointMetadataCacheTests
     }
 
     [Test]
-    public async Task NearbyCoordinatesCollapseOntoOneRow()
+    public async Task NearbyCoordinatesCollapseOntoOneRowAsync()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqlitePointMetadataCache(harness.Factory);
@@ -59,7 +59,7 @@ public sealed class SqlitePointMetadataCacheTests
     }
 
     [Test]
-    public async Task GetReturnsNullForAnUnknownCoordinate()
+    public async Task GetReturnsNullForAnUnknownCoordinateAsync()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqlitePointMetadataCache(harness.Factory);
@@ -68,7 +68,7 @@ public sealed class SqlitePointMetadataCacheTests
     }
 
     [Test]
-    public async Task UpsertOverwritesMetadataForTheSameKey()
+    public async Task UpsertOverwritesMetadataForTheSameKeyAsync()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqlitePointMetadataCache(harness.Factory);
