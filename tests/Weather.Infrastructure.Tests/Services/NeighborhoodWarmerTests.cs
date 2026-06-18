@@ -61,7 +61,7 @@ public sealed class NeighborhoodWarmerTests
 
         var forecastCache = Substitute.For<IForecastCache>();
         var fresh = new CachedForecast(
-            new Forecast(freshA, Now, Now, Array.Empty<ForecastPeriod>()), "\"e\"", Now, Now.AddHours(1));
+            new Forecast(freshA, Now, Now, []), "\"e\"", Now, Now.AddHours(1));
         forecastCache.GetAsync(freshA, Arg.Any<CancellationToken>()).Returns(fresh);
         forecastCache.GetAsync(freshB, Arg.Any<CancellationToken>()).Returns(fresh);
 

@@ -6,7 +6,7 @@ public sealed class ForecastFetchResultTests
         new GridPoint("AKQ", 83, 61),
         DateTimeOffset.UtcNow,
         DateTimeOffset.UtcNow,
-        Array.Empty<ForecastPeriod>());
+        []);
 
     [Test]
     public void SuccessCarriesForecastEtagAndMaxage()
