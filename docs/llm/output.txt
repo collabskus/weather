@@ -1,16 +1,15 @@
 PowerShell 7.6.2
-Loading personal and system profiles took 696ms.
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-18-09-02-22
-PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-18-09-04-16
-2026-06-18-09-04-16
+2026-06-18-09-06-09
+PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
+2026-06-18-09-06-31
+2026-06-18-09-06-31
 On branch main
-Your branch is ahead of 'origin/main' by 6 commits.
+Your branch is ahead of 'origin/main' by 8 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-18-09-04-16
+2026-06-18-09-06-31
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -23,7 +22,7 @@ nothing to commit, working tree clean
     main merges with remote main
   Local ref configured for 'git push':
     main pushes to main (fast-forwardable)
-2026-06-18-09-04-17
+2026-06-18-09-06-31
 Restore complete (1.0s)
 
 Build succeeded in 1.2s
@@ -94,8 +93,8 @@ Project 'Weather.Web.Tests' has the following package references
    > TUnit                1.56.0      1.56.0
 
 (A) : Auto-referenced package.
-2026-06-18-09-04-21
-Restore complete (1.1s)
+2026-06-18-09-06-35
+Restore complete (1.0s)
 
 Build succeeded in 1.2s
 
@@ -112,14 +111,14 @@ The given project `Weather.Api.Tests` has no updates given the current sources.
 The given project `Weather.Core.Tests` has no updates given the current sources.
 The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
 The given project `Weather.Web.Tests` has no updates given the current sources.
-2026-06-18-09-04-26
-2026-06-18-09-04-44
+2026-06-18-09-06-40
+2026-06-18-09-06-57
 On branch main
-Your branch is ahead of 'origin/main' by 6 commits.
+Your branch is ahead of 'origin/main' by 8 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-18-09-04-44
+2026-06-18-09-06-57
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -263,7 +262,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-18-09-04-45
+2026-06-18-09-06-57
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -383,5 +382,43 @@ Processing (110/110): weather.slnx
 Export completed!
 Total files exported: 110
 Output file size: 246.49 KB
-2026-06-18-09-04-45
+2026-06-18-09-06-58
+
+Build succeeded in 2.0s
+2026-06-18-09-07-00
+Restore complete (1.3s)
+
+Build succeeded in 1.5s
+2026-06-18-09-07-02
+Restore complete (1.2s)
+  Weather.Core net10.0 succeeded (3.9s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (4.1s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Infrastructure net10.0 succeeded with 4 warning(s) (1.9s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Services\NeighborhoodWarmer.cs(37,13): warning CA1873: Evaluation of this argument may be expensive and unnecessary if logging is disabled (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1873)
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Services\NeighborhoodWarmingBackgroundService.cs(91,21): warning CA1873: Evaluation of this argument may be expensive and unnecessary if logging is disabled (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1873)
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsApiClient.cs(41,17): warning CA1873: Evaluation of this argument may be expensive and unnecessary if logging is disabled (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1873)
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsApiClient.cs(114,21): warning CA1873: Evaluation of this argument may be expensive and unnecessary if logging is disabled (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1873)
+  Weather.Api net10.0 succeeded (2.7s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
+  Weather.Web net10.0 succeeded (4.4s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
+  Weather.Web.Tests net10.0 succeeded with 1 warning(s) (2.8s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
+    D:\DEV\personal\weather\tests\Weather.Web.Tests\Fakes\FakeGeolocationService.cs(25,44): warning CS8625: Cannot convert null literal to non-nullable reference type.
+  Weather.Core.Tests net10.0 succeeded (7.2s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Api.Tests net10.0 succeeded (3.4s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+  Weather.AppHost net10.0 succeeded (4.2s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+  Weather.Infrastructure.Tests net10.0 succeeded (2.2s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
+
+Build succeeded with 5 warning(s) in 14.9s
+2026-06-18-09-07-17
+Restore complete (1.6s)
+  Weather.Core.Tests net10.0 failed with 1 error(s) (0.0s)
+    C:\Users\kushal\.nuget\packages\microsoft.testing.platform.msbuild\2.2.3\buildMultiTargeting\Microsoft.Testing.Platform.MSBuild.targets(263,5): error Testing with VSTest target is no longer supported by Microsoft.Testing.Platform on .NET 10 SDK and later. If you use dotnet test, you should opt-in to the new dotnet test experience. For more information, see https://aka.ms/dotnet-test-mtp-error
+  Weather.Web.Tests net10.0 failed with 1 error(s) (0.0s)
+    C:\Users\kushal\.nuget\packages\microsoft.testing.platform.msbuild\2.2.3\buildMultiTargeting\Microsoft.Testing.Platform.MSBuild.targets(263,5): error Testing with VSTest target is no longer supported by Microsoft.Testing.Platform on .NET 10 SDK and later. If you use dotnet test, you should opt-in to the new dotnet test experience. For more information, see https://aka.ms/dotnet-test-mtp-error
+  Weather.Api.Tests net10.0 failed with 1 error(s) (0.0s)
+    C:\Users\kushal\.nuget\packages\microsoft.testing.platform.msbuild\2.2.3\buildMultiTargeting\Microsoft.Testing.Platform.MSBuild.targets(263,5): error Testing with VSTest target is no longer supported by Microsoft.Testing.Platform on .NET 10 SDK and later. If you use dotnet test, you should opt-in to the new dotnet test experience. For more information, see https://aka.ms/dotnet-test-mtp-error
+  Weather.Infrastructure.Tests net10.0 failed with 1 error(s) (0.0s)
+    C:\Users\kushal\.nuget\packages\microsoft.testing.platform.msbuild\2.2.3\buildMultiTargeting\Microsoft.Testing.Platform.MSBuild.targets(263,5): error Testing with VSTest target is no longer supported by Microsoft.Testing.Platform on .NET 10 SDK and later. If you use dotnet test, you should opt-in to the new dotnet test experience. For more information, see https://aka.ms/dotnet-test-mtp-error
+
+Build failed with 4 error(s) in 2.4s
+2026-06-18-09-07-20
 PS D:\DEV\personal\weather>
