@@ -38,7 +38,11 @@ internal sealed class NwsApiClient(
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                logger.LogInformation("NWS has no grid coverage for {Coordinate}.", coordinate);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation("NWS has no grid coverage for {Coordinate}.", coordinate);
+                }
+
                 return null;
             }
 
@@ -111,7 +115,11 @@ internal sealed class NwsApiClient(
                         response.Headers.CacheControl?.MaxAge);
 
                 case HttpStatusCode.NotFound:
-                    logger.LogInformation("NWS has no forecast for grid {Grid}.", grid);
+                    if (logger.IsEnabled(LogLevel.Information))
+                    {
+                        logger.LogInformation("NWS has no forecast for grid {Grid}.", grid);
+                    }
+
                     return ForecastFetchResult.NotFound;
 
                 case HttpStatusCode.TooManyRequests:

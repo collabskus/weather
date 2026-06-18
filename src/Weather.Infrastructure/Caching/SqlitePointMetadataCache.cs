@@ -61,7 +61,7 @@ internal sealed class SqlitePointMetadataCache(ISqliteConnectionFactory connecti
 
         var metadata = new PointMetadata(
             Query: new GeoCoordinate(row.Latitude, row.Longitude),
-            Grid: new GridPoint(row.GridId, row.GridX, row.GridY),
+            Grid: new GridPoint(row.GridId, (int)row.GridX, (int)row.GridY),
             ForecastUrl: row.ForecastUrl,
             ForecastHourlyUrl: row.ForecastHourlyUrl,
             City: row.City,
@@ -102,12 +102,17 @@ internal sealed class SqlitePointMetadataCache(ISqliteConnectionFactory connecti
         }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    // SQLite stores GridX/GridY in INTEGER columns, which Microsoft.Data.Sqlite
+    // surfaces as Int64. Dapper's constructor-based record materialization is
+    // strict about width, so these MUST be `long` (not `int`) or it throws
+    // "no matching constructor". They are narrowed back to the domain's int on
+    // the way out, in GetAsync — NWS grid indices are small (< a few hundred).
     private sealed record MetadataRow(
         double Latitude,
         double Longitude,
         string GridId,
-        int GridX,
-        int GridY,
+        long GridX,
+        long GridY,
         string ForecastUrl,
         string ForecastHourlyUrl,
         string? City,

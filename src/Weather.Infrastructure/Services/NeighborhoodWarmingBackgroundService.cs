@@ -88,7 +88,11 @@ internal sealed class NeighborhoodWarmingBackgroundService(
                 using var lease = await rateLimiter.AcquireAsync(1, cancellationToken).ConfigureAwait(false);
                 if (!lease.IsAcquired)
                 {
-                    logger.LogDebug("Rate limiter rejected warming for {Cell}; skipping.", cell);
+                    if (logger.IsEnabled(LogLevel.Debug))
+                    {
+                        logger.LogDebug("Rate limiter rejected warming for {Cell}; skipping.", cell);
+                    }
+
                     continue;
                 }
 

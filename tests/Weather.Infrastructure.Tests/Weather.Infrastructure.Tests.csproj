@@ -1,10 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- MTP test executable. `dotnet test` is opted into MTP via global.json. -->
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+
+    <!-- Full globalization for tests (see Weather.Core.Tests.csproj for why). -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>

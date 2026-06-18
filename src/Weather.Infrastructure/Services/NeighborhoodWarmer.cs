@@ -32,7 +32,7 @@ internal sealed class NeighborhoodWarmer : INeighborhoodWarmer
 
     public void RequestWarming(GridPoint origin)
     {
-        if (!_channel.Writer.TryWrite(origin))
+        if (!_channel.Writer.TryWrite(origin) && _logger.IsEnabled(LogLevel.Debug))
         {
             _logger.LogDebug("Neighbourhood warm queue closed; dropped origin {Origin}.", origin);
         }

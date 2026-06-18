@@ -22,7 +22,13 @@ internal sealed class FakeGeolocationService : IGeolocationService
     public static (FakeGeolocationService Service, TaskCompletionSource<GeolocationResult> Gate) Gated()
     {
         var gate = new TaskCompletionSource<GeolocationResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        return (new FakeGeolocationService(default, gate), gate);
+
+        // GeolocationResult is a reference type, so `default` would be null and
+        // violate the non-nullable parameter. On the gated path the stored
+        // result is never read (the gate's Task is awaited instead), so this is
+        // an inert placeholder.
+        var placeholder = GeolocationResult.Failed(GeolocationError.Unknown);
+        return (new FakeGeolocationService(placeholder, gate), gate);
     }
 
     public async ValueTask<GeolocationResult> GetCurrentPositionAsync(CancellationToken cancellationToken = default)

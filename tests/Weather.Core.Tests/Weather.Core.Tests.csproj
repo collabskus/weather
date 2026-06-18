@@ -1,13 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- TUnit runs on Microsoft.Testing.Platform, so the test project is an
-         executable. TestingPlatformDotnetTestSupport lets `dotnet test` drive
-         it. Do NOT add Microsoft.NET.Test.Sdk — it conflicts with MTP. -->
+    <!--
+      TUnit runs on Microsoft.Testing.Platform (MTP), so a test project is a
+      console executable, not a class library.
+
+      On the .NET 10 SDK, `dotnet test` is opted into MTP for the whole repo via
+      the "test" section of global.json ({ "runner": "Microsoft.Testing.Platform" }).
+      The old per-project <TestingPlatformDotnetTestSupport> switch enabled the
+      legacy VSTest-bridge, which MTP v2 removed on .NET 10 — so it is gone here.
+
+      Do NOT add Microsoft.NET.Test.Sdk: it pulls in VSTest and conflicts with MTP.
+    -->
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+
+    <!--
+      Tests run with full ICU globalization (NOT invariant mode) so they can
+      switch CultureInfo (e.g. to de-DE) and prove the production code stays
+      culture-independent. The apps themselves keep InvariantGlobalization=true
+      (see Directory.Build.props) for a smaller, faster runtime.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>

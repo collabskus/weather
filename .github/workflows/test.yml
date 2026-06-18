@@ -27,9 +27,10 @@ jobs:
         with:
           global-json-file: global.json
 
-      # TUnit runs on Microsoft.Testing.Platform; `dotnet test` drives it via
-      # the TestingPlatformDotnetTestSupport flag set in each test .csproj. We
-      # let `dotnet test` build the test projects so the runner and build stay
-      # in lock-step.
+      # TUnit runs on Microsoft.Testing.Platform (MTP). On the .NET 10 SDK,
+      # `dotnet test` is opted into MTP by the "test" section of global.json
+      # ({ "runner": "Microsoft.Testing.Platform" }). The setup-dotnet step above
+      # reads that same global.json, so the SDK and runner stay in lock-step
+      # between local dev and CI. `dotnet test` builds the test projects itself.
       - name: Test
         run: dotnet test weather.slnx --configuration Release
