@@ -1,103 +1,103 @@
-PS D:\DEV\personal\weather> dotnet list package --outdated
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : error NU1109: 
-      Detected package downgrade: Microsoft.Extensions.Hosting from 10.0.8 to centrally defined 10.0.0. Update the centrally managed package version to a higher version. 
-       Weather.AppHost -> Aspire.Hosting.AppHost 13.4.5 -> Microsoft.Extensions.Hosting (>= 10.0.8) 
-       Weather.AppHost -> Microsoft.Extensions.Hosting (>= 10.0.0)
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : error NU1109: 
-      Detected package downgrade: OpenTelemetry.Exporter.OpenTelemetryProtocol from 1.15.3 to centrally defined 1.10.0. Update the centrally managed package version to a higher version. 
-       Weather.AppHost -> Aspire.Hosting.AppHost 13.4.5 -> OpenTelemetry.Exporter.OpenTelemetryProtocol (>= 1.15.3) 
-       Weather.AppHost -> OpenTelemetry.Exporter.OpenTelemetryProtocol (>= 1.10.0)
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : error NU1109: 
-      Detected package downgrade: OpenTelemetry.Extensions.Hosting from 1.15.3 to centrally defined 1.10.0. Update the centrally managed package version to a higher version. 
-       Weather.AppHost -> Aspire.Hosting.AppHost 13.4.5 -> OpenTelemetry.Extensions.Hosting (>= 1.15.3) 
-       Weather.AppHost -> OpenTelemetry.Extensions.Hosting (>= 1.10.0)
+PowerShell 7.6.2
+Loading personal and system profiles took 696ms.
+PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
+2026-06-18-09-02-22
+PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
+2026-06-18-09-04-16
+2026-06-18-09-04-16
+On branch main
+Your branch is ahead of 'origin/main' by 6 commits.
+  (use "git push" to publish your local commits)
 
-Restore failed with 8 error(s) and 18 warning(s) in 2.2s
-PS D:\DEV\personal\weather> dotnet list package
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj : error NU1102: 
-      Unable to find package Microsoft.Extensions.ServiceDiscovery with version (>= 13.4.5)
-        - Found 38 version(s) in nuget.org [ Nearest version: 10.7.0 ]
-    D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-8785-wc3w-h8q6
-    D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Api' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-g94r-2vxg-569j
-    D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj : warning NU1902: Package 'OpenTelemetry.Exporter.OpenTelemetryProtocol' 1.10.0 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-4625-4j76-fww9
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : error NU1109: 
-      Detected package downgrade: Microsoft.Extensions.Hosting from 10.0.8 to centrally defined 10.0.0. Update the centrally managed package version to a higher version. 
-       Weather.AppHost -> Aspire.Hosting.AppHost 13.4.5 -> Microsoft.Extensions.Hosting (>= 10.0.8) 
-       Weather.AppHost -> Microsoft.Extensions.Hosting (>= 10.0.0)
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : error NU1109: 
-      Detected package downgrade: OpenTelemetry.Exporter.OpenTelemetryProtocol from 1.15.3 to centrally defined 1.10.0. Update the centrally managed package version to a higher version. 
-       Weather.AppHost -> Aspire.Hosting.AppHost 13.4.5 -> OpenTelemetry.Exporter.OpenTelemetryProtocol (>= 1.15.3) 
-       Weather.AppHost -> OpenTelemetry.Exporter.OpenTelemetryProtocol (>= 1.10.0)
-    D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj : error NU1109: 
-      Detected package downgrade: OpenTelemetry.Extensions.Hosting from 1.15.3 to centrally defined 1.10.0. Update the centrally managed package version to a higher version. 
-       Weather.AppHost -> Aspire.Hosting.AppHost 13.4.5 -> OpenTelemetry.Extensions.Hosting (>= 1.15.3) 
-       Weather.AppHost -> OpenTelemetry.Extensions.Hosting (>= 1.10.0)
+nothing to commit, working tree clean
+2026-06-18-09-04-16
+* remote origin
+  Fetch URL: https://github.com/collabskus/weather.git
+  Push  URL: https://github.com/collabskus/weather.git
+  HEAD branch: main
+  Remote branches:
+    dependabot/github_actions/actions/dependency-review-action-5 new (next fetch will store in remotes/origin)
+    dependabot/github_actions/actions/setup-node-6               new (next fetch will store in remotes/origin)
+    main                                                         tracked
+  Local branch configured for 'git pull':
+    main merges with remote main
+  Local ref configured for 'git push':
+    main pushes to main (fast-forwardable)
+2026-06-18-09-04-17
+Restore complete (1.0s)
 
-Restore failed with 8 error(s) and 18 warning(s) in 2.3s
-PS D:\DEV\personal\weather> dotnet list package --outdated
-Restore complete (1.2s)
+Build succeeded in 1.2s
+Project 'Weather.Api' has the following package references
+   [net10.0]:
+   Top-level Package                   Requested   Resolved
+   > Microsoft.AspNetCore.OpenApi      10.0.9      10.0.9
 
-Build succeeded in 1.4s
+Project 'Weather.AppHost' has the following package references
+   [net10.0]:
+   Top-level Package                              Requested    Resolved
+   > Aspire.Dashboard.Sdk.win-x64           (A)   [13.4.5, )   13.4.5
+   > Aspire.Hosting.AppHost                       13.4.5       13.4.5
+   > Aspire.Hosting.Orchestration.win-x64   (A)   [13.4.5, )   13.4.5
+
+Project 'Weather.Core' has the following package references
+   [net10.0]: No packages were found for this framework.
+Project 'Weather.Infrastructure' has the following package references
+   [net10.0]:
+   Top-level Package                           Requested   Resolved
+   > Dapper                                    2.1.79      2.1.79
+   > Microsoft.Data.Sqlite                     10.0.9      10.0.9
+   > Microsoft.Extensions.Hosting              10.0.9      10.0.9
+   > Microsoft.Extensions.Http.Resilience      10.7.0      10.7.0
+   > System.Threading.RateLimiting             10.0.9      10.0.9
+
+Project 'Weather.ServiceDefaults' has the following package references
+   [net10.0]:
+   Top-level Package                                   Requested   Resolved
+   > Microsoft.Extensions.Http.Resilience              10.7.0      10.7.0
+   > Microsoft.Extensions.ServiceDiscovery             10.7.0      10.7.0
+   > OpenTelemetry.Exporter.OpenTelemetryProtocol      1.16.0      1.16.0
+   > OpenTelemetry.Extensions.Hosting                  1.16.0      1.16.0
+   > OpenTelemetry.Instrumentation.AspNetCore          1.15.2      1.15.2
+   > OpenTelemetry.Instrumentation.Http                1.15.1      1.15.1
+   > OpenTelemetry.Instrumentation.Runtime             1.15.1      1.15.1
+
+Project 'Weather.Web' has the following package references
+   [net10.0]:
+   Top-level Package                                  Requested    Resolved
+   > Microsoft.AspNetCore.App.Internal.Assets   (A)   [10.0.9, )   10.0.9
+
+Project 'Weather.Api.Tests' has the following package references
+   [net10.0]:
+   Top-level Package                       Requested   Resolved
+   > Microsoft.AspNetCore.Mvc.Testing      10.0.9      10.0.9
+   > Shouldly                              4.3.0       4.3.0
+   > TUnit                                 1.56.0      1.56.0
+
+Project 'Weather.Core.Tests' has the following package references
+   [net10.0]:
+   Top-level Package      Requested   Resolved
+   > Shouldly             4.3.0       4.3.0
+   > TUnit                1.56.0      1.56.0
+
+Project 'Weather.Infrastructure.Tests' has the following package references
+   [net10.0]:
+   Top-level Package      Requested   Resolved
+   > NSubstitute          5.3.0       5.3.0
+   > Shouldly             4.3.0       4.3.0
+   > TUnit                1.56.0      1.56.0
+
+Project 'Weather.Web.Tests' has the following package references
+   [net10.0]:
+   Top-level Package      Requested   Resolved
+   > bunit.web            1.40.0      1.40.0
+   > Shouldly             4.3.0       4.3.0
+   > TUnit                1.56.0      1.56.0
+
+(A) : Auto-referenced package.
+2026-06-18-09-04-21
+Restore complete (1.1s)
+
+Build succeeded in 1.2s
 
 The following sources were used:
    https://api.nuget.org/v3/index.json
@@ -112,147 +112,276 @@ The given project `Weather.Api.Tests` has no updates given the current sources.
 The given project `Weather.Core.Tests` has no updates given the current sources.
 The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
 The given project `Weather.Web.Tests` has no updates given the current sources.
-PS D:\DEV\personal\weather> dotnet list package           
-Restore complete (1.0s)
+2026-06-18-09-04-26
+2026-06-18-09-04-44
+On branch main
+Your branch is ahead of 'origin/main' by 6 commits.
+  (use "git push" to publish your local commits)
 
-Build succeeded in 1.2s
-Project 'Weather.Api' has the following package references
-   [net10.0]: 
-   Top-level Package                   Requested   Resolved
-   > Microsoft.AspNetCore.OpenApi      10.0.9      10.0.9  
+nothing to commit, working tree clean
+2026-06-18-09-04-44
+# Export Git-tracked ASP.NET Project Files to Single Text File
+# Uses `git ls-files` so only committed/staged files are included.
 
-Project 'Weather.AppHost' has the following package references
-   [net10.0]: 
-   Top-level Package                              Requested    Resolved
-   > Aspire.Dashboard.Sdk.win-x64           (A)   [13.4.5, )   13.4.5  
-   > Aspire.Hosting.AppHost                       13.4.5       13.4.5  
-   > Aspire.Hosting.Orchestration.win-x64   (A)   [13.4.5, )   13.4.5  
+param(
+    [string]$ProjectPath = ".",
+    [string]$OutputFile = "docs/llm/dump.txt"
+)
 
-Project 'Weather.Core' has the following package references
-   [net10.0]: No packages were found for this framework.
-Project 'Weather.Infrastructure' has the following package references
-   [net10.0]: 
-   Top-level Package                           Requested   Resolved
-   > Dapper                                    2.1.79      2.1.79  
-   > Microsoft.Data.Sqlite                     10.0.9      10.0.9  
-   > Microsoft.Extensions.Hosting              10.0.9      10.0.9  
-   > Microsoft.Extensions.Http.Resilience      10.7.0      10.7.0  
-   > System.Threading.RateLimiting             10.0.9      10.0.9  
+# File extensions to include (without the leading dot)
+$IncludeExtensions = @(
+    "cs", "json", "xml", "csproj", "slnx", "sln", "config",
+    "cshtml", "razor", "js", "css", "scss", "html",
+    "yml", "yaml", "sql", "props", "targets", "sh",
+    "ps1"
+)
 
-Project 'Weather.ServiceDefaults' has the following package references
-   [net10.0]: 
-   Top-level Package                                   Requested   Resolved
-   > Microsoft.Extensions.Http.Resilience              10.7.0      10.7.0  
-   > Microsoft.Extensions.ServiceDiscovery             10.7.0      10.7.0  
-   > OpenTelemetry.Exporter.OpenTelemetryProtocol      1.16.0      1.16.0  
-   > OpenTelemetry.Extensions.Hosting                  1.16.0      1.16.0  
-   > OpenTelemetry.Instrumentation.AspNetCore          1.15.2      1.15.2  
-   > OpenTelemetry.Instrumentation.Http                1.15.1      1.15.1  
-   > OpenTelemetry.Instrumentation.Runtime             1.15.1      1.15.1  
+# Exact filenames (no extension match needed)
+$IncludeSpecificFiles = @(
+    "Dockerfile", ".dockerignore", ".editorconfig",
+    ".gitignore", ".gitattributes"
+)
 
-Project 'Weather.Web' has the following package references
-   [net10.0]: 
-   Top-level Package                                  Requested    Resolved
-   > Microsoft.AspNetCore.App.Internal.Assets   (A)   [10.0.9, )   10.0.9  
+# Directories to skip even if tracked (e.g. this script's own output)
+$ExcludeDirectories = @("docs")
 
-Project 'Weather.Api.Tests' has the following package references
-   [net10.0]: 
-   Top-level Package                       Requested   Resolved
-   > Microsoft.AspNetCore.Mvc.Testing      10.0.9      10.0.9  
-   > Shouldly                              4.3.0       4.3.0   
-   > TUnit                                 1.56.0      1.56.0  
+Write-Host "Starting project export..." -ForegroundColor Green
+Write-Host "Project Path: $ProjectPath" -ForegroundColor Yellow
+Write-Host "Output File: $OutputFile" -ForegroundColor Yellow
 
-Project 'Weather.Core.Tests' has the following package references
-   [net10.0]: 
-   Top-level Package      Requested   Resolved
-   > Shouldly             4.3.0       4.3.0   
-   > TUnit                1.56.0      1.56.0  
+# ── Resolve paths ────────────────────────────────────────────────────────────
+Push-Location $ProjectPath
+$ResolvedRoot = (Resolve-Path ".").Path
 
-Project 'Weather.Infrastructure.Tests' has the following package references
-   [net10.0]: 
-   Top-level Package      Requested   Resolved
-   > NSubstitute          5.3.0       5.3.0   
-   > Shouldly             4.3.0       4.3.0   
-   > TUnit                1.56.0      1.56.0  
+$OutputPath = Join-Path $ResolvedRoot $OutputFile
+$outputDir  = Split-Path $OutputPath -Parent
+if (!(Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
 
-Project 'Weather.Web.Tests' has the following package references
-   [net10.0]: 
-   Top-level Package      Requested   Resolved
-   > bunit.web            1.40.0      1.40.0  
-   > Shouldly             4.3.0       4.3.0   
-   > TUnit                1.56.0      1.56.0  
+# ── Get tracked files from Git ───────────────────────────────────────────────
+Write-Host "Querying git for tracked files..." -ForegroundColor Cyan
 
-(A) : Auto-referenced package.
-PS D:\DEV\personal\weather> 
-08:59:10:263	Clean started at 8:59 AM...
-08:59:10:522	1>------ Clean started: Project: Weather.AppHost, Configuration: Debug Any CPU ------
-08:59:10:525	2>------ Clean started: Project: Weather.Api.Tests, Configuration: Debug Any CPU ------
-08:59:10:528	3>------ Clean started: Project: Weather.Infrastructure.Tests, Configuration: Debug Any CPU ------
-08:59:10:530	4>------ Clean started: Project: Weather.Web.Tests, Configuration: Debug Any CPU ------
-08:59:10:533	5>------ Clean started: Project: Weather.Core.Tests, Configuration: Debug Any CPU ------
-08:59:11:380	6>------ Clean started: Project: Weather.Web, Configuration: Debug Any CPU ------
-08:59:11:418	7>------ Clean started: Project: Weather.Api, Configuration: Debug Any CPU ------
-08:59:11:565	8>------ Clean started: Project: Weather.Infrastructure, Configuration: Debug Any CPU ------
-08:59:11:567	9>------ Clean started: Project: Weather.ServiceDefaults, Configuration: Debug Any CPU ------
-08:59:11:684	10>------ Clean started: Project: Weather.Core, Configuration: Debug Any CPU ------
-08:59:12:029	========== Clean: 10 succeeded, 0 failed, 0 skipped ==========
-08:59:12:029	========== Clean completed at 8:59 AM and took 01.787 seconds ==========
-08:59:37:051	Rebuild started at 8:59 AM...
-08:59:37:251	Restored D:\DEV\personal\weather\src\Weather.Core\Weather.Core.csproj (in 3 ms).
-08:59:37:298	1>------ Rebuild All started: Project: Weather.Core, Configuration: Debug Any CPU ------
-08:59:37:300	2>------ Rebuild All started: Project: Weather.ServiceDefaults, Configuration: Debug Any CPU ------
-08:59:37:314	Restored D:\DEV\personal\weather\src\Weather.ServiceDefaults\Weather.ServiceDefaults.csproj (in 75 ms).
-08:59:37:314	Restored D:\DEV\personal\weather\src\Weather.Web\Weather.Web.csproj (in 68 ms).
-08:59:37:314	Restored D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj (in 79 ms).
-08:59:37:314	Restored D:\DEV\personal\weather\tests\Weather.Core.Tests\Weather.Core.Tests.csproj (in 84 ms).
-08:59:37:314	Restored D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj (in 11 ms).
-08:59:37:314	Restored D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj (in 93 ms).
-08:59:37:314	Restored D:\DEV\personal\weather\src\Weather.AppHost\Weather.AppHost.csproj (in 95 ms).
-08:59:37:314	Restored D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj (in 94 ms).
-08:59:37:314	Restored D:\DEV\personal\weather\tests\Weather.Web.Tests\Weather.Web.Tests.csproj (in 92 ms).
-08:59:37:594	1>  Weather.Core -> D:\DEV\personal\weather\src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-08:59:37:602	3>------ Rebuild All started: Project: Weather.Infrastructure, Configuration: Debug Any CPU ------
-08:59:37:605	4>------ Rebuild All started: Project: Weather.Core.Tests, Configuration: Debug Any CPU ------
-08:59:37:627	2>  Weather.ServiceDefaults -> D:\DEV\personal\weather\src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-08:59:37:686	5>------ Rebuild All started: Project: Weather.Web, Configuration: Debug Any CPU ------
-08:59:38:048	3>D:\DEV\personal\weather\src\Weather.Infrastructure\Services\NeighborhoodWarmer.cs(37,13,37,98): warning CA1873: Evaluation of this argument may be expensive and unnecessary if logging is disabled (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1873)
-08:59:38:048	3>D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsApiClient.cs(41,17,41,96): warning CA1873: Evaluation of this argument may be expensive and unnecessary if logging is disabled (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1873)
-08:59:38:048	3>D:\DEV\personal\weather\src\Weather.Infrastructure\Services\NeighborhoodWarmingBackgroundService.cs(91,21,91,97): warning CA1873: Evaluation of this argument may be expensive and unnecessary if logging is disabled (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1873)
-08:59:38:048	3>D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsApiClient.cs(114,21,114,88): warning CA1873: Evaluation of this argument may be expensive and unnecessary if logging is disabled (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1873)
-08:59:38:108	3>  Weather.Infrastructure -> D:\DEV\personal\weather\src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
-08:59:38:121	6>------ Rebuild All started: Project: Weather.Api, Configuration: Debug Any CPU ------
-08:59:38:123	7>------ Rebuild All started: Project: Weather.Infrastructure.Tests, Configuration: Debug Any CPU ------
-08:59:38:719	4>  Weather.Core.Tests -> D:\DEV\personal\weather\tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-08:59:38:866	5>  Weather.Web -> D:\DEV\personal\weather\src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-08:59:38:975	8>------ Rebuild All started: Project: Weather.Web.Tests, Configuration: Debug Any CPU ------
-08:59:39:466	6>  Weather.Api -> D:\DEV\personal\weather\src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
-08:59:39:518	7>  Weather.Infrastructure.Tests -> D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
-08:59:39:615	9>------ Rebuild All started: Project: Weather.AppHost, Configuration: Debug Any CPU ------
-08:59:39:731	10>------ Rebuild All started: Project: Weather.Api.Tests, Configuration: Debug Any CPU ------
-08:59:39:738	8>D:\DEV\personal\weather\tests\Weather.Web.Tests\Fakes\FakeGeolocationService.cs(25,44,25,51): warning CS8625: Cannot convert null literal to non-nullable reference type.
-08:59:39:738	8>  Weather.Web.Tests -> D:\DEV\personal\weather\tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
-08:59:40:298	9>  Weather.AppHost -> D:\DEV\personal\weather\src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
-08:59:40:633	10>  Weather.Api.Tests -> D:\DEV\personal\weather\tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
-08:59:40:767	========== Rebuild All: 10 succeeded, 0 failed, 0 skipped ==========
-08:59:40:767	========== Rebuild completed at 8:59 AM and took 03.739 seconds ==========
-08:59:49:222	Build started at 8:59 AM...
-08:59:49:283	========== Build: 0 succeeded, 0 failed, 10 up-to-date, 0 skipped ==========
-08:59:49:283	========== Build completed at 8:59 AM and took 00.075 seconds ==========
-08:36:30:342	Log level is set to Informational (Default).
-08:36:31:113	Connected to test environment '< Local Windows Environment >'
-08:55:43:668	Test data store opened in 0.007 sec.
-08:55:45:633	Starting test discovery for requested test run
-08:55:45:688	========== Starting test discovery ==========
-08:55:45:749	Starting discovery for 4 sources.
-08:55:46:955	========== Test discovery finished: 115 Tests found in 1.3 sec ==========
-08:55:47:135	========== Starting test run ==========
-08:55:49:819	The active Test Run Attachments Processing was aborted.
-08:55:49:889	========== Test run finished: 115 Tests (111 Passed, 4 Failed, 0 Skipped) run in 2.6 sec ==========
-08:58:34:498	========== Starting test discovery ==========
-08:58:34:562	Starting discovery for 4 sources.
-08:58:35:242	========== Test discovery finished: 115 Tests found in 744 ms ==========
-08:59:40:962	========== Starting test discovery ==========
-08:59:41:019	Starting discovery for 4 sources.
-08:59:41:953	========== Test discovery finished: 115 Tests found in 991.4 ms ==========
-08:59:51:020	========== Starting test run ==========
-08:59:52:479	========== Test run finished: 115 Tests (111 Passed, 4 Failed, 0 Skipped) run in 1.4 sec ==========
+$gitFiles = git ls-files --cached --others --exclude-standard 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: git ls-files failed. Are you inside a git repository?" -ForegroundColor Red
+    Pop-Location
+    exit 1
+}
+
+# Filter to desired extensions / specific filenames, and exclude dirs
+$AllFiles = $gitFiles | ForEach-Object {
+    $rel = $_
+    $name = Split-Path $rel -Leaf
+    $ext  = ($name -replace '^.*\.', '').ToLower()
+
+    # Skip excluded directories
+    $skip = $false
+    foreach ($d in $ExcludeDirectories) {
+        if ($rel -like "$d/*" -or $rel -like "$d\*") { $skip = $true; break }
+    }
+    if ($skip) { return }
+
+    # Match by extension or specific filename
+    if ($IncludeExtensions -contains $ext -or $IncludeSpecificFiles -contains $name) {
+        $fullPath = Join-Path $ResolvedRoot $rel
+        if (Test-Path $fullPath) {
+            [PSCustomObject]@{ Relative = $rel; Full = $fullPath }
+        }
+    }
+} | Sort-Object Relative
+
+Write-Host "Found $($AllFiles.Count) files to export" -ForegroundColor Green
+
+# ── Write header ─────────────────────────────────────────────────────────────
+$header = @"
+===============================================================================
+ASP.NET PROJECT EXPORT  (git-tracked files only)
+Generated: $(Get-Date)
+Project Path: $ResolvedRoot
+===============================================================================
+
+"@
+$header | Out-File -FilePath $OutputPath -Encoding UTF8
+
+# ── Directory tree (git ls-tree) ─────────────────────────────────────────────
+"DIRECTORY STRUCTURE (tracked):" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+"==============================" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+
+# Show a compact tree of tracked paths
+$gitFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+
+""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+
+# ── File contents ────────────────────────────────────────────────────────────
+"FILE CONTENTS:" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+"==============" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+
+$i = 0
+foreach ($f in $AllFiles) {
+    $i++
+    $info = Get-Item $f.Full
+    Write-Host "Processing ($i/$($AllFiles.Count)): $($f.Relative)" -ForegroundColor White
+
+    $sep = "=" * 80
+    @"
+$sep
+FILE: $($f.Relative)
+SIZE: $([math]::Round($info.Length / 1KB, 2)) KB
+MODIFIED: $($info.LastWriteTime)
+$sep
+
+"@ | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+
+    try {
+        $content = Get-Content -Path $f.Full -Raw -ErrorAction Stop
+        if ($content) {
+            $content | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+        } else {
+            "[EMPTY FILE]" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+        }
+    } catch {
+        "[ERROR READING FILE: $($_.Exception.Message)]" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+    }
+
+    "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+    "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+}
+
+# ── Footer ───────────────────────────────────────────────────────────────────
+@"
+===============================================================================
+EXPORT COMPLETED: $(Get-Date)
+Total Files Exported: $i
+Output File: $OutputPath
+===============================================================================
+"@ | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+
+Pop-Location
+
+Write-Host "`nExport completed!" -ForegroundColor Green
+Write-Host "Total files exported: $i" -ForegroundColor Green
+Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
+2026-06-18-09-04-45
+Starting project export...
+Project Path: .
+Output File: docs/llm/dump.txt
+Querying git for tracked files...
+Found 110 files to export
+Processing (1/110): .editorconfig
+Processing (2/110): .gitattributes
+Processing (3/110): .github/dependabot.yml
+Processing (4/110): .github/workflows/build.yml
+Processing (5/110): .github/workflows/codeql.yml
+Processing (6/110): .github/workflows/dependency-review.yml
+Processing (7/110): .github/workflows/format.yml
+Processing (8/110): .github/workflows/markdown-lint.yml
+Processing (9/110): .github/workflows/test.yml
+Processing (10/110): .gitignore
+Processing (11/110): Directory.Build.props
+Processing (12/110): Directory.Packages.props
+Processing (13/110): export.ps1
+Processing (14/110): global.json
+Processing (15/110): nuget.config
+Processing (16/110): src/Weather.Api/appsettings.Development.json
+Processing (17/110): src/Weather.Api/appsettings.json
+Processing (18/110): src/Weather.Api/Contracts/ForecastResponse.cs
+Processing (19/110): src/Weather.Api/Contracts/NeighborhoodResponse.cs
+Processing (20/110): src/Weather.Api/Endpoints/WeatherEndpoints.cs
+Processing (21/110): src/Weather.Api/Program.cs
+Processing (22/110): src/Weather.Api/Properties/launchSettings.json
+Processing (23/110): src/Weather.Api/Weather.Api.csproj
+Processing (24/110): src/Weather.AppHost/appsettings.json
+Processing (25/110): src/Weather.AppHost/Program.cs
+Processing (26/110): src/Weather.AppHost/Weather.AppHost.csproj
+Processing (27/110): src/Weather.Core/Abstractions/IForecastCache.cs
+Processing (28/110): src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
+Processing (29/110): src/Weather.Core/Abstractions/INwsApiClient.cs
+Processing (30/110): src/Weather.Core/Abstractions/IPointMetadataCache.cs
+Processing (31/110): src/Weather.Core/Abstractions/IWeatherService.cs
+Processing (32/110): src/Weather.Core/Models/CachedForecast.cs
+Processing (33/110): src/Weather.Core/Models/CachedPointMetadata.cs
+Processing (34/110): src/Weather.Core/Models/Forecast.cs
+Processing (35/110): src/Weather.Core/Models/ForecastFetchResult.cs
+Processing (36/110): src/Weather.Core/Models/ForecastPeriod.cs
+Processing (37/110): src/Weather.Core/Models/GeoCoordinate.cs
+Processing (38/110): src/Weather.Core/Models/GridNeighborhood.cs
+Processing (39/110): src/Weather.Core/Models/GridPoint.cs
+Processing (40/110): src/Weather.Core/Models/NeighborhoodForecast.cs
+Processing (41/110): src/Weather.Core/Models/PointMetadata.cs
+Processing (42/110): src/Weather.Core/Telemetry/WeatherTelemetry.cs
+Processing (43/110): src/Weather.Core/Weather.Core.csproj
+Processing (44/110): src/Weather.Infrastructure/Caching/DatabaseInitializer.cs
+Processing (45/110): src/Weather.Infrastructure/Caching/SqliteCacheOptions.cs
+Processing (46/110): src/Weather.Infrastructure/Caching/SqliteConnectionFactory.cs
+Processing (47/110): src/Weather.Infrastructure/Caching/SqliteForecastCache.cs
+Processing (48/110): src/Weather.Infrastructure/Caching/SqlitePointMetadataCache.cs
+Processing (49/110): src/Weather.Infrastructure/Caching/TimestampText.cs
+Processing (50/110): src/Weather.Infrastructure/DependencyInjection.cs
+Processing (51/110): src/Weather.Infrastructure/Nws/NwsApiClient.cs
+Processing (52/110): src/Weather.Infrastructure/Nws/NwsClientOptions.cs
+Processing (53/110): src/Weather.Infrastructure/Nws/NwsJsonModels.cs
+Processing (54/110): src/Weather.Infrastructure/Serialization/WeatherJson.cs
+Processing (55/110): src/Weather.Infrastructure/Services/NeighborhoodWarmer.cs
+Processing (56/110): src/Weather.Infrastructure/Services/NeighborhoodWarmingBackgroundService.cs
+Processing (57/110): src/Weather.Infrastructure/Services/WeatherService.cs
+Processing (58/110): src/Weather.Infrastructure/Weather.Infrastructure.csproj
+Processing (59/110): src/Weather.ServiceDefaults/Extensions.cs
+Processing (60/110): src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj
+Processing (61/110): src/Weather.Web/appsettings.Development.json
+Processing (62/110): src/Weather.Web/appsettings.json
+Processing (63/110): src/Weather.Web/Components/_Imports.razor
+Processing (64/110): src/Weather.Web/Components/App.razor
+Processing (65/110): src/Weather.Web/Components/Layout/MainLayout.razor
+Processing (66/110): src/Weather.Web/Components/Layout/NavMenu.razor
+Processing (67/110): src/Weather.Web/Components/Pages/About.razor
+Processing (68/110): src/Weather.Web/Components/Pages/Error.razor
+Processing (69/110): src/Weather.Web/Components/Pages/Home.razor
+Processing (70/110): src/Weather.Web/Components/Routes.razor
+Processing (71/110): src/Weather.Web/Program.cs
+Processing (72/110): src/Weather.Web/Properties/launchSettings.json
+Processing (73/110): src/Weather.Web/Services/GeolocationService.cs
+Processing (74/110): src/Weather.Web/Services/IGeolocationService.cs
+Processing (75/110): src/Weather.Web/Services/IWeatherApiClient.cs
+Processing (76/110): src/Weather.Web/Services/SkyPalette.cs
+Processing (77/110): src/Weather.Web/Services/WeatherApiClient.cs
+Processing (78/110): src/Weather.Web/Services/WeatherViewModels.cs
+Processing (79/110): src/Weather.Web/Weather.Web.csproj
+Processing (80/110): src/Weather.Web/wwwroot/app.css
+Processing (81/110): src/Weather.Web/wwwroot/js/geolocation.js
+Processing (82/110): tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs
+Processing (83/110): tests/Weather.Api.Tests/ForecastEndpointsTests.cs
+Processing (84/110): tests/Weather.Api.Tests/GlobalUsings.cs
+Processing (85/110): tests/Weather.Api.Tests/Weather.Api.Tests.csproj
+Processing (86/110): tests/Weather.Api.Tests/WeatherApiFactory.cs
+Processing (87/110): tests/Weather.Core.Tests/ForecastFetchResultTests.cs
+Processing (88/110): tests/Weather.Core.Tests/GeoCoordinateTests.cs
+Processing (89/110): tests/Weather.Core.Tests/GlobalUsings.cs
+Processing (90/110): tests/Weather.Core.Tests/GridNeighborhoodTests.cs
+Processing (91/110): tests/Weather.Core.Tests/Weather.Core.Tests.csproj
+Processing (92/110): tests/Weather.Core.Tests/WeatherTelemetryTests.cs
+Processing (93/110): tests/Weather.Infrastructure.Tests/Caching/SqliteCacheHarness.cs
+Processing (94/110): tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
+Processing (95/110): tests/Weather.Infrastructure.Tests/Caching/SqlitePointMetadataCacheTests.cs
+Processing (96/110): tests/Weather.Infrastructure.Tests/Fakes/MutableTimeProvider.cs
+Processing (97/110): tests/Weather.Infrastructure.Tests/Fakes/NwsPayloads.cs
+Processing (98/110): tests/Weather.Infrastructure.Tests/Fakes/StubHttpMessageHandler.cs
+Processing (99/110): tests/Weather.Infrastructure.Tests/GlobalUsings.cs
+Processing (100/110): tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
+Processing (101/110): tests/Weather.Infrastructure.Tests/Services/NeighborhoodWarmerTests.cs
+Processing (102/110): tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+Processing (103/110): tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj
+Processing (104/110): tests/Weather.Web.Tests/Fakes/FakeGeolocationService.cs
+Processing (105/110): tests/Weather.Web.Tests/Fakes/FakeWeatherApiClient.cs
+Processing (106/110): tests/Weather.Web.Tests/GlobalUsings.cs
+Processing (107/110): tests/Weather.Web.Tests/HomePageTests.cs
+Processing (108/110): tests/Weather.Web.Tests/SkyPaletteTests.cs
+Processing (109/110): tests/Weather.Web.Tests/Weather.Web.Tests.csproj
+Processing (110/110): weather.slnx
+
+Export completed!
+Total files exported: 110
+Output file size: 246.49 KB
+2026-06-18-09-04-45
+PS D:\DEV\personal\weather>

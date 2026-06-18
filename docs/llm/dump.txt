@@ -1,6 +1,6 @@
-﻿===============================================================================
+===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/18/2026 09:01:16
+Generated: 06/18/2026 09:04:45
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -143,7 +143,7 @@ SIZE: 2.09 KB
 MODIFIED: 06/17/2026 15:08:47
 ================================================================================
 
-# EditorConfig â€” https://editorconfig.org
+# EditorConfig — https://editorconfig.org
 root = true
 
 [*]
@@ -194,7 +194,7 @@ dotnet_naming_style.end_in_async.required_suffix = Async
 dotnet_naming_style.end_in_async.capitalization = pascal_case
 # Treat a couple of noisy analyzer rules as suggestions in a learning sandbox
 dotnet_diagnostic.CA1848.severity = none   # use LoggerMessage delegates (we use source-gen where it matters)
-dotnet_diagnostic.CA2007.severity = none   # ConfigureAwait â€” not needed in ASP.NET Core
+dotnet_diagnostic.CA2007.severity = none   # ConfigureAwait — not needed in ASP.NET Core
 
 
 
@@ -688,7 +688,7 @@ Write-Host "Starting project export..." -ForegroundColor Green
 Write-Host "Project Path: $ProjectPath" -ForegroundColor Yellow
 Write-Host "Output File: $OutputFile" -ForegroundColor Yellow
 
-# â”€â”€ Resolve paths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Resolve paths ────────────────────────────────────────────────────────────
 Push-Location $ProjectPath
 $ResolvedRoot = (Resolve-Path ".").Path
 
@@ -696,7 +696,7 @@ $OutputPath = Join-Path $ResolvedRoot $OutputFile
 $outputDir  = Split-Path $OutputPath -Parent
 if (!(Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
 
-# â”€â”€ Get tracked files from Git â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Get tracked files from Git ───────────────────────────────────────────────
 Write-Host "Querying git for tracked files..." -ForegroundColor Cyan
 
 $gitFiles = git ls-files --cached --others --exclude-standard 2>&1
@@ -730,7 +730,7 @@ $AllFiles = $gitFiles | ForEach-Object {
 
 Write-Host "Found $($AllFiles.Count) files to export" -ForegroundColor Green
 
-# â”€â”€ Write header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Write header ─────────────────────────────────────────────────────────────
 $header = @"
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
@@ -741,7 +741,7 @@ Project Path: $ResolvedRoot
 "@
 $header | Out-File -FilePath $OutputPath -Encoding UTF8
 
-# â”€â”€ Directory tree (git ls-tree) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Directory tree (git ls-tree) ─────────────────────────────────────────────
 "DIRECTORY STRUCTURE (tracked):" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 "==============================" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
@@ -752,7 +752,7 @@ $gitFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 
-# â”€â”€ File contents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── File contents ────────────────────────────────────────────────────────────
 "FILE CONTENTS:" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 "==============" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
@@ -788,7 +788,7 @@ $sep
     "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 }
 
-# â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Footer ───────────────────────────────────────────────────────────────────
 @"
 ===============================================================================
 EXPORT COMPLETED: $(Get-Date)
@@ -1211,7 +1211,7 @@ MODIFIED: 06/17/2026 20:17:09
 ================================================================================
 
 // .NET Aspire orchestration. The dashboard depends on the API, so the API is
-// declared first and the web front end references it â€” that reference is what
+// declared first and the web front end references it — that reference is what
 // makes service discovery resolve "https+http://api" inside Weather.Web, and it
 // also injects the API's URL into the web app's configuration automatically.
 var builder = DistributedApplication.CreateBuilder(args);
@@ -1390,7 +1390,7 @@ public interface IWeatherService
 
     /// <summary>
     /// The primary forecast plus any already-warm neighbouring cells. Neighbours
-    /// are never fetched on the hot path â€” only returned if already cached.
+    /// are never fetched on the hot path — only returned if already cached.
     /// </summary>
     Task<NeighborhoodForecast?> GetNeighborhoodForecastAsync(
         GeoCoordinate coordinate, CancellationToken cancellationToken = default);
@@ -1573,7 +1573,7 @@ public readonly record struct GeoCoordinate
         Longitude = longitude;
     }
 
-    /// <summary>Validation that never throws â€” handy for guarding API input.</summary>
+    /// <summary>Validation that never throws — handy for guarding API input.</summary>
     public static bool IsValid(double latitude, double longitude) =>
         !double.IsNaN(latitude) && latitude is >= -90 and <= 90 &&
         !double.IsNaN(longitude) && longitude is >= -180 and <= 180;
@@ -1616,7 +1616,7 @@ public static class GridNeighborhood
 {
     /// <summary>
     /// The cells surrounding <paramref name="origin"/> within a Chebyshev
-    /// distance of <paramref name="radius"/> (default 1 â‡’ the 8 cells of a 3Ã—3
+    /// distance of <paramref name="radius"/> (default 1 ⇒ the 8 cells of a 3×3
     /// block), excluding the origin itself. Cells with negative indices are
     /// dropped because NWS grid coordinates are always non-negative.
     /// </summary>
@@ -1734,10 +1734,10 @@ namespace Weather.Core.Telemetry;
 /// </summary>
 public sealed class WeatherTelemetry : IDisposable
 {
-    /// <summary>Meter name â€” register with <c>AddMeter(WeatherTelemetry.MeterName)</c>.</summary>
+    /// <summary>Meter name — register with <c>AddMeter(WeatherTelemetry.MeterName)</c>.</summary>
     public const string MeterName = "Weather.Cache";
 
-    /// <summary>Activity source name â€” register with <c>AddSource(WeatherTelemetry.ActivitySourceName)</c>.</summary>
+    /// <summary>Activity source name — register with <c>AddSource(WeatherTelemetry.ActivitySourceName)</c>.</summary>
     public const string ActivitySourceName = "Weather.Nws";
 
     private readonly Meter _meter;
@@ -1835,7 +1835,7 @@ MODIFIED: 06/17/2026 15:10:49
     Weather.Core deliberately references NO NuGet packages.
     It uses only the in-box BCL (records, System.Diagnostics.Metrics,
     System.Threading.Channels). Everything else depends on Core, never the
-    other way around â€” this is the Dependency Inversion Principle in practice.
+    other way around — this is the Dependency Inversion Principle in practice.
   -->
 
 </Project>
@@ -2270,14 +2270,14 @@ public static class DependencyInjection
         services.Configure<NwsClientOptions>(configuration.GetSection(NwsClientOptions.SectionName));
         services.Configure<SqliteCacheOptions>(configuration.GetSection(SqliteCacheOptions.SectionName));
 
-        // Clock â€” the BCL abstraction. Tests substitute a controllable one.
+        // Clock — the BCL abstraction. Tests substitute a controllable one.
         services.TryAddSingleton(TimeProvider.System);
 
         // Custom metrics + traces (the meter/source names are registered with
         // OpenTelemetry in the API host).
         services.TryAddSingleton<WeatherTelemetry>();
 
-        // SQLite caches are stateless and thread-safe â†’ singletons.
+        // SQLite caches are stateless and thread-safe → singletons.
         services.TryAddSingleton<ISqliteConnectionFactory, SqliteConnectionFactory>();
         services.TryAddSingleton<IForecastCache, SqliteForecastCache>();
         services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
@@ -2347,8 +2347,8 @@ namespace Weather.Infrastructure.Nws;
 /// <summary>
 /// Typed <see cref="HttpClient"/> over the NWS API. Owns HTTP concerns,
 /// conditional GETs and telemetry; it performs NO caching (that is the job of
-/// the caches and <c>WeatherService</c>). The <see cref="HttpClient"/> itself â€”
-/// base address, User-Agent, Accept header and the resilience pipeline â€” is
+/// the caches and <c>WeatherService</c>). The <see cref="HttpClient"/> itself —
+/// base address, User-Agent, Accept header and the resilience pipeline — is
 /// configured in <c>DependencyInjection</c>.
 /// </summary>
 internal sealed class NwsApiClient(
@@ -2830,7 +2830,7 @@ internal sealed class NeighborhoodWarmingBackgroundService(
 
             try
             {
-                // Skip cells that are already fresh â€” no network needed.
+                // Skip cells that are already fresh — no network needed.
                 var cached = await forecastCache.GetAsync(cell, cancellationToken).ConfigureAwait(false);
                 if (cached is not null && cached.IsFresh(now))
                 {
@@ -2941,7 +2941,7 @@ internal sealed class WeatherService(
         warmer.RequestWarming(metadata.Grid);
 
         // Best-effort: include only neighbours that are ALREADY warm. Never
-        // fetch on the hot path â€” that is what keeps this endpoint fast.
+        // fetch on the hot path — that is what keeps this endpoint fast.
         var now = timeProvider.GetUtcNow();
         var neighbors = new List<Forecast>();
         foreach (var cell in GridNeighborhood.Surrounding(metadata.Grid))
@@ -3124,7 +3124,7 @@ namespace Weather.ServiceDefaults;
 /// The canonical .NET Aspire "service defaults". Every service in the solution
 /// calls <see cref="AddServiceDefaults"/> to get consistent OpenTelemetry,
 /// health checks, service discovery and resilient HTTP out of the box. This
-/// project is deliberately app-agnostic â€” app-specific meters and trace sources
+/// project is deliberately app-agnostic — app-specific meters and trace sources
 /// are registered by the host (see <c>Weather.Api/Program.cs</c>).
 /// </summary>
 public static class Extensions
@@ -3393,7 +3393,7 @@ MODIFIED: 06/17/2026 20:13:45
 
 <div id="blazor-error-ui">
     Something went wrong. Reload the page to keep going.
-    <span class="dismiss">Ã—</span>
+    <span class="dismiss">×</span>
 </div>
 
 
@@ -3420,7 +3420,7 @@ MODIFIED: 06/17/2026 20:15:54
 
 @page "/about"
 
-<PageTitle>About Â· Weather</PageTitle>
+<PageTitle>About · Weather</PageTitle>
 
 <section class="panel panel--plain">
     <h1 class="panel__title">About this dashboard</h1>
@@ -3428,7 +3428,7 @@ MODIFIED: 06/17/2026 20:15:54
         A small weather dashboard built on the U.S. National Weather Service API. It asks your
         browser for your location, resolves it to an NWS forecast grid cell, and shows the
         forecast for that cell. If you'd rather not share your location, you can type coordinates
-        instead â€” the app works the same either way.
+        instead — the app works the same either way.
     </p>
     <p class="panel__body">
         Forecasts don't change second to second, so responses are cached locally for a short
@@ -3456,7 +3456,7 @@ MODIFIED: 06/17/2026 20:16:16
 @using System.Diagnostics
 @using Microsoft.AspNetCore.Components.Web
 
-<PageTitle>Error Â· Weather</PageTitle>
+<PageTitle>Error · Weather</PageTitle>
 
 <section class="panel" data-testid="state-page-error">
     <h1 class="panel__title">Something went wrong</h1>
@@ -3572,7 +3572,7 @@ MODIFIED: 06/17/2026 20:15:32
         <section class="panel" data-testid="state-unavailable">
             <h1 class="panel__title">Couldn't pin down where you are</h1>
             <p class="panel__body">
-                The browser couldn't determine your position â€” no signal, no hardware, or the
+                The browser couldn't determine your position — no signal, no hardware, or the
                 request timed out. Enter coordinates to continue, or use the sample location.
             </p>
             @manualEntry
@@ -3595,7 +3595,7 @@ MODIFIED: 06/17/2026 20:15:32
         <section class="panel" data-testid="state-error">
             <h1 class="panel__title">The forecast didn't load</h1>
             <p class="panel__body">
-                The service didn't respond. This is usually temporary â€” try again in a moment.
+                The service didn't respond. This is usually temporary — try again in a moment.
             </p>
             <div class="panel__actions">
                 <button type="button" class="button" @onclick="RetryAsync">Try again</button>
@@ -3631,7 +3631,7 @@ MODIFIED: 06/17/2026 20:15:32
         Error,
     }
 
-    // Newport News, VA â€” the worked example from the project brief.
+    // Newport News, VA — the worked example from the project brief.
     private const double SampleLatitude = 37.0879;
     private const double SampleLongitude = -76.4505;
     private const int UpcomingCount = 8;
@@ -3650,7 +3650,7 @@ MODIFIED: 06/17/2026 20:15:32
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // Geolocation needs JS interop, which is only available once the
-        // component is interactive â€” i.e. after the first render.
+        // component is interactive — i.e. after the first render.
         if (firstRender)
         {
             await BeginGeolocationAsync();
@@ -3753,7 +3753,7 @@ MODIFIED: 06/17/2026 20:15:32
 
     private string LocationLabel => _forecast is null
         ? string.Empty
-        : $"NWS {_forecast.GridId} Â· {_forecast.GridX},{_forecast.GridY}";
+        : $"NWS {_forecast.GridId} · {_forecast.GridX},{_forecast.GridY}";
 
     private string CoordLabel => _latitude is { } latitude && _longitude is { } longitude
         ? string.Create(CultureInfo.InvariantCulture, $"{latitude:0.####}, {longitude:0.####}")
@@ -3821,7 +3821,7 @@ MODIFIED: 06/17/2026 20:15:32
         builder.AddContent(45, hero.Temperature.ToString(CultureInfo.InvariantCulture));
         builder.OpenElement(46, "span");
         builder.AddAttribute(47, "class", "sky__unit");
-        builder.AddContent(48, $"Â°{hero.TemperatureUnit}");
+        builder.AddContent(48, $"°{hero.TemperatureUnit}");
         builder.CloseElement();
         builder.CloseElement(); // temp
         builder.CloseElement(); // readout
@@ -3919,7 +3919,7 @@ MODIFIED: 06/17/2026 20:15:32
         builder.AddContent(12, period.Temperature.ToString(CultureInfo.InvariantCulture));
         builder.OpenElement(13, "span");
         builder.AddAttribute(14, "class", "card__temp-unit");
-        builder.AddContent(15, $"Â°{period.TemperatureUnit}");
+        builder.AddContent(15, $"°{period.TemperatureUnit}");
         builder.CloseElement();
         builder.CloseElement(); // temp
 
@@ -3963,12 +3963,12 @@ MODIFIED: 06/17/2026 20:15:32
     };
 
     private static string FormatPrecip(int? probability) =>
-        probability is { } value ? $"{value.ToString(CultureInfo.InvariantCulture)}%" : "â€”";
+        probability is { } value ? $"{value.ToString(CultureInfo.InvariantCulture)}%" : "—";
 
     private static string FormatWind(ForecastPeriodDto period)
     {
         var direction = string.IsNullOrWhiteSpace(period.WindDirection) ? string.Empty : period.WindDirection + " ";
-        var speed = string.IsNullOrWhiteSpace(period.WindSpeed) ? "â€”" : period.WindSpeed;
+        var speed = string.IsNullOrWhiteSpace(period.WindSpeed) ? "—" : period.WindSpeed;
         return $"{direction}{speed}".Trim();
     }
 }
@@ -4148,7 +4148,7 @@ namespace Weather.Web.Services;
 /// <summary>Why a geolocation attempt did not yield a position.</summary>
 public enum GeolocationError
 {
-    /// <summary>A position was obtained â€” no error.</summary>
+    /// <summary>A position was obtained — no error.</summary>
     None,
 
     /// <summary>The user declined to share their location.</summary>
@@ -4168,8 +4168,8 @@ public enum GeolocationError
 }
 
 /// <summary>
-/// The outcome of asking the browser for the user's location. Always returned â€”
-/// never thrown â€” so the UI can branch on <see cref="Success"/> and present a
+/// The outcome of asking the browser for the user's location. Always returned —
+/// never thrown — so the UI can branch on <see cref="Success"/> and present a
 /// graceful fallback when the position is unavailable.
 /// </summary>
 public sealed record GeolocationResult(
@@ -4258,7 +4258,7 @@ public readonly record struct SkyTheme(
 /// hero panel paints the actual sky implied by the forecast: the gradient is
 /// derived at runtime from whether the period is day or night and from
 /// keywords in its short forecast (clear, cloud, rain, storms, snow, fog).
-/// Foreground colours are picked per state so text stays readable â€” part of the
+/// Foreground colours are picked per state so text stays readable — part of the
 /// accessibility floor, not an afterthought.
 /// </summary>
 public static class SkyPalette
@@ -4338,7 +4338,7 @@ namespace Weather.Web.Services;
 /// is configured in <c>Program.cs</c> (resolved by Aspire service discovery, or
 /// from <c>WeatherApi:BaseUrl</c> when running standalone). A 404 is mapped to
 /// <c>null</c> rather than an exception, because "no NWS coverage here" is an
-/// expected, user-facing outcome â€” not a fault.
+/// expected, user-facing outcome — not a fault.
 /// </summary>
 public sealed class WeatherApiClient(HttpClient httpClient) : IWeatherApiClient
 {
@@ -4477,7 +4477,7 @@ MODIFIED: 06/17/2026 15:54:12
 ================================================================================
 
 /* ============================================================================
-   Weather â€” "sky-state" dashboard styles
+   Weather — "sky-state" dashboard styles
 
    The one bold move is the hero, which paints the sky implied by the current
    forecast (gradient supplied at runtime via the --sky-* custom properties).
@@ -5163,7 +5163,7 @@ MODIFIED: 06/17/2026 15:52:54
 
 // Browser geolocation bridge for the Blazor dashboard.
 //
-// Design rule: this promise ALWAYS resolves â€” it never rejects. Every outcome
+// Design rule: this promise ALWAYS resolves — it never rejects. Every outcome
 // (granted, denied, unavailable, timed out, unsupported) comes back as a plain
 // object the C# side can branch on. That keeps "the user said no" on the normal
 // path instead of the exception path.
@@ -5250,7 +5250,7 @@ internal sealed class FakeNwsApiClient : INwsApiClient
     public Task<PointMetadata?> GetPointMetadataAsync(
         GeoCoordinate coordinate, CancellationToken cancellationToken = default)
     {
-        // (0, 0) â€” open ocean â€” stands in for "outside NWS coverage".
+        // (0, 0) — open ocean — stands in for "outside NWS coverage".
         if (Math.Abs(coordinate.Latitude) < 0.001 && Math.Abs(coordinate.Longitude) < 0.001)
         {
             return Task.FromResult<PointMetadata?>(null);
@@ -5334,7 +5334,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     {
         using var client = _factory.CreateClient();
 
-        // (0, 0) â€” open ocean â€” is treated as outside NWS coverage by the fake.
+        // (0, 0) — open ocean — is treated as outside NWS coverage by the fake.
         using var response = await client.GetAsync("/api/forecast?latitude=0&longitude=0");
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -5803,7 +5803,7 @@ MODIFIED: 06/18/2026 08:35:55
   <PropertyGroup>
     <!-- TUnit runs on Microsoft.Testing.Platform, so the test project is an
          executable. TestingPlatformDotnetTestSupport lets `dotnet test` drive
-         it. Do NOT add Microsoft.NET.Test.Sdk â€” it conflicts with MTP. -->
+         it. Do NOT add Microsoft.NET.Test.Sdk — it conflicts with MTP. -->
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
@@ -6972,7 +6972,7 @@ namespace Weather.Web.Tests.Fakes;
 
 /// <summary>
 /// Test double for <see cref="IGeolocationService"/>. Either returns a fixed
-/// result immediately, or â€” when gated â€” blocks until the test completes the
+/// result immediately, or — when gated — blocks until the test completes the
 /// supplied <see cref="TaskCompletionSource{TResult}"/>, so the component's
 /// "requesting location" state can be observed before a result arrives.
 /// </summary>
@@ -7181,7 +7181,7 @@ public sealed class HomePageTests
         // Before the browser answers, the "finding your location" state is up.
         cut.WaitForAssertion(() => cut.Find("[data-testid=state-locating]"));
 
-        // Browser answers â†’ forecast loads.
+        // Browser answers → forecast loads.
         gate.SetResult(Success());
         cut.WaitForAssertion(() => cut.Find("[data-testid=forecast]"));
     }
@@ -7379,7 +7379,7 @@ MODIFIED: 06/17/2026 15:08:47
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/18/2026 09:01:16
+EXPORT COMPLETED: 06/18/2026 09:04:45
 Total Files Exported: 110
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
