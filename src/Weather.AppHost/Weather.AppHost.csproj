@@ -5,7 +5,7 @@
        Program.cs. Its version must match the Aspire.Hosting.AppHost package
        (managed centrally in Directory.Packages.props); an SDK reference can't
        be version-managed by Central Package Management, so it's pinned here. -->
-  <Sdk Name="Aspire.AppHost.Sdk" Version="9.5.1" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.4.5" />
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>

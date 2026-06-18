@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Weather.Web": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:56641;http://localhost:56642"
+    }
+  }
+}
