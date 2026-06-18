@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/18/2026 09:06:57
+Generated: 06/18/2026 11:49:15
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -464,8 +464,8 @@ jobs:
 
 ================================================================================
 FILE: .github/workflows/test.yml
-SIZE: 0.78 KB
-MODIFIED: 06/17/2026 20:36:01
+SIZE: 0.91 KB
+MODIFIED: 06/18/2026 11:44:53
 ================================================================================
 
 name: test
@@ -497,10 +497,11 @@ jobs:
         with:
           global-json-file: global.json
 
-      # TUnit runs on Microsoft.Testing.Platform; `dotnet test` drives it via
-      # the TestingPlatformDotnetTestSupport flag set in each test .csproj. We
-      # let `dotnet test` build the test projects so the runner and build stay
-      # in lock-step.
+      # TUnit runs on Microsoft.Testing.Platform (MTP). On the .NET 10 SDK,
+      # `dotnet test` is opted into MTP by the "test" section of global.json
+      # ({ "runner": "Microsoft.Testing.Platform" }). The setup-dotnet step above
+      # reads that same global.json, so the SDK and runner stay in lock-step
+      # between local dev and CI. `dotnet test` builds the test projects itself.
       - name: Test
         run: dotnet test weather.slnx --configuration Release
 
@@ -808,8 +809,8 @@ Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1K
 
 ================================================================================
 FILE: global.json
-SIZE: 0.11 KB
-MODIFIED: 06/17/2026 15:07:57
+SIZE: 0.17 KB
+MODIFIED: 06/18/2026 11:42:17
 ================================================================================
 
 {
@@ -817,6 +818,9 @@ MODIFIED: 06/17/2026 15:07:57
     "version": "10.0.100",
     "rollForward": "latestFeature",
     "allowPrerelease": false
+  },
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
   }
 }
 
@@ -2084,8 +2088,8 @@ internal sealed class SqliteForecastCache(ISqliteConnectionFactory connectionFac
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Caching/SqlitePointMetadataCache.cs
-SIZE: 4.59 KB
-MODIFIED: 06/17/2026 15:17:48
+SIZE: 4.99 KB
+MODIFIED: 06/18/2026 11:42:33
 ================================================================================
 
 using Dapper;
@@ -2151,7 +2155,7 @@ internal sealed class SqlitePointMetadataCache(ISqliteConnectionFactory connecti
 
         var metadata = new PointMetadata(
             Query: new GeoCoordinate(row.Latitude, row.Longitude),
-            Grid: new GridPoint(row.GridId, row.GridX, row.GridY),
+            Grid: new GridPoint(row.GridId, (int)row.GridX, (int)row.GridY),
             ForecastUrl: row.ForecastUrl,
             ForecastHourlyUrl: row.ForecastHourlyUrl,
             City: row.City,
@@ -2192,12 +2196,17 @@ internal sealed class SqlitePointMetadataCache(ISqliteConnectionFactory connecti
         }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    // SQLite stores GridX/GridY in INTEGER columns, which Microsoft.Data.Sqlite
+    // surfaces as Int64. Dapper's constructor-based record materialization is
+    // strict about width, so these MUST be `long` (not `int`) or it throws
+    // "no matching constructor". They are narrowed back to the domain's int on
+    // the way out, in GetAsync — NWS grid indices are small (< a few hundred).
     private sealed record MetadataRow(
         double Latitude,
         double Longitude,
         string GridId,
-        int GridX,
-        int GridY,
+        long GridX,
+        long GridY,
         string ForecastUrl,
         string ForecastHourlyUrl,
         string? City,
@@ -2329,8 +2338,8 @@ public static class DependencyInjection
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Nws/NwsApiClient.cs
-SIZE: 8 KB
-MODIFIED: 06/17/2026 15:16:10
+SIZE: 8.21 KB
+MODIFIED: 06/18/2026 11:43:33
 ================================================================================
 
 using System.Diagnostics;
@@ -2373,7 +2382,11 @@ internal sealed class NwsApiClient(
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                logger.LogInformation("NWS has no grid coverage for {Coordinate}.", coordinate);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation("NWS has no grid coverage for {Coordinate}.", coordinate);
+                }
+
                 return null;
             }
 
@@ -2446,7 +2459,11 @@ internal sealed class NwsApiClient(
                         response.Headers.CacheControl?.MaxAge);
 
                 case HttpStatusCode.NotFound:
-                    logger.LogInformation("NWS has no forecast for grid {Grid}.", grid);
+                    if (logger.IsEnabled(LogLevel.Information))
+                    {
+                        logger.LogInformation("NWS has no forecast for grid {Grid}.", grid);
+                    }
+
                     return ForecastFetchResult.NotFound;
 
                 case HttpStatusCode.TooManyRequests:
@@ -2698,8 +2715,8 @@ public static class WeatherJson
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Services/NeighborhoodWarmer.cs
-SIZE: 1.35 KB
-MODIFIED: 06/17/2026 15:19:43
+SIZE: 1.38 KB
+MODIFIED: 06/18/2026 11:43:44
 ================================================================================
 
 using System.Threading.Channels;
@@ -2736,7 +2753,7 @@ internal sealed class NeighborhoodWarmer : INeighborhoodWarmer
 
     public void RequestWarming(GridPoint origin)
     {
-        if (!_channel.Writer.TryWrite(origin))
+        if (!_channel.Writer.TryWrite(origin) && _logger.IsEnabled(LogLevel.Debug))
         {
             _logger.LogDebug("Neighbourhood warm queue closed; dropped origin {Origin}.", origin);
         }
@@ -2747,8 +2764,8 @@ internal sealed class NeighborhoodWarmer : INeighborhoodWarmer
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Services/NeighborhoodWarmingBackgroundService.cs
-SIZE: 4.04 KB
-MODIFIED: 06/17/2026 15:19:43
+SIZE: 4.15 KB
+MODIFIED: 06/18/2026 11:44:13
 ================================================================================
 
 using System.Collections.Concurrent;
@@ -2841,7 +2858,11 @@ internal sealed class NeighborhoodWarmingBackgroundService(
                 using var lease = await rateLimiter.AcquireAsync(1, cancellationToken).ConfigureAwait(false);
                 if (!lease.IsAcquired)
                 {
-                    logger.LogDebug("Rate limiter rejected warming for {Cell}; skipping.", cell);
+                    if (logger.IsEnabled(LogLevel.Debug))
+                    {
+                        logger.LogDebug("Rate limiter rejected warming for {Cell}; skipping.", cell);
+                    }
+
                     continue;
                 }
 
@@ -5380,17 +5401,20 @@ global using TUnit.Core;
 
 ================================================================================
 FILE: tests/Weather.Api.Tests/Weather.Api.Tests.csproj
-SIZE: 0.55 KB
-MODIFIED: 06/18/2026 08:35:55
+SIZE: 0.69 KB
+MODIFIED: 06/18/2026 11:43:08
 ================================================================================
 
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- MTP test executable. `dotnet test` is opted into MTP via global.json. -->
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+
+    <!-- Full globalization for tests (see Weather.Core.Tests.csproj for why). -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -5795,20 +5819,35 @@ public sealed class GridNeighborhoodTests
 
 ================================================================================
 FILE: tests/Weather.Core.Tests/Weather.Core.Tests.csproj
-SIZE: 0.71 KB
-MODIFIED: 06/18/2026 08:35:55
+SIZE: 1.32 KB
+MODIFIED: 06/18/2026 11:42:45
 ================================================================================
 
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- TUnit runs on Microsoft.Testing.Platform, so the test project is an
-         executable. TestingPlatformDotnetTestSupport lets `dotnet test` drive
-         it. Do NOT add Microsoft.NET.Test.Sdk — it conflicts with MTP. -->
+    <!--
+      TUnit runs on Microsoft.Testing.Platform (MTP), so a test project is a
+      console executable, not a class library.
+
+      On the .NET 10 SDK, `dotnet test` is opted into MTP for the whole repo via
+      the "test" section of global.json ({ "runner": "Microsoft.Testing.Platform" }).
+      The old per-project <TestingPlatformDotnetTestSupport> switch enabled the
+      legacy VSTest-bridge, which MTP v2 removed on .NET 10 — so it is gone here.
+
+      Do NOT add Microsoft.NET.Test.Sdk: it pulls in VSTest and conflicts with MTP.
+    -->
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+
+    <!--
+      Tests run with full ICU globalization (NOT invariant mode) so they can
+      switch CultureInfo (e.g. to de-DE) and prove the production code stays
+      culture-independent. The apps themselves keep InvariantGlobalization=true
+      (see Directory.Build.props) for a smaller, faster runtime.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -6936,17 +6975,20 @@ public sealed class WeatherServiceTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj
-SIZE: 0.55 KB
-MODIFIED: 06/18/2026 08:35:55
+SIZE: 0.69 KB
+MODIFIED: 06/18/2026 11:42:56
 ================================================================================
 
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- MTP test executable. `dotnet test` is opted into MTP via global.json. -->
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+
+    <!-- Full globalization for tests (see Weather.Core.Tests.csproj for why). -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -6965,8 +7007,8 @@ MODIFIED: 06/18/2026 08:35:55
 
 ================================================================================
 FILE: tests/Weather.Web.Tests/Fakes/FakeGeolocationService.cs
-SIZE: 1.36 KB
-MODIFIED: 06/17/2026 20:33:41
+SIZE: 1.71 KB
+MODIFIED: 06/18/2026 11:44:34
 ================================================================================
 
 namespace Weather.Web.Tests.Fakes;
@@ -6993,7 +7035,13 @@ internal sealed class FakeGeolocationService : IGeolocationService
     public static (FakeGeolocationService Service, TaskCompletionSource<GeolocationResult> Gate) Gated()
     {
         var gate = new TaskCompletionSource<GeolocationResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        return (new FakeGeolocationService(default, gate), gate);
+
+        // GeolocationResult is a reference type, so `default` would be null and
+        // violate the non-nullable parameter. On the gated path the stored
+        // result is never read (the gate's Task is awaited instead), so this is
+        // an inert placeholder.
+        var placeholder = GeolocationResult.Failed(GeolocationError.Unknown);
+        return (new FakeGeolocationService(placeholder, gate), gate);
     }
 
     public async ValueTask<GeolocationResult> GetCurrentPositionAsync(CancellationToken cancellationToken = default)
@@ -7317,17 +7365,20 @@ public sealed class SkyPaletteTests
 
 ================================================================================
 FILE: tests/Weather.Web.Tests/Weather.Web.Tests.csproj
-SIZE: 0.52 KB
-MODIFIED: 06/18/2026 08:35:55
+SIZE: 0.67 KB
+MODIFIED: 06/18/2026 11:43:17
 ================================================================================
 
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- MTP test executable. `dotnet test` is opted into MTP via global.json. -->
     <OutputType>Exe</OutputType>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+
+    <!-- Full globalization for tests (see Weather.Core.Tests.csproj for why). -->
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -7380,7 +7431,7 @@ MODIFIED: 06/17/2026 15:08:47
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/18/2026 09:06:58
+EXPORT COMPLETED: 06/18/2026 11:49:15
 Total Files Exported: 110
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
