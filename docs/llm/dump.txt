@@ -1,6 +1,6 @@
 ﻿===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/18/2026 08:49:15
+Generated: 06/18/2026 09:01:16
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -22,6 +22,8 @@ ARCHITECTURE.md
 Directory.Build.props
 Directory.Packages.props
 docs/ARCHITECTURE.md
+docs/llm/dump.txt
+docs/llm/output.txt
 docs/llm/README.md
 docs/llm/vendor/claude-conversations.md
 export.ps1
@@ -5287,8 +5289,8 @@ internal sealed class FakeNwsApiClient : INwsApiClient
 
 ================================================================================
 FILE: tests/Weather.Api.Tests/ForecastEndpointsTests.cs
-SIZE: 2.37 KB
-MODIFIED: 06/17/2026 20:32:19
+SIZE: 2.34 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 using System.Net;
@@ -5301,7 +5303,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     private readonly WeatherApiFactory _factory = new();
 
     [Test]
-    public async Task GetForecast_with_valid_coordinates_returns_200_and_a_forecast()
+    public async Task GetForecastWithValidCoordinatesReturns200AndAForecast()
     {
         using var client = _factory.CreateClient();
 
@@ -5318,7 +5320,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     }
 
     [Test]
-    public async Task GetForecast_with_invalid_latitude_returns_400()
+    public async Task GetForecastWithInvalidLatitudeReturns400()
     {
         using var client = _factory.CreateClient();
 
@@ -5328,7 +5330,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     }
 
     [Test]
-    public async Task GetForecast_for_an_uncovered_location_returns_404()
+    public async Task GetForecastForAnUncoveredLocationReturns404()
     {
         using var client = _factory.CreateClient();
 
@@ -5339,7 +5341,7 @@ public sealed class ForecastEndpointsTests : IDisposable
     }
 
     [Test]
-    public async Task GetNeighborhood_with_valid_coordinates_returns_200()
+    public async Task GetNeighborhoodWithValidCoordinatesReturns200()
     {
         using var client = _factory.CreateClient();
 
@@ -5406,12 +5408,13 @@ MODIFIED: 06/18/2026 08:35:55
 
 ================================================================================
 FILE: tests/Weather.Api.Tests/WeatherApiFactory.cs
-SIZE: 2.01 KB
-MODIFIED: 06/17/2026 20:32:08
+SIZE: 2.04 KB
+MODIFIED: 06/18/2026 08:51:58
 ================================================================================
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -5482,8 +5485,8 @@ internal sealed class WeatherApiFactory : WebApplicationFactory<Program>
 
 ================================================================================
 FILE: tests/Weather.Core.Tests/ForecastFetchResultTests.cs
-SIZE: 2.3 KB
-MODIFIED: 06/17/2026 20:22:47
+SIZE: 2.23 KB
+MODIFIED: 06/18/2026 08:54:35
 ================================================================================
 
 namespace Weather.Core.Tests;
@@ -5494,10 +5497,10 @@ public sealed class ForecastFetchResultTests
         new GridPoint("AKQ", 83, 61),
         DateTimeOffset.UtcNow,
         DateTimeOffset.UtcNow,
-        Array.Empty<ForecastPeriod>());
+        []);
 
     [Test]
-    public void Success_carries_forecast_etag_and_maxage()
+    public void SuccessCarriesForecastEtagAndMaxage()
     {
         var forecast = SampleForecast();
 
@@ -5510,7 +5513,7 @@ public sealed class ForecastFetchResultTests
     }
 
     [Test]
-    public void NotModified_carries_no_forecast()
+    public void NotModifiedCarriesNoForecast()
     {
         var result = ForecastFetchResult.NotModified("\"abc\"", TimeSpan.FromMinutes(10));
 
@@ -5521,7 +5524,7 @@ public sealed class ForecastFetchResultTests
     }
 
     [Test]
-    public void NotFound_is_a_terminal_outcome_with_no_payload()
+    public void NotFoundIsATerminalOutcomeWithNoPayload()
     {
         ForecastFetchResult.NotFound.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
         ForecastFetchResult.NotFound.Forecast.ShouldBeNull();
@@ -5529,7 +5532,7 @@ public sealed class ForecastFetchResultTests
     }
 
     [Test]
-    public void Unavailable_is_a_terminal_outcome_with_no_payload()
+    public void UnavailableIsATerminalOutcomeWithNoPayload()
     {
         ForecastFetchResult.Unavailable.Outcome.ShouldBe(NwsFetchOutcome.Unavailable);
         ForecastFetchResult.Unavailable.Forecast.ShouldBeNull();
@@ -5540,19 +5543,19 @@ public sealed class ForecastFetchResultTests
 public sealed class GridPointTests
 {
     [Test]
-    public void ToString_is_office_slash_x_comma_y() =>
+    public void ToStringIsOfficeSlashXCommaY() =>
         new GridPoint("AKQ", 83, 61).ToString().ShouldBe("AKQ/83,61");
 
     [Test]
-    public void Records_with_the_same_values_are_equal() =>
+    public void RecordsWithTheSameValuesAreEqual() =>
         new GridPoint("AKQ", 83, 61).ShouldBe(new GridPoint("AKQ", 83, 61));
 
     [Test]
-    public void Records_with_different_values_are_not_equal() =>
+    public void RecordsWithDifferentValuesAreNotEqual() =>
         new GridPoint("AKQ", 83, 61).ShouldNotBe(new GridPoint("AKQ", 83, 62));
 
     [Test]
-    public void With_expression_replaces_a_single_index()
+    public void WithExpressionReplacesASingleIndex()
     {
         var origin = new GridPoint("AKQ", 83, 61);
 
@@ -5564,8 +5567,8 @@ public sealed class GridPointTests
 
 ================================================================================
 FILE: tests/Weather.Core.Tests/GeoCoordinateTests.cs
-SIZE: 3.73 KB
-MODIFIED: 06/17/2026 20:22:23
+SIZE: 3.68 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 using System.Globalization;
@@ -5575,7 +5578,7 @@ namespace Weather.Core.Tests;
 public sealed class GeoCoordinateTests
 {
     [Test]
-    public void Constructor_accepts_valid_coordinates()
+    public void ConstructorAcceptsValidCoordinates()
     {
         var coordinate = new GeoCoordinate(37.0879, -76.4505);
 
@@ -5587,7 +5590,7 @@ public sealed class GeoCoordinateTests
     [Arguments(0d, 0d)]
     [Arguments(90d, 180d)]
     [Arguments(-90d, -180d)]
-    public void Constructor_accepts_boundary_values(double latitude, double longitude)
+    public void ConstructorAcceptsBoundaryValues(double latitude, double longitude)
     {
         var coordinate = new GeoCoordinate(latitude, longitude);
 
@@ -5598,17 +5601,17 @@ public sealed class GeoCoordinateTests
     [Test]
     [Arguments(90.0001d, 0d)]
     [Arguments(-90.0001d, 0d)]
-    public void Constructor_rejects_out_of_range_latitude(double latitude, double longitude) =>
+    public void ConstructorRejectsOutOfRangeLatitude(double latitude, double longitude) =>
         Should.Throw<ArgumentOutOfRangeException>(() => new GeoCoordinate(latitude, longitude));
 
     [Test]
     [Arguments(0d, 180.0001d)]
     [Arguments(0d, -180.0001d)]
-    public void Constructor_rejects_out_of_range_longitude(double latitude, double longitude) =>
+    public void ConstructorRejectsOutOfRangeLongitude(double latitude, double longitude) =>
         Should.Throw<ArgumentOutOfRangeException>(() => new GeoCoordinate(latitude, longitude));
 
     [Test]
-    public void Constructor_rejects_NaN()
+    public void ConstructorRejectsNaN()
     {
         Should.Throw<ArgumentOutOfRangeException>(() => new GeoCoordinate(double.NaN, 0));
         Should.Throw<ArgumentOutOfRangeException>(() => new GeoCoordinate(0, double.NaN));
@@ -5620,18 +5623,18 @@ public sealed class GeoCoordinateTests
     [Arguments(90d, 180d, true)]
     [Arguments(90.5d, 0d, false)]
     [Arguments(0d, 200d, false)]
-    public void IsValid_matches_constructor_acceptance(double latitude, double longitude, bool expected) =>
+    public void IsValidMatchesConstructorAcceptance(double latitude, double longitude, bool expected) =>
         GeoCoordinate.IsValid(latitude, longitude).ShouldBe(expected);
 
     [Test]
-    public void IsValid_rejects_NaN()
+    public void IsValidRejectsNaN()
     {
         GeoCoordinate.IsValid(double.NaN, 0).ShouldBeFalse();
         GeoCoordinate.IsValid(0, double.NaN).ShouldBeFalse();
     }
 
     [Test]
-    public void Rounded_reduces_precision_to_four_decimals()
+    public void RoundedReducesPrecisionToFourDecimals()
     {
         var coordinate = new GeoCoordinate(37.08789999, -76.45051234);
 
@@ -5642,7 +5645,7 @@ public sealed class GeoCoordinateTests
     }
 
     [Test]
-    public void Rounded_collapses_nearby_coordinates_to_the_same_value()
+    public void RoundedCollapsesNearbyCoordinatesToTheSameValue()
     {
         // Two points ~5 m apart round to the same 4-dp coordinate, which is what
         // lets nearby users share one cached /points lookup.
@@ -5654,7 +5657,7 @@ public sealed class GeoCoordinateTests
     }
 
     [Test]
-    public void ToApiString_uses_invariant_decimal_point()
+    public void ToApiStringUsesInvariantDecimalPoint()
     {
         var coordinate = new GeoCoordinate(37.0879, -76.4505);
 
@@ -5662,7 +5665,7 @@ public sealed class GeoCoordinateTests
     }
 
     [Test]
-    public void ToApiString_trims_trailing_zeros_to_four_places()
+    public void ToApiStringTrimsTrailingZerosToFourPlaces()
     {
         var coordinate = new GeoCoordinate(37.5, -76);
 
@@ -5670,7 +5673,7 @@ public sealed class GeoCoordinateTests
     }
 
     [Test]
-    public void ToApiString_is_culture_independent()
+    public void ToApiStringIsCultureIndependent()
     {
         // Guard against a comma decimal separator leaking in under a non-US culture.
         var original = CultureInfo.CurrentCulture;
@@ -5686,7 +5689,7 @@ public sealed class GeoCoordinateTests
     }
 
     [Test]
-    public void ToCacheKey_equals_api_string() =>
+    public void ToCacheKeyEqualsApiString() =>
         new GeoCoordinate(12.3456, -65.4321).ToCacheKey().ShouldBe("12.3456,-65.4321");
 }
 
@@ -5706,8 +5709,8 @@ global using Weather.Core.Models;
 
 ================================================================================
 FILE: tests/Weather.Core.Tests/GridNeighborhoodTests.cs
-SIZE: 2.12 KB
-MODIFIED: 06/17/2026 20:22:34
+SIZE: 2.08 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 namespace Weather.Core.Tests;
@@ -5717,7 +5720,7 @@ public sealed class GridNeighborhoodTests
     private static readonly GridPoint Origin = new("AKQ", 83, 61);
 
     [Test]
-    public void Surrounding_returns_eight_cells_for_radius_one()
+    public void SurroundingReturnsEightCellsForRadiusOne()
     {
         var cells = GridNeighborhood.Surrounding(Origin);
 
@@ -5725,7 +5728,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_excludes_the_origin()
+    public void SurroundingExcludesTheOrigin()
     {
         var cells = GridNeighborhood.Surrounding(Origin);
 
@@ -5733,7 +5736,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_returns_the_expected_ring()
+    public void SurroundingReturnsTheExpectedRing()
     {
         var cells = GridNeighborhood.Surrounding(Origin);
 
@@ -5748,7 +5751,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_preserves_the_grid_id()
+    public void SurroundingPreservesTheGridId()
     {
         var cells = GridNeighborhood.Surrounding(Origin);
 
@@ -5756,7 +5759,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_drops_cells_with_negative_indices()
+    public void SurroundingDropsCellsWithNegativeIndices()
     {
         // Origin in the corner: cells at x = -1 or y = -1 must be dropped.
         var corner = new GridPoint("AKQ", 0, 0);
@@ -5772,7 +5775,7 @@ public sealed class GridNeighborhoodTests
     }
 
     [Test]
-    public void Surrounding_with_radius_two_returns_twenty_four_cells()
+    public void SurroundingWithRadiusTwoReturnsTwentyFourCells()
     {
         var cells = GridNeighborhood.Surrounding(Origin, radius: 2);
 
@@ -5783,7 +5786,7 @@ public sealed class GridNeighborhoodTests
     [Test]
     [Arguments(0)]
     [Arguments(-1)]
-    public void Surrounding_rejects_non_positive_radius(int radius) =>
+    public void SurroundingRejectsNonPositiveRadius(int radius) =>
         Should.Throw<ArgumentOutOfRangeException>(() => GridNeighborhood.Surrounding(Origin, radius));
 }
 
@@ -5822,8 +5825,8 @@ MODIFIED: 06/18/2026 08:35:55
 
 ================================================================================
 FILE: tests/Weather.Core.Tests/WeatherTelemetryTests.cs
-SIZE: 2.86 KB
-MODIFIED: 06/17/2026 20:22:59
+SIZE: 2.84 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 using System.Diagnostics.Metrics;
@@ -5834,14 +5837,14 @@ namespace Weather.Core.Tests;
 public sealed class WeatherTelemetryTests
 {
     [Test]
-    public void Names_match_the_constants_registered_with_opentelemetry()
+    public void NamesMatchTheConstantsRegisteredWithOpentelemetry()
     {
         WeatherTelemetry.MeterName.ShouldBe("Weather.Cache");
         WeatherTelemetry.ActivitySourceName.ShouldBe("Weather.Nws");
     }
 
     [Test]
-    public void ActivitySource_uses_the_published_name()
+    public void ActivitySourceUsesThePublishedName()
     {
         using var telemetry = new WeatherTelemetry();
 
@@ -5849,7 +5852,7 @@ public sealed class WeatherTelemetryTests
     }
 
     [Test]
-    public void Cache_hit_and_miss_are_recorded_with_cache_and_result_tags()
+    public void CacheHitAndMissAreRecordedWithCacheAndResultTags()
     {
         using var telemetry = new WeatherTelemetry();
         var measurements = new List<(long Value, string? Cache, string? Result)>();
@@ -5892,7 +5895,7 @@ public sealed class WeatherTelemetryTests
     }
 
     [Test]
-    public void Nws_request_duration_is_recorded_in_the_histogram()
+    public void NwsRequestDurationIsRecordedInTheHistogram()
     {
         using var telemetry = new WeatherTelemetry();
         var recorded = new List<double>();
@@ -5987,8 +5990,8 @@ internal sealed class SqliteCacheHarness : IAsyncDisposable
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
-SIZE: 3.55 KB
-MODIFIED: 06/17/2026 20:28:02
+SIZE: 3.52 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 using Weather.Infrastructure.Caching;
@@ -6016,7 +6019,7 @@ public sealed class SqliteForecastCacheTests
             });
 
     [Test]
-    public async Task Upsert_then_get_round_trips_the_forecast()
+    public async Task UpsertThenGetRoundTripsTheForecast()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqliteForecastCache(harness.Factory);
@@ -6040,7 +6043,7 @@ public sealed class SqliteForecastCacheTests
     }
 
     [Test]
-    public async Task Get_returns_null_for_a_missing_grid()
+    public async Task GetReturnsNullForAMissingGrid()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqliteForecastCache(harness.Factory);
@@ -6049,7 +6052,7 @@ public sealed class SqliteForecastCacheTests
     }
 
     [Test]
-    public async Task Expired_entry_is_returned_but_reports_not_fresh()
+    public async Task ExpiredEntryIsReturnedButReportsNotFresh()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqliteForecastCache(harness.Factory);
@@ -6064,7 +6067,7 @@ public sealed class SqliteForecastCacheTests
     }
 
     [Test]
-    public async Task Upsert_overwrites_an_existing_entry_for_the_same_grid()
+    public async Task UpsertOverwritesAnExistingEntryForTheSameGrid()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqliteForecastCache(harness.Factory);
@@ -6088,7 +6091,7 @@ public sealed class SqliteForecastCacheTests
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Caching/SqlitePointMetadataCacheTests.cs
 SIZE: 3.48 KB
-MODIFIED: 06/17/2026 20:28:19
+MODIFIED: 06/18/2026 08:58:22
 ================================================================================
 
 using Weather.Infrastructure.Caching;
@@ -6111,7 +6114,7 @@ public sealed class SqlitePointMetadataCacheTests
             RadarStation: "KAKQ");
 
     [Test]
-    public async Task Upsert_then_get_round_trips_the_metadata()
+    public async Task UpsertThenGetRoundTripsTheMetadataAsync()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqlitePointMetadataCache(harness.Factory);
@@ -6133,7 +6136,7 @@ public sealed class SqlitePointMetadataCacheTests
     }
 
     [Test]
-    public async Task Nearby_coordinates_collapse_onto_one_row()
+    public async Task NearbyCoordinatesCollapseOntoOneRowAsync()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqlitePointMetadataCache(harness.Factory);
@@ -6152,7 +6155,7 @@ public sealed class SqlitePointMetadataCacheTests
     }
 
     [Test]
-    public async Task Get_returns_null_for_an_unknown_coordinate()
+    public async Task GetReturnsNullForAnUnknownCoordinateAsync()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqlitePointMetadataCache(harness.Factory);
@@ -6161,7 +6164,7 @@ public sealed class SqlitePointMetadataCacheTests
     }
 
     [Test]
-    public async Task Upsert_overwrites_metadata_for_the_same_key()
+    public async Task UpsertOverwritesMetadataForTheSameKeyAsync()
     {
         await using var harness = await SqliteCacheHarness.CreateAsync();
         var cache = new SqlitePointMetadataCache(harness.Factory);
@@ -6362,8 +6365,8 @@ global using Weather.Core.Models;
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
-SIZE: 7.88 KB
-MODIFIED: 06/17/2026 20:24:38
+SIZE: 7.82 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 using System.Net;
@@ -6390,7 +6393,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetPointMetadata_parses_grid_and_location()
+    public async Task GetPointMetadataParsesGridAndLocation()
     {
         var handler = new StubHttpMessageHandler(_ =>
             StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
@@ -6409,7 +6412,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetPointMetadata_requests_the_rounded_coordinate_path()
+    public async Task GetPointMetadataRequestsTheRoundedCoordinatePath()
     {
         var handler = new StubHttpMessageHandler(_ =>
             StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
@@ -6423,7 +6426,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetPointMetadata_returns_null_when_uncovered()
+    public async Task GetPointMetadataReturnsNullWhenUncovered()
     {
         var handler = new StubHttpMessageHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.NotFound));
@@ -6436,7 +6439,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetPointMetadata_returns_null_on_server_error()
+    public async Task GetPointMetadataReturnsNullOnServerError()
     {
         var handler = new StubHttpMessageHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.InternalServerError));
@@ -6447,7 +6450,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_success_maps_periods_etag_and_maxage()
+    public async Task GetForecastSuccessMapsPeriodsEtagAndMaxage()
     {
         var handler = new StubHttpMessageHandler(_ =>
         {
@@ -6483,7 +6486,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_requests_the_grid_forecast_path()
+    public async Task GetForecastRequestsTheGridForecastPath()
     {
         var handler = new StubHttpMessageHandler(_ =>
             StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
@@ -6496,7 +6499,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_sends_conditional_header_and_maps_304()
+    public async Task GetForecastSendsConditionalHeaderAndMaps304()
     {
         const string etag = "\"abc123\"";
         var handler = new StubHttpMessageHandler(_ =>
@@ -6520,7 +6523,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_without_etag_sends_no_conditional_header()
+    public async Task GetForecastWithoutEtagSendsNoConditionalHeader()
     {
         var handler = new StubHttpMessageHandler(_ =>
             StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
@@ -6533,7 +6536,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_maps_404_to_NotFound()
+    public async Task GetForecastMaps404ToNotFound()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
         using var telemetry = new WeatherTelemetry();
@@ -6543,7 +6546,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_maps_429_to_Unavailable()
+    public async Task GetForecastMaps429ToUnavailable()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests));
         using var telemetry = new WeatherTelemetry();
@@ -6553,7 +6556,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_maps_500_to_Unavailable()
+    public async Task GetForecastMaps500ToUnavailable()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
         using var telemetry = new WeatherTelemetry();
@@ -6563,7 +6566,7 @@ public sealed class NwsApiClientTests
     }
 
     [Test]
-    public async Task GetForecast_maps_transport_failure_to_Unavailable()
+    public async Task GetForecastMapsTransportFailureToUnavailable()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))
         {
@@ -6580,8 +6583,8 @@ public sealed class NwsApiClientTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/NeighborhoodWarmerTests.cs
-SIZE: 4.25 KB
-MODIFIED: 06/17/2026 20:30:41
+SIZE: 4.21 KB
+MODIFIED: 06/18/2026 08:54:33
 ================================================================================
 
 using System.Collections.Concurrent;
@@ -6602,7 +6605,7 @@ public sealed class NeighborhoodWarmerTests
     private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
 
     [Test]
-    public async Task RequestWarming_enqueues_the_origin_for_the_reader()
+    public async Task RequestWarmingEnqueuesTheOriginForTheReader()
     {
         var warmer = new NeighborhoodWarmer(NullLogger<NeighborhoodWarmer>.Instance);
 
@@ -6612,7 +6615,7 @@ public sealed class NeighborhoodWarmerTests
     }
 
     [Test]
-    public async Task BackgroundService_warms_all_eight_neighbours()
+    public async Task BackgroundServiceWarmsAllEightNeighbours()
     {
         var bag = new ConcurrentBag<GridPoint>();
         var fakeWeather = Substitute.For<IWeatherService>();
@@ -6631,7 +6634,7 @@ public sealed class NeighborhoodWarmerTests
     }
 
     [Test]
-    public async Task BackgroundService_skips_cells_that_are_already_fresh()
+    public async Task BackgroundServiceSkipsCellsThatAreAlreadyFresh()
     {
         var freshA = new GridPoint("AKQ", 82, 60);
         var freshB = new GridPoint("AKQ", 84, 62);
@@ -6647,7 +6650,7 @@ public sealed class NeighborhoodWarmerTests
 
         var forecastCache = Substitute.For<IForecastCache>();
         var fresh = new CachedForecast(
-            new Forecast(freshA, Now, Now, Array.Empty<ForecastPeriod>()), "\"e\"", Now, Now.AddHours(1));
+            new Forecast(freshA, Now, Now, []), "\"e\"", Now, Now.AddHours(1));
         forecastCache.GetAsync(freshA, Arg.Any<CancellationToken>()).Returns(fresh);
         forecastCache.GetAsync(freshB, Arg.Any<CancellationToken>()).Returns(fresh);
 
@@ -6705,8 +6708,8 @@ public sealed class NeighborhoodWarmerTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
-SIZE: 9.49 KB
-MODIFIED: 06/17/2026 20:29:48
+SIZE: 9.42 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -6763,7 +6766,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_on_full_miss_fetches_stores_and_schedules_warming()
+    public async Task GetForecastOnFullMissFetchesStoresAndSchedulesWarming()
     {
         var h = new Harness();
         h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(Meta());
@@ -6780,7 +6783,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_with_fresh_metadata_does_not_call_points()
+    public async Task GetForecastWithFreshMetadataDoesNotCallPoints()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -6792,7 +6795,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_with_fresh_forecast_does_not_call_forecast()
+    public async Task GetForecastWithFreshForecastDoesNotCallForecast()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -6805,7 +6808,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_stale_then_not_modified_renews_ttl_and_returns_cached()
+    public async Task GetForecastStaleThenNotModifiedRenewsTtlAndReturnsCached()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -6826,7 +6829,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_stale_then_unavailable_serves_stale_without_upsert()
+    public async Task GetForecastStaleThenUnavailableServesStaleWithoutUpsert()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -6842,7 +6845,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_not_found_without_cache_returns_null()
+    public async Task GetForecastNotFoundWithoutCacheReturnsNull()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
@@ -6853,7 +6856,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_with_unresolvable_metadata_and_no_cache_returns_null()
+    public async Task GetForecastWithUnresolvableMetadataAndNoCacheReturnsNull()
     {
         var h = new Harness();
         // metadata cache empty + NWS resolve returns null
@@ -6867,7 +6870,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecast_with_unresolvable_metadata_but_stale_cache_serves_stale_metadata()
+    public async Task GetForecastWithUnresolvableMetadataButStaleCacheServesStaleMetadata()
     {
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(StaleMeta());
@@ -6883,7 +6886,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetNeighborhood_returns_only_already_fresh_neighbors()
+    public async Task GetNeighborhoodReturnsOnlyAlreadyFreshNeighbors()
     {
         var h = new Harness();
         var neighborA = new GridPoint("AKQ", 82, 61);
@@ -6905,7 +6908,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetNeighborhood_without_metadata_returns_null()
+    public async Task GetNeighborhoodWithoutMetadataReturnsNull()
     {
         var h = new Harness();
         h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
@@ -6915,7 +6918,7 @@ public sealed class WeatherServiceTests
     }
 
     [Test]
-    public async Task GetForecastByGrid_does_not_schedule_warming()
+    public async Task GetForecastByGridDoesNotScheduleWarming()
     {
         var h = new Harness();
         h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
@@ -7069,8 +7072,8 @@ global using Weather.Web.Services;
 
 ================================================================================
 FILE: tests/Weather.Web.Tests/HomePageTests.cs
-SIZE: 5.37 KB
-MODIFIED: 06/17/2026 20:34:27
+SIZE: 5.31 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 using Bunit;
@@ -7105,7 +7108,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_permission_denied_the_manual_entry_form_is_shown()
+    public void WhenPermissionDeniedTheManualEntryFormIsShown()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PermissionDenied)),
@@ -7118,7 +7121,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_position_unavailable_the_manual_entry_form_is_shown()
+    public void WhenPositionUnavailableTheManualEntryFormIsShown()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PositionUnavailable)),
@@ -7130,7 +7133,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_location_and_api_succeed_the_forecast_is_rendered()
+    public void WhenLocationAndApiSucceedTheForecastIsRendered()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(Success()),
@@ -7144,7 +7147,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_the_api_reports_no_coverage_the_not_covered_state_is_shown()
+    public void WhenTheApiReportsNoCoverageTheNotCoveredStateIsShown()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(Success()),
@@ -7156,7 +7159,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void When_the_api_throws_the_error_state_is_shown()
+    public void WhenTheApiThrowsTheErrorStateIsShown()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(Success()),
@@ -7168,7 +7171,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void While_geolocation_is_pending_the_locating_state_is_shown_then_resolves()
+    public void WhileGeolocationIsPendingTheLocatingStateIsShownThenResolves()
     {
         var (geo, gate) = FakeGeolocationService.Gated();
         using var ctx = CreateContext(geo, FakeWeatherApiClient.Returning(SampleForecast()));
@@ -7184,7 +7187,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void Manual_submission_loads_the_forecast()
+    public void ManualSubmissionLoadsTheForecast()
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PermissionDenied)),
@@ -7202,7 +7205,7 @@ public sealed class HomePageTests
     }
 
     [Test]
-    public void Use_sample_button_requests_the_sample_coordinates()
+    public void UseSampleButtonRequestsTheSampleCoordinates()
     {
         var api = FakeWeatherApiClient.Returning(SampleForecast());
         using var ctx = CreateContext(
@@ -7224,8 +7227,8 @@ public sealed class HomePageTests
 
 ================================================================================
 FILE: tests/Weather.Web.Tests/SkyPaletteTests.cs
-SIZE: 2.71 KB
-MODIFIED: 06/18/2026 06:25:16
+SIZE: 2.67 KB
+MODIFIED: 06/18/2026 08:54:08
 ================================================================================
 
 namespace Weather.Web.Tests;
@@ -7253,7 +7256,7 @@ public sealed class SkyPaletteTests
     [Arguments("Snow", true, "Snow")]
     [Arguments("Chance Snow Showers", false, "Snow")]
     [Arguments("Wintry Mix", true, "Snow")]
-    public void ForPeriod_maps_short_forecast_to_a_sky_state(string shortForecast, bool isDaytime, string expectedLabel)
+    public void ForPeriodMapsShortForecastToASkyState(string shortForecast, bool isDaytime, string expectedLabel)
     {
         var theme = SkyPalette.ForPeriod(isDaytime, shortForecast);
 
@@ -7261,7 +7264,7 @@ public sealed class SkyPaletteTests
     }
 
     [Test]
-    public void ForPeriod_is_case_insensitive()
+    public void ForPeriodIsCaseInsensitive()
     {
         SkyPalette.ForPeriod(true, "RAIN").Label.ShouldBe("Rain");
         SkyPalette.ForPeriod(true, "sUnNy").Label.ShouldBe("Clear");
@@ -7271,11 +7274,11 @@ public sealed class SkyPaletteTests
     [Arguments((string?)null)]
     [Arguments("")]
     [Arguments("   ")]
-    public void ForPeriod_defaults_to_clear_when_text_is_missing(string? shortForecast) =>
+    public void ForPeriodDefaultsToClearWhenTextIsMissing(string? shortForecast) =>
         SkyPalette.ForPeriod(true, shortForecast).Label.ShouldBe("Clear");
 
     [Test]
-    public void ForPeriod_always_produces_non_empty_colours()
+    public void ForPeriodAlwaysProducesNonEmptyColours()
     {
         var theme = SkyPalette.ForPeriod(true, "Sunny");
 
@@ -7286,7 +7289,7 @@ public sealed class SkyPaletteTests
     }
 
     [Test]
-    public void ForPeriod_uses_distinct_gradients_for_day_and_night()
+    public void ForPeriodUsesDistinctGradientsForDayAndNight()
     {
         var day = SkyPalette.ForPeriod(true, "Clear");
         var night = SkyPalette.ForPeriod(false, "Clear");
@@ -7295,7 +7298,7 @@ public sealed class SkyPaletteTests
     }
 
     [Test]
-    public void Thunderstorms_take_precedence_over_rain_keywords()
+    public void ThunderstormsTakePrecedenceOverRainKeywords()
     {
         // "Showers And Thunderstorms" contains both "shower" and "thunder";
         // the stormier reading must win.
@@ -7303,7 +7306,7 @@ public sealed class SkyPaletteTests
     }
 
     [Test]
-    public void Snow_takes_precedence_over_shower_keywords()
+    public void SnowTakesPrecedenceOverShowerKeywords()
     {
         SkyPalette.ForPeriod(false, "Snow Showers").Label.ShouldBe("Snow");
     }
@@ -7376,7 +7379,7 @@ MODIFIED: 06/17/2026 15:08:47
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/18/2026 08:49:15
+EXPORT COMPLETED: 06/18/2026 09:01:16
 Total Files Exported: 110
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
