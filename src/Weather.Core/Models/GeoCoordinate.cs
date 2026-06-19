@@ -3,14 +3,12 @@ using System.Text.Json.Serialization;
 
 namespace Weather.Core.Models;
 
-/// <summary>
-/// A validated WGS-84 latitude/longitude pair.
-/// </summary>
 public readonly record struct GeoCoordinate
 {
     public double Latitude { get; }
     public double Longitude { get; }
 
+    [JsonConstructor]
     public GeoCoordinate(double latitude, double longitude)
     {
         if (double.IsNaN(latitude) || latitude is < -90 or > 90)

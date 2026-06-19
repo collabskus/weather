@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/19/2026 13:01:52
+Generated: 06/19/2026 13:04:52
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -2117,8 +2117,8 @@ public sealed record ForecastPeriod(
 
 ================================================================================
 FILE: src/Weather.Core/Models/GeoCoordinate.cs
-SIZE: 2.92 KB
-MODIFIED: 06/19/2026 13:00:48
+SIZE: 2.86 KB
+MODIFIED: 06/19/2026 13:04:19
 ================================================================================
 
 using System.Globalization;
@@ -2126,14 +2126,12 @@ using System.Text.Json.Serialization;
 
 namespace Weather.Core.Models;
 
-/// <summary>
-/// A validated WGS-84 latitude/longitude pair.
-/// </summary>
 public readonly record struct GeoCoordinate
 {
     public double Latitude { get; }
     public double Longitude { get; }
 
+    [JsonConstructor]
     public GeoCoordinate(double latitude, double longitude)
     {
         if (double.IsNaN(latitude) || latitude is < -90 or > 90)
@@ -10119,7 +10117,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/19/2026 13:01:53
+EXPORT COMPLETED: 06/19/2026 13:04:53
 Total Files Exported: 125
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
