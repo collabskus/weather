@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/19/2026 12:54:19
+Generated: 06/19/2026 13:01:52
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -32,6 +32,7 @@ docs/FRONTEND.md
 docs/llm/dump.txt
 docs/llm/output.txt
 docs/llm/vendor/claude-conversations.md
+docs/llm/vendor/gemini-conversations.md
 docs/OBSERVABILITY.md
 export.ps1
 global.json
@@ -818,8 +819,8 @@ MODIFIED: 06/19/2026 08:36:12
 
 ================================================================================
 FILE: Directory.Packages.props
-SIZE: 2.27 KB
-MODIFIED: 06/19/2026 12:53:16
+SIZE: 2.34 KB
+MODIFIED: 06/19/2026 13:00:24
 ================================================================================
 
 <Project>
@@ -862,6 +863,7 @@ MODIFIED: 06/19/2026 12:53:16
   </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="SourceGear.sqlite3" Version="3.50.4.5" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
   </ItemGroup>
 </Project>
 
@@ -2115,11 +2117,12 @@ public sealed record ForecastPeriod(
 
 ================================================================================
 FILE: src/Weather.Core/Models/GeoCoordinate.cs
-SIZE: 2.88 KB
-MODIFIED: 06/19/2026 08:52:28
+SIZE: 2.92 KB
+MODIFIED: 06/19/2026 13:00:48
 ================================================================================
 
 using System.Globalization;
+using System.Text.Json.Serialization;
 
 namespace Weather.Core.Models;
 
@@ -10116,7 +10119,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/19/2026 12:54:20
+EXPORT COMPLETED: 06/19/2026 13:01:53
 Total Files Exported: 125
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
