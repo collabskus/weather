@@ -21,4 +21,12 @@ public interface IWeatherApiClient
     /// </summary>
     Task<NeighborhoodDto?> GetNeighborhoodAsync(
         double latitude, double longitude, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The full area view: the user's cell plus every neighbouring cell ordered
+    /// by distance, each with its full data, and any active alerts. Returns
+    /// <c>null</c> when the location is outside NWS coverage.
+    /// </summary>
+    Task<AreaDto?> GetAreaAsync(
+        double latitude, double longitude, CancellationToken cancellationToken = default);
 }

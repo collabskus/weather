@@ -1,60 +1,33 @@
 # Weather.Core
 
-The domain core. Pure models and abstractions with **no I/O and no framework
-dependencies** — everything here could be unit-tested without a network, a
-database, or a web host. Implementations live in
-[`Weather.Infrastructure`](../Weather.Infrastructure/README.md).
+The domain core. It holds the models, abstractions, and telemetry primitives the
+rest of the solution is built on, and **depends on nothing else** — no ASP.NET,
+no SQLite, no NWS specifics. Everything here is plain, testable C#.
 
-## What's in here
+## Contents
 
-### Models (`Models/`)
+- **Models/** — immutable domain records:
+  - `GeoCoordinate` (validated lat/lon, with `DistanceMetersTo` haversine),
+    `GridPoint`, `PointMetadata`.
+  - `Forecast`, `ForecastPeriod`, `ForecastFetchResult` (the success / not-modified
+    / unavailable / not-found outcome of a fetch, with an optional cell centre).
+  - `Observation` and `WeatherAlert` (US-unit observation fields and the
+    point-based alert shape).
+  - `CellExtras` (hourly + observation + centre for one cell), `CellWeather` (one
+    fully-assembled cell), `AreaForecast` (primary + distance-ordered neighbours +
+    alerts), `NeighborhoodForecast`.
+  - `CachedForecast`, `CachedPointMetadata` (cached envelopes with retrieval/expiry
+    instants), and `GridNeighborhood` (pure geometry for the surrounding ring).
+- **Abstractions/** — the seams the infrastructure implements: `INwsApiClient`,
+  `IPointMetadataCache`, `IForecastCache`, `ICellExtrasCache`, `IWeatherService`,
+  `INeighborhoodWarmer`.
+- **Telemetry/** — `WeatherTelemetry`, which owns the `Weather.Cache` meter and
+  the `Weather.Nws` activity source and exposes typed `Record…` methods for cache
+  hits/misses, NWS request latency/status, throttling, and errors.
 
-- **`GeoCoordinate`** — a validated `readonly record struct` (latitude/longitude,
-  rejecting out-of-range and `NaN`). Knows how to round itself to four decimals
-  (`Rounded()`), which is the basis of the cache key, and how to format itself
-  for the NWS API with the invariant culture (`ToApiString()`), so a comma
-  decimal separator can never leak in under a non-US culture.
-- **`GridPoint`** — an NWS forecast grid cell `(GridId, GridX, GridY)`.
-- **`GridNeighborhood`** — the geometry of the surrounding cells
-  (`Surrounding(origin, radius = 1)` → the ring minus the origin, dropping
-  negative indices at the grid edge). This is what the background warmer fans
-  out over.
-- **`Forecast`** / **`ForecastPeriod`** — the domain forecast and its periods.
-- **`PointMetadata`** — the resolved coordinate→grid mapping plus location
-  details (city/state/time-zone/radar).
-- **`NeighborhoodForecast`** — a primary forecast plus already-warm neighbours.
-- **`CachedForecast`** / **`CachedPointMetadata`** — cache envelopes carrying the
-  payload, ETag (forecasts), and retrieved/expiry timestamps, with an
-  `IsFresh(now)` test.
-- **`ForecastFetchResult`** — the outcome of an NWS fetch as a small state
-  machine: `Success`, `NotModified`, `NotFound`, `Unavailable`. This is how the
-  HTTP layer tells the orchestrator what happened without leaking HTTP details.
+## Why it's isolated
 
-### Abstractions (`Abstractions/`)
-
-- **`IWeatherService`** — the orchestration surface used by the API.
-- **`INwsApiClient`** — the NWS HTTP client contract.
-- **`IForecastCache`** / **`IPointMetadataCache`** — the two cache tiers.
-- **`INeighborhoodWarmer`** — the background warming queue.
-
-### Telemetry (`Telemetry/`)
-
-- **`WeatherTelemetry`** — owns the app-specific `Meter` ("Weather.Cache") and
-  `ActivitySource` ("Weather.Nws") and the methods that record cache hit/miss,
-  NWS request duration, throttling, errors, and neighbour-warming. The names are
-  registered with OpenTelemetry by the API host.
-
-## Design notes
-
-- Time comes from the BCL **`TimeProvider`** (passed in, never `DateTime.UtcNow`
-  directly), so any freshness logic built on these models is deterministic under
-  test.
-- The cache key strategy lives on `GeoCoordinate` itself (`Rounded().ToCacheKey()`),
-  keeping "physically close users share a row" a property of the domain rather
-  than of the storage layer.
-
-## Tested by
-
-[`Weather.Core.Tests`](../../tests/Weather.Core.Tests/) — validation and
-boundary behaviour, neighbourhood geometry, fetch-result factories, and the
-telemetry instruments (verified with a `MeterListener`).
+Keeping the domain free of framework and vendor types means the cache-aside
+policy, the neighbourhood geometry, and the fetch-outcome modelling can be unit
+tested without a web host, a database, or the network — see
+`tests/Weather.Core.Tests`.

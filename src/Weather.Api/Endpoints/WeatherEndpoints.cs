@@ -12,6 +12,10 @@ namespace Weather.Api.Endpoints;
 /// </summary>
 public static class WeatherEndpoints
 {
+    // Cap the neighbourhood radius an HTTP caller can request (1 => 8 cells,
+    // 2 => 24). Bounds the worst-case upstream fan-out for a cold area.
+    private const int MaxRadius = 3;
+
     public static IEndpointRouteBuilder MapWeatherEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/forecast").WithTags("Forecast");
@@ -25,6 +29,11 @@ public static class WeatherEndpoints
             .WithName("GetNeighborhoodForecast")
             .WithSummary("Forecast for a coordinate plus any already-warm adjacent cells.")
             .WithDescription("Returns the primary cell immediately and includes neighbouring cells only if they were already warmed in the background.");
+
+        group.MapGet("/area", GetAreaForecastAsync)
+            .WithName("GetAreaForecast")
+            .WithSummary("The user's cell and every neighbouring cell — ordered by distance — with all of their data.")
+            .WithDescription("Resolves the coordinate to a grid cell, then returns that cell plus every cell within the requested radius (ordered by distance from the user), each with its daily forecast, hourly forecast and latest observation, along with any active alerts. Every cell is served cache-aside.");
 
         return endpoints;
     }
@@ -67,6 +76,35 @@ public static class WeatherEndpoints
         return neighborhood is null
             ? TypedResults.NotFound()
             : TypedResults.Ok(NeighborhoodResponse.FromDomain(neighborhood));
+    }
+
+    private static async Task<Results<Ok<AreaResponse>, ProblemHttpResult, NotFound>> GetAreaForecastAsync(
+        double latitude,
+        double longitude,
+        IWeatherService weatherService,
+        CancellationToken cancellationToken,
+        int radius = 1)
+    {
+        if (!GeoCoordinate.IsValid(latitude, longitude))
+        {
+            return InvalidCoordinates();
+        }
+
+        if (radius is < 1 or > MaxRadius)
+        {
+            return TypedResults.Problem(
+                title: "Invalid radius",
+                detail: $"Radius must be between 1 and {MaxRadius}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var area = await weatherService
+            .GetAreaForecastAsync(new GeoCoordinate(latitude, longitude), radius, cancellationToken)
+            .ConfigureAwait(false);
+
+        return area is null
+            ? TypedResults.NotFound()
+            : TypedResults.Ok(AreaResponse.FromDomain(area));
     }
 
     private static ProblemHttpResult InvalidCoordinates() => TypedResults.Problem(

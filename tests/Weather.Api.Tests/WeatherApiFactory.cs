@@ -30,6 +30,8 @@ internal sealed class WeatherApiFactory : WebApplicationFactory<Program>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Cache:ConnectionString"] = $"Data Source={_databasePath}",
+                // Keep tests offline: never attempt to export telemetry to Uptrace.
+                ["Uptrace:Enabled"] = "false",
             });
         });
 

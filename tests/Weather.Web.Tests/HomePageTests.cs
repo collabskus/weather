@@ -8,15 +8,39 @@ namespace Weather.Web.Tests;
 
 public sealed class HomePageTests
 {
-    private static ForecastDto SampleForecast() => new(
-        "AKQ", 83, 61, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-        new[]
+    private static ForecastPeriodDto Period(int number, string name, bool day, int temp, int? pop, string short_) =>
+        new(number, name, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(1),
+            day, temp, "F", pop, "5 mph", "S", short_, $"{short_}.", "icon");
+
+    private static CellDto SamplePrimary() => new(
+        "AKQ", 83, 61, 37.0900, -76.4500, null,
+        DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+        Periods: new[]
         {
-            new ForecastPeriodDto(1, "This Afternoon", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(4),
-                true, 90, "F", 3, "5 mph", "S", "Sunny", "Sunny, with a high near 90.", "icon-day"),
-            new ForecastPeriodDto(2, "Tonight", DateTimeOffset.UtcNow.AddHours(4), DateTimeOffset.UtcNow.AddHours(16),
-                false, 74, "F", null, "12 mph", "S", "Mostly Clear", "Mostly clear.", "icon-night"),
-        });
+            Period(1, "This Afternoon", true, 90, 3, "Sunny"),
+            Period(2, "Tonight", false, 74, null, "Mostly Clear"),
+        },
+        Hourly: new[]
+        {
+            Period(1, string.Empty, true, 90, 2, "Sunny"),
+            Period(2, string.Empty, true, 89, 2, "Sunny"),
+        },
+        Observation: new ObservationDto(
+            "KPHF", "Newport News", DateTimeOffset.UtcNow, "Sunny", "icon-obs",
+            88, 70, 55, 8, 14, "S", 30.05, 10.0));
+
+    private static CellDto SampleNeighbor() => new(
+        "AKQ", 84, 61, 37.1100, -76.4500, 2400,
+        DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+        Periods: new[] { Period(1, "This Afternoon", true, 89, 4, "Sunny") },
+        Hourly: Array.Empty<ForecastPeriodDto>(),
+        Observation: null);
+
+    private static AreaDto SampleArea() => new(
+        37.0879, -76.4505, "Bethel Manor", "VA", "America/New_York", "KAKQ",
+        Primary: SamplePrimary(),
+        Neighbors: new[] { SampleNeighbor() },
+        Alerts: Array.Empty<AlertDto>());
 
     private static GeolocationResult Success() =>
         new(true, 37.0879, -76.4505, 12, GeolocationError.None);
@@ -34,7 +58,7 @@ public sealed class HomePageTests
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PermissionDenied)),
-            FakeWeatherApiClient.Returning(SampleForecast()));
+            FakeWeatherApiClient.Returning(SampleArea()));
 
         var cut = ctx.RenderComponent<Home>();
 
@@ -47,7 +71,7 @@ public sealed class HomePageTests
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PositionUnavailable)),
-            FakeWeatherApiClient.Returning(SampleForecast()));
+            FakeWeatherApiClient.Returning(SampleArea()));
 
         var cut = ctx.RenderComponent<Home>();
 
@@ -59,13 +83,29 @@ public sealed class HomePageTests
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(Success()),
-            FakeWeatherApiClient.Returning(SampleForecast()));
+            FakeWeatherApiClient.Returning(SampleArea()));
 
         var cut = ctx.RenderComponent<Home>();
 
         cut.WaitForAssertion(() => cut.Find("[data-testid=forecast]"));
         cut.Find("[data-testid=hero-temp]").TextContent.ShouldContain("90");
         cut.Markup.ShouldContain("AKQ");
+    }
+
+    [Test]
+    public void TheForecastRendersHourlyObservationAndNeighbourTiles()
+    {
+        using var ctx = CreateContext(
+            FakeGeolocationService.Returning(Success()),
+            FakeWeatherApiClient.Returning(SampleArea()));
+
+        var cut = ctx.RenderComponent<Home>();
+
+        cut.WaitForAssertion(() => cut.Find("[data-testid=forecast]"));
+        cut.FindAll("[data-testid=observation]").ShouldNotBeEmpty();
+        cut.FindAll("[data-testid=hourly]").ShouldNotBeEmpty();
+        cut.FindAll("[data-testid=neighbors]").ShouldNotBeEmpty();
+        cut.FindAll("[data-testid=neighbor-tile]").Count.ShouldBe(1);
     }
 
     [Test]
@@ -96,14 +136,12 @@ public sealed class HomePageTests
     public void WhileGeolocationIsPendingTheLocatingStateIsShownThenResolves()
     {
         var (geo, gate) = FakeGeolocationService.Gated();
-        using var ctx = CreateContext(geo, FakeWeatherApiClient.Returning(SampleForecast()));
+        using var ctx = CreateContext(geo, FakeWeatherApiClient.Returning(SampleArea()));
 
         var cut = ctx.RenderComponent<Home>();
 
-        // Before the browser answers, the "finding your location" state is up.
         cut.WaitForAssertion(() => cut.Find("[data-testid=state-locating]"));
 
-        // Browser answers → forecast loads.
         gate.SetResult(Success());
         cut.WaitForAssertion(() => cut.Find("[data-testid=forecast]"));
     }
@@ -113,12 +151,11 @@ public sealed class HomePageTests
     {
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PermissionDenied)),
-            FakeWeatherApiClient.Returning(SampleForecast()));
+            FakeWeatherApiClient.Returning(SampleArea()));
 
         var cut = ctx.RenderComponent<Home>();
         cut.WaitForAssertion(() => cut.Find("[data-testid=manual-entry]"));
 
-        // Re-query each element to avoid acting on a stale reference after re-render.
         cut.FindAll("[data-testid=manual-entry] input")[0].Input("37.0879");
         cut.FindAll("[data-testid=manual-entry] input")[1].Input("-76.4505");
         cut.FindAll("[data-testid=manual-entry] button")[0].Click();
@@ -129,7 +166,7 @@ public sealed class HomePageTests
     [Test]
     public void UseSampleButtonRequestsTheSampleCoordinates()
     {
-        var api = FakeWeatherApiClient.Returning(SampleForecast());
+        var api = FakeWeatherApiClient.Returning(SampleArea());
         using var ctx = CreateContext(
             FakeGeolocationService.Returning(GeolocationResult.Failed(GeolocationError.PermissionDenied)),
             api);

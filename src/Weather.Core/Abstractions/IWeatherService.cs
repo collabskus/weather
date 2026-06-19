@@ -24,6 +24,17 @@ public interface IWeatherService
         GeoCoordinate coordinate, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The full "area" view: the user's own cell with all of its data (daily
+    /// forecast, hourly forecast, latest observation), every neighbouring cell
+    /// within <paramref name="radius"/> ordered by distance from the user and
+    /// carrying the same full data, and any active alerts for the point. Each
+    /// cell is served cache-aside, so repeat views are cheap and NWS is not
+    /// hammered. Returns <c>null</c> if NWS does not cover the location.
+    /// </summary>
+    Task<AreaForecast?> GetAreaForecastAsync(
+        GeoCoordinate coordinate, int radius = 1, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Cache-aside forecast fetch for a known grid cell, WITHOUT triggering
     /// further warming. Used by the background warmer to avoid recursion.
     /// </summary>

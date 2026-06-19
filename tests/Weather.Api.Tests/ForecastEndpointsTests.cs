@@ -59,6 +59,36 @@ public sealed class ForecastEndpointsTests : IDisposable
         body!.Primary.GridId.ShouldBe("AKQ");
     }
 
+    [Test]
+    public async Task GetAreaReturns200WithPrimaryNeighborsHourlyAndObservation()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/forecast/area?latitude=37.0879&longitude=-76.4505");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiArea>();
+        body.ShouldNotBeNull();
+        body!.Primary.GridId.ShouldBe("AKQ");
+        body.Primary.Periods.ShouldNotBeEmpty();
+        body.Primary.Hourly.ShouldNotBeEmpty();
+        body.Primary.Observation.ShouldNotBeNull();
+        body.Primary.Observation!.TemperatureF.ShouldBe(88);
+        // The 3x3 ring around AKQ/83,61 has eight neighbours; all resolve via the fake.
+        body.Neighbors.Count.ShouldBe(8);
+    }
+
+    [Test]
+    public async Task GetAreaWithInvalidRadiusReturns400()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/forecast/area?latitude=37.0879&longitude=-76.4505&radius=9");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
     public void Dispose() => _factory.Dispose();
 
     // Minimal mirrors of the API's camelCase JSON contract for assertions.
@@ -67,4 +97,21 @@ public sealed class ForecastEndpointsTests : IDisposable
     private sealed record ApiPeriod(int Temperature, string ShortForecast);
 
     private sealed record ApiNeighborhood(double Latitude, double Longitude, ApiForecast Primary);
+
+    private sealed record ApiArea(
+        double Latitude,
+        double Longitude,
+        ApiCell Primary,
+        IReadOnlyList<ApiCell> Neighbors,
+        IReadOnlyList<ApiAlert> Alerts);
+
+    private sealed record ApiCell(
+        string GridId,
+        IReadOnlyList<ApiPeriod> Periods,
+        IReadOnlyList<ApiPeriod> Hourly,
+        ApiObservation? Observation);
+
+    private sealed record ApiObservation(int? TemperatureF, int? RelativeHumidity, string? WindDirection);
+
+    private sealed record ApiAlert(string Id, string Event);
 }

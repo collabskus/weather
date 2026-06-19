@@ -674,3 +674,277 @@ a {
     float: right;
     font-weight: 700;
 }
+
+/* ============================================================================
+   Additions: alerts, current conditions, hourly strip, neighbouring tiles.
+   All reuse the existing tokens; nothing above this line was changed.
+   ========================================================================== */
+
+.app-footer__link {
+    color: var(--ink-soft);
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.app-footer__link:hover {
+    color: var(--ink);
+}
+
+/* --- Active alerts ------------------------------------------------------ */
+
+.alerts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 1.1rem;
+}
+
+.alert {
+    border: 1px solid var(--line-strong);
+    border-left-width: 5px;
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    padding: 0.7rem 0.95rem;
+    box-shadow: var(--shadow);
+}
+
+.alert--minor    { border-left-color: #9aa7b4; }
+.alert--moderate { border-left-color: #e7a132; }
+.alert--severe   { border-left-color: #e2683c; }
+.alert--extreme  { border-left-color: #c4314b; }
+
+.alert__summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    cursor: pointer;
+    list-style: none;
+}
+
+.alert__summary::-webkit-details-marker {
+    display: none;
+}
+
+.alert__event {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.alert__sev {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+}
+
+.alert__headline {
+    margin: 0.5rem 0 0;
+    font-weight: 500;
+}
+
+.alert__area,
+.alert__text {
+    margin: 0.4rem 0 0;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+    white-space: pre-line;
+}
+
+.alert__meta {
+    margin: 0.6rem 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+}
+
+/* --- Current observation ------------------------------------------------ */
+
+.obs {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.4rem;
+}
+
+.obs__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+}
+
+.obs__title {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.obs__sub {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+}
+
+.obs__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.7rem 1rem;
+}
+
+.obs__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.obs__label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+}
+
+.obs__value {
+    font-weight: 600;
+}
+
+/* --- Hourly strip ------------------------------------------------------- */
+
+.hourly {
+    margin-bottom: 1.4rem;
+}
+
+.hourly__strip {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.4rem;
+    scroll-snap-type: x proximity;
+}
+
+.hourly__cell {
+    flex: 0 0 auto;
+    width: 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.6rem 0.3rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    scroll-snap-align: start;
+}
+
+.hourly__time {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+}
+
+.hourly__chip {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--chip, var(--line-strong));
+    box-shadow: inset 0 0 0 1px rgba(17, 32, 46, 0.08);
+}
+
+.hourly__temp {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.hourly__pop {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--ink-faint);
+}
+
+/* --- Neighbouring tiles ------------------------------------------------- */
+
+.neighbors {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: 1.6rem;
+}
+
+.tile {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.tile[open] {
+    border-color: var(--line-strong);
+}
+
+.tile__summary {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 1.1rem;
+    cursor: pointer;
+    list-style: none;
+}
+
+.tile__summary::-webkit-details-marker {
+    display: none;
+}
+
+.tile__chip {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--chip, var(--line-strong));
+    flex: 0 0 auto;
+    box-shadow: inset 0 0 0 1px rgba(17, 32, 46, 0.08);
+}
+
+.tile__id {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    flex: 0 0 auto;
+}
+
+.tile__now {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.92rem;
+}
+
+.tile__dist {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    flex: 0 0 auto;
+}
+
+.tile__body {
+    padding: 0 1.1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    border-top: 1px solid var(--line);
+}
+
+.tile__obs {
+    margin: 0.9rem 0 0;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+}
+
+.tile__hourly {
+    margin-top: 0.2rem;
+}

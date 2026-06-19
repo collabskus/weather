@@ -38,6 +38,7 @@ public sealed class WeatherServiceTests
     {
         public IPointMetadataCache MetadataCache { get; } = Substitute.For<IPointMetadataCache>();
         public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
+        public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
         public WeatherService Service { get; }
@@ -45,7 +46,7 @@ public sealed class WeatherServiceTests
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }

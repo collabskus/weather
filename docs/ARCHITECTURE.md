@@ -1,163 +1,106 @@
 # Architecture
 
-This document explains how the weather dashboard is put together and, in
-particular, the three design decisions that shape it: how forecasts are cached,
-how a neighbourhood of grid cells is warmed without slowing the user down, and
-how the whole thing is made observable.
+This document records the three decisions that shape the system and how they are
+implemented. It is written to match the code in this repository; the per-project
+READMEs go deeper on each layer.
 
-## The shape of the system
+## Shape
 
-```mermaid
-flowchart LR
-    Browser["Browser<br/>(geolocation)"] -->|lat, lon| Web["Weather.Web<br/>Blazor Server"]
-    Web -->|GET /api/forecast| Api["Weather.Api<br/>Minimal API"]
-    Api --> Svc["WeatherService<br/>(cache-aside)"]
-    Svc --> MetaCache[("PointMetadata<br/>cache (SQLite)")]
-    Svc --> FcCache[("GridForecast<br/>cache (SQLite)")]
-    Svc --> Nws["NwsApiClient<br/>(resilient HttpClient)"]
-    Nws -->|HTTPS| NWS["api.weather.gov"]
-    Svc -. enqueue origin .-> Warmer["NeighborhoodWarmer<br/>(bounded channel)"]
-    Warmer --> Bg["Warming BackgroundService<br/>(rate-limited)"]
-    Bg --> Svc
-    AppHost[".NET Aspire AppHost"] -. orchestrates .-> Api
-    AppHost -. orchestrates .-> Web
+```
+Browser ──geolocation──▶ Weather.Web (Blazor Server)
+                              │  typed HttpClient
+                              ▼
+                         Weather.Api (Minimal API)
+                              │  cache-aside
+                              ▼
+        ┌───────────────── Weather.Infrastructure ─────────────────┐
+        │  NwsApiClient (resilient HttpClient)                      │
+        │  SQLite caches: point-metadata · forecast · cell-extras   │
+        │  WeatherService (orchestration) · NeighborhoodWarmer      │
+        └───────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    api.weather.gov (NWS)
 ```
 
-The projects map onto clean layers:
+`Weather.Core` holds the domain models, abstractions, and telemetry primitives
+and depends on nothing else. `Weather.ServiceDefaults` supplies the Aspire
+defaults (OpenTelemetry, health, discovery, resilience) and is intentionally
+app-agnostic. `Weather.AppHost` orchestrates the API and the dashboard for local
+development.
 
-- **Weather.Core** — domain models and abstractions only. No I/O, no framework
-  dependencies. It defines `GeoCoordinate`, `GridPoint`, `Forecast`, the cache
-  and client interfaces, and the telemetry primitives.
-- **Weather.Infrastructure** — the implementations: the NWS HTTP client, the
-  SQLite/Dapper caches, the orchestrating `WeatherService`, and the background
-  warmer. Most types are `internal`; the composition root (`AddWeatherInfrastructure`)
-  is the public surface.
-- **Weather.Api** — a thin Minimal-API edge. It validates coordinates and
-  delegates to `IWeatherService`; caching and resilience are invisible to it.
-- **Weather.Web** — the Blazor Server dashboard. It owns the browser-geolocation
-  flow and the graceful fallbacks.
-- **Weather.ServiceDefaults** — the shared Aspire wiring (OpenTelemetry, health
-  checks, service discovery, resilient `HttpClient` defaults).
-- **Weather.AppHost** — the Aspire orchestrator that runs API + Web together.
+## Decision 1 — Caching: metadata vs. forecast (and extras)
 
-## The request flow
+NWS splits the work in two: `/points/{lat},{lon}` maps a coordinate to a grid
+cell (`gridId`, `gridX`, `gridY`) and is effectively immutable, while
+`/gridpoints/{office}/{x},{y}/forecast` returns data that changes through the
+day. The cache mirrors that split, in three SQLite tiers:
 
-1. The browser resolves the user's location and the dashboard calls
-   `GET /api/forecast?latitude={lat}&longitude={lon}`.
-2. The endpoint validates the coordinate and calls `IWeatherService.GetForecastAsync`.
-3. The service rounds the coordinate to four decimals and resolves it to an NWS
-   **grid cell** — first from the point-metadata cache, then (on a miss) from the
-   NWS `/points` endpoint.
-4. With the grid cell known, it reads the **forecast cache**. If the entry is
-   fresh, it's returned immediately. If it's stale or missing, it calls NWS
-   `/gridpoints/.../forecast` — using a conditional request when an ETag is
-   known — and updates the cache.
-5. Whenever a forecast is produced, the service drops the origin cell onto the
-   warming queue so the surrounding cells can be fetched in the background.
+- **Point metadata** — long-lived (30 days by default). The key is the
+  coordinate **rounded to 4 decimal places** (~11 m), so nearby users share one
+  row and the `/points` call is made once per neighbourhood rather than per user.
+- **Forecast** — short-lived. The TTL honours the NWS `Cache-Control: max-age`
+  response, clamped to a configurable ceiling (6 h) so an odd upstream value
+  can't pin stale data. Refreshes are **conditional**: the stored `ETag` is sent
+  as `If-None-Match`, and a `304 Not Modified` renews the expiry without
+  transferring or re-parsing a body. If NWS is unreachable, the **last good
+  forecast is served stale** rather than surfacing an error.
+- **Cell extras** — a separate short-lived tier holding the per-cell **hourly
+  forecast** and **latest observation** as a JSON blob keyed by grid cell. It is
+  kept apart from the daily-forecast tier so the original forecast path is
+  unchanged and the heavier extras are only fetched when the area view needs them.
 
-## Decision 1 — Caching the NWS data
+`WeatherService` is the only type that knows these freshness rules; everything
+above it simply asks for data. Cache hits and misses are recorded per tier as
+metrics (see Decision 3).
 
-**Goal:** be fast and never hammer `api.weather.gov`, while keeping the cache
-invisible to users (they always see current data, just faster on repeat views).
+## Decision 2 — Neighbourhood strategy
 
-The NWS API is two calls: a coordinate resolves to a grid cell via `/points`,
-and the forecast for that cell comes from `/gridpoints`. These have very
-different change rates, so they get **two cache tiers**, both in SQLite:
+A user near a cell boundary may be closer to an adjacent cell's centre than to
+their own, so the dashboard shows the whole neighbourhood. Two mechanisms keep
+that cheap:
 
-| Tier | Source | Key | TTL |
-| --- | --- | --- | --- |
-| Point metadata | `/points/{lat},{lon}` | coordinate rounded to 4 dp | 30 days |
-| Grid forecast | `/gridpoints/{id}/{x},{y}/forecast` | `(GridId, GridX, GridY)` | NWS `max-age`, fallback 30 min, clamped to 6 h |
+- **Background warming.** When a user's cell is resolved, the surrounding ring is
+  enqueued on a bounded `Channel<GridPoint>` and warmed by a rate-limited
+  `BackgroundService` (a token-bucket limiter, in-flight de-duplication, and a
+  skip-if-already-fresh check). The user's own request is never blocked by this.
+- **Area assembly.** `GetAreaForecastAsync` fetches the primary cell plus every
+  cell in the ring **cache-aside**, with **bounded concurrency**, then orders the
+  neighbours by true distance from the user. Distance uses each cell's polygon
+  **centroid** (parsed from the forecast geometry) and the haversine formula
+  (`GeoCoordinate.DistanceMetersTo`), falling back to grid-index distance when a
+  centroid is unknown so ordering is always stable. The request **radius is
+  capped** so a cold area cannot stampede NWS.
 
-Key choices:
+Active **alerts** are point-based (`/alerts/active?point=lat,lon`) and assembled
+alongside the cells.
 
-- **Coordinate→grid mappings effectively never change**, so they're cached for
-  a long time. Rounding the coordinate to four decimals (~11 m) means physically
-  close users collapse onto a single row and a single upstream `/points` call.
-- **Forecasts are short-lived**, so the cache honours the HTTP `Cache-Control:
-  max-age` NWS sends, falling back to 30 minutes and clamping to a 6-hour
-  ceiling so an odd upstream value can't pin stale data.
-- **Conditional GETs** keep refreshes cheap: the stored ETag is sent as
-  `If-None-Match`; a `304 Not Modified` extends the TTL without transferring or
-  re-parsing the payload.
-- **Stale-on-error**: if NWS is unreachable, the last good forecast (and the
-  long-lived metadata) is served rather than failing — the user sees data, not
-  an error.
-- **Storage details**: SQLite runs in WAL mode for read/write concurrency; the
-  forecast payload is stored as JSON in one column with ETag and timestamps
-  alongside for cheap inspection; timestamps are ISO-8601 round-trip ("O")
-  strings parsed with the invariant culture so they never drift.
+### Cold-start cost
 
-Freshness is decided in one place — `WeatherService` — because only that layer
-knows the *semantic* outcome (hit, conditional renew, stale-served, miss).
-
-## Decision 2 — Warming the neighbourhood without slowing the user
-
-**Goal:** make panning to an adjacent area feel instant, without ever putting
-that extra work on the user's request path.
-
-The user's **own** cell is always on the hot path: a synchronous cache-aside
-lookup. The 3×3 ring of **surrounding** cells is warmed **asynchronously**:
-
-- When a forecast is served, the origin grid cell is dropped onto a **bounded
-  `Channel<GridPoint>`** (capacity 256, drop-oldest). Enqueuing is non-blocking,
-  so a traffic spike can never grow memory without bound or stall a request.
-- A `BackgroundService` consumes the channel and fans out to the surrounding
-  cells (`GridNeighborhood.Surrounding`), guarded three ways:
-  - a **global token-bucket rate limiter** paces all outbound warming,
-  - an **in-flight set** deduplicates concurrent work for the same cell,
-  - cells that are **already fresh** are skipped before any network call.
-- Each cell is fetched in **its own DI scope**, so the scoped `IWeatherService`
-  never becomes a captive dependency of the singleton background service. The
-  background path calls `GetForecastByGridAsync`, which deliberately does **not**
-  enqueue more warming — otherwise warming would recurse forever.
-- The neighbourhood endpoint returns the primary cell plus only the neighbours
-  that are *already* warm; it never blocks to fetch them.
-
-The result: the user pays for exactly one cell; their neighbours are prepared
-opportunistically and politely.
+The first view of an uncached area can be several upstream calls (a cell plus its
+ring, each fetching daily + hourly + observation). It is bounded by cache-aside
+(paid once per TTL), the background warmer, capped concurrency, and the capped
+radius, so steady state is inexpensive — the cache-hit ratio trending toward 1.0
+is the signal it is working.
 
 ## Decision 3 — Observability
 
-**Goal:** make cache behaviour and upstream health measurable rather than a
-mystery, and have it light up automatically when run under Aspire.
+`Weather.ServiceDefaults` configures OpenTelemetry for every service: ASP.NET
+Core, `HttpClient`, and runtime instrumentation, plus the application's own
+signals from a custom meter (`Weather.Cache`) and activity source (`Weather.Nws`):
 
-Two layers cooperate:
+- **cache hit/miss** counters per tier (`metadata`, `forecast`, `extras`),
+- **NWS request** latency and status, tagged by endpoint and whether the call was
+  conditional, and
+- **NWS throttling and errors** counted separately, so rate-limiting shows up as
+  a metric rather than as latency.
 
-- **`Weather.ServiceDefaults`** (the Aspire pattern) configures OpenTelemetry
-  metrics and tracing with OTLP export, plus ASP.NET Core / HttpClient / runtime
-  instrumentation, health checks, and service discovery. Both the API and the
-  web app call `AddServiceDefaults()`.
-- **`WeatherTelemetry`** (in Core) defines the app-specific instruments via a
-  `Meter` ("Weather.Cache") and an `ActivitySource` ("Weather.Nws"). These names
-  are registered with OpenTelemetry in the API host so they flow to the same
-  exporter as everything else.
-
-Instruments:
-
-| Instrument | Type | Tags | Meaning |
-| --- | --- | --- | --- |
-| `weather.cache.requests` | counter | `cache` (forecast/metadata), `result` (hit/miss) | cache hit-rate |
-| `weather.nws.request.duration` | histogram (ms) | `endpoint`, `status_code`, `conditional` | upstream latency |
-| `weather.nws.throttled` | counter | `endpoint` | NWS 429s |
-| `weather.nws.errors` | counter | `endpoint`, `status_code` | upstream failures |
-| `weather.neighborhood.warmed` | counter | `grid_id` | background warming activity |
-
-Tracing spans from `Weather.Nws` wrap the outbound NWS calls, so a slow forecast
-shows up as a span with its status and timing rather than an unexplained pause.
-
-Run the system through the [AppHost](../src/Weather.AppHost/README.md) and these
-signals appear in the Aspire dashboard with no extra configuration.
-
-## Cross-cutting choices
-
-- **Time** is taken from the BCL `TimeProvider` everywhere, so freshness logic is
-  deterministic under test (a controllable provider replaces the system clock).
-- **JSON** uses a single shared `System.Text.Json` options instance for both the
-  NWS wire format and the cache round-trip (camelCase, case-insensitive).
-- **Resilience** is `Microsoft.Extensions.Http.Resilience` (the supported wrapper
-  over Polly v8): retry with jitter, a circuit breaker, and timeouts on the NWS
-  client, configured in the infrastructure composition root.
-- **Geolocation failure is a normal path, not an exception**: the browser bridge
-  always resolves a result object, and the UI branches to a manual-entry fallback
-  for every failure mode. See [Weather.Web](../src/Weather.Web/README.md).
+Export is vendor-neutral **OTLP** — no backend SDK is referenced — and resolves
+in priority order: an explicit `OTEL_EXPORTER_OTLP_ENDPOINT` (injected by Aspire
+locally, or pointed at the OpenTelemetry Collector in containers) wins; otherwise
+the app ships straight to **Uptrace** via a DSN unless `Uptrace:Enabled=false`;
+otherwise nothing is exported (the integration tests use this). Because every
+step is plain OTLP, switching backends is configuration, not code. The container
+stack runs a collector that fans every signal out to both the Aspire dashboard
+and Uptrace — see [`OBSERVABILITY.md`](OBSERVABILITY.md) and
+[`CONTAINERS.md`](CONTAINERS.md).

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Weather.Core.Abstractions;
 using Weather.Core.Models;
@@ -24,6 +25,14 @@ internal sealed class NwsApiClient(
 {
     private const string PointsEndpoint = "points";
     private const string ForecastEndpoint = "forecast";
+    private const string HourlyEndpoint = "forecast/hourly";
+    private const string StationsEndpoint = "stations";
+    private const string ObservationEndpoint = "observation";
+    private const string AlertsEndpoint = "alerts";
+
+    // Hourly forecasts run ~156 periods; the dashboard only needs the near term,
+    // and capping keeps the cached payload (and the page) reasonable per cell.
+    private const int HourlyPeriodCap = 24;
 
     public async Task<PointMetadata?> GetPointMetadataAsync(
         GeoCoordinate coordinate, CancellationToken cancellationToken = default)
@@ -146,11 +155,15 @@ internal sealed class NwsApiClient(
                 return ForecastFetchResult.Unavailable;
             }
 
-            var forecast = MapForecast(grid, properties);
+            var periods = MapPeriods(properties.Periods);
+            var forecast = new Forecast(grid, properties.GeneratedAt, properties.UpdateTime, periods);
+            var center = TryComputePolygonCenter(payload.Geometry);
+
             return ForecastFetchResult.Success(
                 forecast,
                 response.Headers.ETag?.ToString(),
-                response.Headers.CacheControl?.MaxAge);
+                response.Headers.CacheControl?.MaxAge,
+                center);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
@@ -160,9 +173,222 @@ internal sealed class NwsApiClient(
         }
     }
 
-    private static Forecast MapForecast(GridPoint grid, NwsForecastProperties properties)
+    public async Task<IReadOnlyList<ForecastPeriod>> GetHourlyForecastAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
     {
-        var source = properties.Periods ?? [];
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/forecast/hourly");
+
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(HourlyEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(HourlyEndpoint, response.StatusCode);
+                }
+
+                return [];
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsForecastResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            var periods = MapPeriods(payload?.Properties?.Periods);
+            return periods.Count > HourlyPeriodCap ? periods.Take(HourlyPeriodCap).ToList() : periods;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(HourlyEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /forecast/hourly request failed for grid {Grid}.", grid);
+            return [];
+        }
+    }
+
+    public async Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var stationId = await GetNearestStationIdAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (stationId is null)
+        {
+            return null;
+        }
+
+        var requestUri = $"stations/{Uri.EscapeDataString(stationId)}/observations/latest";
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(ObservationEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(ObservationEndpoint, response.StatusCode);
+                }
+
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsObservationResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (payload?.Properties is not { } p)
+            {
+                return null;
+            }
+
+            return new Observation(
+                StationId: stationId,
+                StationName: null,
+                Timestamp: p.Timestamp,
+                TextDescription: string.IsNullOrWhiteSpace(p.TextDescription) ? null : p.TextDescription,
+                Icon: p.Icon,
+                TemperatureF: NwsUnits.CelsiusToFahrenheit(p.Temperature?.Value),
+                DewpointF: NwsUnits.CelsiusToFahrenheit(p.Dewpoint?.Value),
+                RelativeHumidity: NwsUnits.RoundToInt(p.RelativeHumidity?.Value),
+                WindSpeedMph: WindToMph(p.WindSpeed),
+                WindGustMph: WindToMph(p.WindGust),
+                WindDirection: NwsUnits.DegreesToCompass(p.WindDirection?.Value),
+                PressureInHg: NwsUnits.PascalsToInHg(p.BarometricPressure?.Value),
+                VisibilityMiles: NwsUnits.MetersToMiles(p.Visibility?.Value));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(ObservationEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS latest-observation request failed for station {Station}.", stationId);
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var requestUri = $"alerts/active?point={coordinate.ToApiString()}";
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(AlertsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                RecordFailure(AlertsEndpoint, response.StatusCode);
+                return [];
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsAlertsResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            var features = payload?.Features;
+            if (features is null || features.Count == 0)
+            {
+                return [];
+            }
+
+            var alerts = new List<WeatherAlert>(features.Count);
+            foreach (var feature in features)
+            {
+                if (feature.Properties is not { } a || string.IsNullOrWhiteSpace(a.Event))
+                {
+                    continue;
+                }
+
+                alerts.Add(new WeatherAlert(
+                    Id: a.Id ?? Guid.NewGuid().ToString("N"),
+                    Event: a.Event,
+                    Severity: a.Severity,
+                    Certainty: a.Certainty,
+                    Urgency: a.Urgency,
+                    Headline: a.Headline,
+                    Description: a.Description,
+                    Instruction: a.Instruction,
+                    AreaDescription: a.AreaDesc,
+                    SenderName: a.SenderName,
+                    Effective: a.Effective,
+                    Onset: a.Onset,
+                    Expires: a.Expires,
+                    Ends: a.Ends));
+            }
+
+            return alerts;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(AlertsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /alerts/active request failed for {Coordinate}.", coordinate);
+            return [];
+        }
+    }
+
+    private async Task<string?> GetNearestStationIdAsync(GridPoint grid, CancellationToken cancellationToken)
+    {
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/stations");
+
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(StationsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(StationsEndpoint, response.StatusCode);
+                }
+
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsStationsResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            // Stations are returned nearest-first.
+            var features = payload?.Features;
+            if (features is null)
+            {
+                return null;
+            }
+
+            foreach (var feature in features)
+            {
+                var id = feature.Properties?.StationIdentifier;
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    return id;
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(StationsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /stations request failed for grid {Grid}.", grid);
+            return null;
+        }
+    }
+
+    private static List<ForecastPeriod> MapPeriods(IReadOnlyList<NwsPeriod>? source)
+    {
+        source ??= [];
         var periods = new List<ForecastPeriod>(source.Count);
         foreach (var p in source)
         {
@@ -184,7 +410,84 @@ internal sealed class NwsApiClient(
                 Icon: p.Icon ?? string.Empty));
         }
 
-        return new Forecast(grid, properties.GeneratedAt, properties.UpdateTime, periods);
+        return periods;
+    }
+
+    /// <summary>
+    /// Observation wind speed is usually km/h (<c>wmoUnit:km_h-1</c>) but can be
+    /// m/s; convert based on the reported unit code.
+    /// </summary>
+    private static int? WindToMph(NwsQuantitativeValue? value)
+    {
+        if (value?.Value is not { } v)
+        {
+            return null;
+        }
+
+        var unit = value.UnitCode ?? string.Empty;
+        if (unit.Contains("m_s-1", StringComparison.OrdinalIgnoreCase))
+        {
+            return (int)Math.Round(v * 2.236936d, MidpointRounding.AwayFromZero);
+        }
+
+        return NwsUnits.KmhToMph(v);
+    }
+
+    /// <summary>
+    /// Approximate a polygon's centre by averaging the vertices of its outer
+    /// ring. NWS forecast geometry is GeoJSON <c>[[[lon,lat], ...]]</c>.
+    /// </summary>
+    private static GeoCoordinate? TryComputePolygonCenter(NwsGeometry? geometry)
+    {
+        if (geometry?.Coordinates is not { ValueKind: JsonValueKind.Array } coords)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (coords.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            var ring = coords[0];
+            if (ring.ValueKind != JsonValueKind.Array || ring.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            double sumLat = 0;
+            double sumLon = 0;
+            var count = 0;
+
+            foreach (var point in ring.EnumerateArray())
+            {
+                if (point.ValueKind != JsonValueKind.Array || point.GetArrayLength() < 2)
+                {
+                    continue;
+                }
+
+                var lon = point[0].GetDouble();
+                var lat = point[1].GetDouble();
+                sumLon += lon;
+                sumLat += lat;
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return null;
+            }
+
+            var avgLat = sumLat / count;
+            var avgLon = sumLon / count;
+            return GeoCoordinate.IsValid(avgLat, avgLon) ? new GeoCoordinate(avgLat, avgLon) : null;
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private void RecordDuration(string endpoint, int statusCode, long startTimestamp, bool conditional) =>

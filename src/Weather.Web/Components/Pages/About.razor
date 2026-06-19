@@ -6,9 +6,18 @@
     <h1 class="panel__title">About this dashboard</h1>
     <p class="panel__body">
         A small weather dashboard built on the U.S. National Weather Service API. It asks your
-        browser for your location, resolves it to an NWS forecast grid cell, and shows the
-        forecast for that cell. If you'd rather not share your location, you can type coordinates
-        instead — the app works the same either way.
+        browser for your location, resolves it to an NWS forecast grid cell ("tile"), and shows
+        everything that cell knows: the daily forecast, the hourly forecast, and the latest
+        observation from the nearest station. If you'd rather not share your location, you can
+        type coordinates instead — the app works the same either way.
+    </p>
+    <p class="panel__body">
+        Your coordinates are used for two things: to find the tile you're standing in, and to find
+        the tiles around you. Because you're rarely at the exact centre of a tile, the dashboard
+        also fetches every neighbouring tile and orders them by how close each one is to you — so
+        if you're near an edge, the most relevant nearby data is right at the top. Each neighbouring
+        tile carries the same full data (daily, hourly, and current conditions). Active watches,
+        warnings and advisories for your point are shown at the top when present.
     </p>
     <p class="panel__body">
         Forecasts don't change second to second, so responses are cached locally for a short
@@ -20,6 +29,10 @@
     <p class="panel__body">
         Behind the scenes the app records cache hit/miss ratios and the latency of every call to
         the weather service, so slow responses or rate-limiting show up on a dashboard rather than
-        as a mystery. Coordinates are sent only to fetch a forecast and aren't stored.
+        as a mystery. Coordinates are sent only to fetch weather data and aren't stored.
+    </p>
+    <p class="panel__body">
+        The full source is on
+        <a href="https://github.com/collabskus/weather" rel="noopener noreferrer" target="_blank">GitHub</a>.
     </p>
 </section>

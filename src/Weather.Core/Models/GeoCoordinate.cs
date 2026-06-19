@@ -49,5 +49,27 @@ public readonly record struct GeoCoordinate
     /// <summary>Stable cache key (identical to the API string).</summary>
     public string ToCacheKey() => ToApiString();
 
+    /// <summary>
+    /// Great-circle (haversine) distance in metres to another coordinate. Used
+    /// to order neighbouring grid cells by how close they actually are to the
+    /// user, since a user is rarely at the centre of their own cell.
+    /// </summary>
+    public double DistanceMetersTo(GeoCoordinate other)
+    {
+        const double earthRadiusMeters = 6_371_000d;
+        const double degToRad = Math.PI / 180d;
+
+        var lat1 = Latitude * degToRad;
+        var lat2 = other.Latitude * degToRad;
+        var dLat = (other.Latitude - Latitude) * degToRad;
+        var dLon = (other.Longitude - Longitude) * degToRad;
+
+        var sinLat = Math.Sin(dLat / 2);
+        var sinLon = Math.Sin(dLon / 2);
+        var a = (sinLat * sinLat) + (Math.Cos(lat1) * Math.Cos(lat2) * sinLon * sinLon);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return earthRadiusMeters * c;
+    }
+
     public override string ToString() => ToApiString();
 }

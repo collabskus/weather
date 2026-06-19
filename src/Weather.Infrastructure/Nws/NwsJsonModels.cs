@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace Weather.Infrastructure.Nws;
 
 // ---------------------------------------------------------------------------
@@ -38,9 +41,10 @@ internal sealed record NwsRelativeLocationProperties
     public string? State { get; init; }
 }
 
-/// <summary>Envelope for <c>GET /gridpoints/{office}/{x},{y}/forecast</c>.</summary>
+/// <summary>Envelope for the daily and hourly forecast endpoints (same shape).</summary>
 internal sealed record NwsForecastResponse
 {
+    public NwsGeometry? Geometry { get; init; }
     public NwsForecastProperties? Properties { get; init; }
 }
 
@@ -73,4 +77,84 @@ internal sealed record NwsQuantitativeValue
 {
     public string? UnitCode { get; init; }
     public double? Value { get; init; }
+}
+
+/// <summary>
+/// Geometry for a forecast feature. The forecast is a Polygon; observations are
+/// a Point. Coordinates are decoded leniently from the raw JSON because the
+/// nesting depth differs by geometry type.
+/// </summary>
+internal sealed record NwsGeometry
+{
+    public string? Type { get; init; }
+
+    [JsonPropertyName("coordinates")]
+    public JsonElement Coordinates { get; init; }
+}
+
+/// <summary>Envelope for <c>GET /gridpoints/{office}/{x},{y}/stations</c>.</summary>
+internal sealed record NwsStationsResponse
+{
+    public IReadOnlyList<NwsStationFeature>? Features { get; init; }
+}
+
+internal sealed record NwsStationFeature
+{
+    public NwsStationProperties? Properties { get; init; }
+}
+
+internal sealed record NwsStationProperties
+{
+    public string? StationIdentifier { get; init; }
+    public string? Name { get; init; }
+}
+
+/// <summary>Envelope for <c>GET /stations/{id}/observations/latest</c>.</summary>
+internal sealed record NwsObservationResponse
+{
+    public NwsObservationProperties? Properties { get; init; }
+}
+
+internal sealed record NwsObservationProperties
+{
+    public DateTimeOffset? Timestamp { get; init; }
+    public string? TextDescription { get; init; }
+    public string? Icon { get; init; }
+    public NwsQuantitativeValue? Temperature { get; init; }
+    public NwsQuantitativeValue? Dewpoint { get; init; }
+    public NwsQuantitativeValue? WindDirection { get; init; }
+    public NwsQuantitativeValue? WindSpeed { get; init; }
+    public NwsQuantitativeValue? WindGust { get; init; }
+    public NwsQuantitativeValue? BarometricPressure { get; init; }
+    public NwsQuantitativeValue? RelativeHumidity { get; init; }
+    public NwsQuantitativeValue? Visibility { get; init; }
+}
+
+/// <summary>Envelope for <c>GET /alerts/active?point={lat},{lon}</c>.</summary>
+internal sealed record NwsAlertsResponse
+{
+    public IReadOnlyList<NwsAlertFeature>? Features { get; init; }
+}
+
+internal sealed record NwsAlertFeature
+{
+    public NwsAlertProperties? Properties { get; init; }
+}
+
+internal sealed record NwsAlertProperties
+{
+    public string? Id { get; init; }
+    public string? Event { get; init; }
+    public string? Severity { get; init; }
+    public string? Certainty { get; init; }
+    public string? Urgency { get; init; }
+    public string? Headline { get; init; }
+    public string? Description { get; init; }
+    public string? Instruction { get; init; }
+    public string? AreaDesc { get; init; }
+    public string? SenderName { get; init; }
+    public DateTimeOffset? Effective { get; init; }
+    public DateTimeOffset? Onset { get; init; }
+    public DateTimeOffset? Expires { get; init; }
+    public DateTimeOffset? Ends { get; init; }
 }

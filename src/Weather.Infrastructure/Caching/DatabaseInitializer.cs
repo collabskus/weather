@@ -51,6 +51,21 @@ public sealed class DatabaseInitializer(
 
         CREATE INDEX IF NOT EXISTS IX_GridForecast_ExpiresAtUtc
             ON GridForecast (ExpiresAtUtc);
+
+        -- Per-cell "extras": hourly forecast + latest observation + cell centre,
+        -- stored as one JSON blob. Followed-link data for the full area view.
+        CREATE TABLE IF NOT EXISTS CellExtras (
+            GridId         TEXT    NOT NULL,
+            GridX          INTEGER NOT NULL,
+            GridY          INTEGER NOT NULL,
+            Payload        TEXT    NOT NULL,
+            RetrievedAtUtc TEXT    NOT NULL,
+            ExpiresAtUtc   TEXT    NOT NULL,
+            PRIMARY KEY (GridId, GridX, GridY)
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_CellExtras_ExpiresAtUtc
+            ON CellExtras (ExpiresAtUtc);
         """;
 
     public async Task StartAsync(CancellationToken cancellationToken)

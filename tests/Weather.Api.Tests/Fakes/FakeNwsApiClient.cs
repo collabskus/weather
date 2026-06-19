@@ -5,12 +5,15 @@ namespace Weather.Api.Tests.Fakes;
 
 /// <summary>
 /// A deterministic <see cref="INwsApiClient"/> for end-to-end API tests. It lets
-/// the real weather service, SQLite cache and endpoints run unchanged while
+/// the real weather service, SQLite caches and endpoints run unchanged while
 /// removing the network: any normal coordinate resolves to grid AKQ/83,61 with a
-/// sunny forecast, and the ocean sentinel (0, 0) reports no coverage.
+/// sunny forecast, hourly periods and a current observation; the ocean sentinel
+/// (0, 0) reports no coverage.
 /// </summary>
 internal sealed class FakeNwsApiClient : INwsApiClient
 {
+    private static readonly GeoCoordinate CellCenter = new(37.0900, -76.4500);
+
     public Task<PointMetadata?> GetPointMetadataAsync(
         GeoCoordinate coordinate, CancellationToken cancellationToken = default)
     {
@@ -45,6 +48,46 @@ internal sealed class FakeNwsApiClient : INwsApiClient
                 "12 mph", "S", "Mostly Clear", "Mostly clear, with a low around 74.", "icon-night"),
         });
 
-        return Task.FromResult(ForecastFetchResult.Success(forecast, "\"e\"", TimeSpan.FromMinutes(30)));
+        return Task.FromResult(ForecastFetchResult.Success(forecast, "\"e\"", TimeSpan.FromMinutes(30), CellCenter));
     }
+
+    public Task<IReadOnlyList<ForecastPeriod>> GetHourlyForecastAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        IReadOnlyList<ForecastPeriod> hourly = new[]
+        {
+            new ForecastPeriod(1, string.Empty, now, now.AddHours(1), true, 90, "F", 2,
+                "6 mph", "S", "Sunny", string.Empty, "icon-hour-1"),
+            new ForecastPeriod(2, string.Empty, now.AddHours(1), now.AddHours(2), true, 89, "F", 2,
+                "7 mph", "S", "Sunny", string.Empty, "icon-hour-2"),
+        };
+
+        return Task.FromResult(hourly);
+    }
+
+    public Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var observation = new Observation(
+            StationId: "KPHF",
+            StationName: "Newport News",
+            Timestamp: DateTimeOffset.UtcNow,
+            TextDescription: "Sunny",
+            Icon: "icon-obs",
+            TemperatureF: 88,
+            DewpointF: 70,
+            RelativeHumidity: 55,
+            WindSpeedMph: 8,
+            WindGustMph: 14,
+            WindDirection: "S",
+            PressureInHg: 30.05,
+            VisibilityMiles: 10.0);
+
+        return Task.FromResult<Observation?>(observation);
+    }
+
+    public Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WeatherAlert>>([]);
 }

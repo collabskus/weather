@@ -17,28 +17,26 @@ public sealed class WeatherApiClient(HttpClient httpClient) : IWeatherApiClient
         double latitude, double longitude, CancellationToken cancellationToken = default)
     {
         var requestUri = BuildUri("/api/forecast", latitude, longitude);
-
-        using var response = await httpClient
-            .GetAsync(requestUri, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content
-            .ReadFromJsonAsync<ForecastDto>(cancellationToken)
-            .ConfigureAwait(false);
+        return await GetOrNullAsync<ForecastDto>(requestUri, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<NeighborhoodDto?> GetNeighborhoodAsync(
         double latitude, double longitude, CancellationToken cancellationToken = default)
     {
         var requestUri = BuildUri("/api/forecast/neighborhood", latitude, longitude);
+        return await GetOrNullAsync<NeighborhoodDto>(requestUri, cancellationToken).ConfigureAwait(false);
+    }
 
+    public async Task<AreaDto?> GetAreaAsync(
+        double latitude, double longitude, CancellationToken cancellationToken = default)
+    {
+        var requestUri = BuildUri("/api/forecast/area", latitude, longitude);
+        return await GetOrNullAsync<AreaDto>(requestUri, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<T?> GetOrNullAsync<T>(string requestUri, CancellationToken cancellationToken)
+        where T : class
+    {
         using var response = await httpClient
             .GetAsync(requestUri, cancellationToken)
             .ConfigureAwait(false);
@@ -51,7 +49,7 @@ public sealed class WeatherApiClient(HttpClient httpClient) : IWeatherApiClient
         response.EnsureSuccessStatusCode();
 
         return await response.Content
-            .ReadFromJsonAsync<NeighborhoodDto>(cancellationToken)
+            .ReadFromJsonAsync<T>(cancellationToken)
             .ConfigureAwait(false);
     }
 

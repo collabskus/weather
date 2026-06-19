@@ -1,75 +1,43 @@
 # Weather.Api
 
-The HTTP edge: a thin **ASP.NET Core Minimal API**. It validates incoming
-coordinates and delegates everything else to
-[`IWeatherService`](../Weather.Core/README.md). Caching, resilience, and
-background warming are implementation details it knows nothing about.
+The backend: an **ASP.NET Core Minimal API** that exposes the cached NWS data.
+It owns no weather logic itself — it calls `IWeatherService` (from
+`Weather.Infrastructure`) and maps the domain results to JSON contracts. Caching,
+freshness, and the NWS calls all live below it.
 
 ## Endpoints
 
-Both live under `/api/forecast` and take `latitude` and `longitude` query
-parameters.
+Mapped in `Endpoints/WeatherEndpoints.cs`:
 
-### `GET /api/forecast?latitude={lat}&longitude={lon}`
+- `GET /api/forecast?lat={lat}&lon={lon}` — the daily forecast for the cell
+  containing the coordinate. `200` with the forecast, or `404` if the point is
+  outside NWS coverage.
+- `GET /api/forecast/neighborhood?lat={lat}&lon={lon}` — the primary cell plus
+  the already-fresh surrounding cells.
+- `GET /api/forecast/area?lat={lat}&lon={lon}&radius={1..3}` — the full area
+  view: the primary cell and **every** neighbouring cell (each with daily +
+  hourly + observation), distance-ordered, plus active alerts. Invalid radius →
+  `400`; uncovered point → `404`.
 
-The forecast for the grid cell containing the coordinate.
+Coordinates are validated; bad input returns `400` via Problem Details.
 
-- `200 OK` — a `ForecastResponse` (grid id/x/y, generated/updated timestamps,
-  and the list of periods).
-- `400 Bad Request` — coordinate out of range, as a `ProblemDetails`.
-- `404 Not Found` — no NWS coverage for that coordinate.
+## Contracts
 
-### `GET /api/forecast/neighborhood?latitude={lat}&longitude={lon}`
+`Contracts/` holds the response DTOs (`ForecastResponse`, `NeighborhoodResponse`,
+`AreaResponse` with `CellResponse` / `ObservationResponse` / `AlertResponse`, all
+reusing `ForecastPeriodResponse`). They are serialized as camelCase JSON.
 
-The primary cell plus any **already-warm** adjacent cells. It returns
-immediately and never blocks to fetch neighbours — they appear only if the
-background warmer has already fetched them.
+## Wiring
 
-- `200 OK` — a `NeighborhoodResponse` (the query coordinate, the primary
-  forecast, and zero-or-more neighbour forecasts).
-- `400` / `404` as above.
+`Program.cs` calls `AddServiceDefaults()` (OpenTelemetry, health, discovery,
+resilience), `AddWeatherInfrastructure(...)` (NWS client, caches, services,
+warmer), registers the app's meter/trace source, and adds Problem Details and the
+OpenAPI document (served at `/openapi/v1.json` in Development). The class is
+`public partial` so `Weather.Api.Tests` can drive it with
+`WebApplicationFactory<Program>`.
 
-## Request/response shape
+## Configuration
 
-The wire contract is decoupled from the domain model. `ForecastResponse`,
-`ForecastPeriodResponse`, and `NeighborhoodResponse` (in `Contracts/`) are plain
-records with `FromDomain(...)` mappers, so the public API and the internal
-`Forecast` can evolve independently. Coordinate validation uses
-`GeoCoordinate.IsValid` at the edge; invalid input returns RFC-7807
-`ProblemDetails` via `TypedResults.Problem`.
-
-## How it's wired (`Program.cs`)
-
-```csharp
-builder.AddServiceDefaults();                 // Aspire: OTel, health, discovery, resilient HTTP
-builder.Services.AddProblemDetails();
-builder.Services.AddOpenApi();
-builder.Services.AddWeatherInfrastructure(builder.Configuration);
-
-// Register the app's own meter/trace source with OpenTelemetry. Done here (not
-// in ServiceDefaults) so ServiceDefaults stays app-agnostic.
-builder.Services.ConfigureOpenTelemetryMeterProvider(m => m.AddMeter(WeatherTelemetry.MeterName));
-builder.Services.ConfigureOpenTelemetryTracerProvider(t => t.AddSource(WeatherTelemetry.ActivitySourceName));
-```
-
-The pipeline uses `UseExceptionHandler` + `UseStatusCodePages` (so failures come
-back as `ProblemDetails`), maps the default health endpoints, exposes an OpenAPI
-document at `/openapi/v1.json` in Development, and maps the forecast endpoints.
-
-`Program` ends with `public partial class Program;` so the test project can
-drive it with `WebApplicationFactory<Program>`.
-
-## Observability
-
-Because of `AddServiceDefaults()` plus the meter/source registration above, the
-API emits ASP.NET Core, `HttpClient`, and runtime metrics **and** the app's cache
-hit/miss and NWS latency/throttling signals over OTLP — visible in the Aspire
-dashboard when run under the [AppHost](../Weather.AppHost/README.md). See
-[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md#decision-3--observability).
-
-## Tested by
-
-[`Weather.Api.Tests`](../../tests/Weather.Api.Tests/) — the endpoints end-to-end
-via `WebApplicationFactory<Program>`, with the NWS client replaced by a fake and
-the cache pointed at a throwaway temp database, asserting the `200` / `400` /
-`404` behaviours and the response shape.
+`appsettings.json` carries the `Nws` options (base URL, **required** `User-Agent`,
+TTLs, timeout), the SQLite `Cache:ConnectionString`, and the `Uptrace` block
+(`Enabled` / `Dsn`). See `tests/Weather.Api.Tests` for the end-to-end coverage.

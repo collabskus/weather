@@ -28,8 +28,16 @@ public sealed record ForecastFetchResult
     public string? ETag { get; init; }
     public TimeSpan? MaxAge { get; init; }
 
-    public static ForecastFetchResult Success(Forecast forecast, string? etag, TimeSpan? maxAge) =>
-        new() { Outcome = NwsFetchOutcome.Success, Forecast = forecast, ETag = etag, MaxAge = maxAge };
+    /// <summary>
+    /// Approximate geographic centre of the grid cell, derived from the polygon
+    /// geometry NWS returns with the forecast. Used to order neighbouring cells
+    /// by true distance from the user. Null when geometry was absent.
+    /// </summary>
+    public GeoCoordinate? Center { get; init; }
+
+    public static ForecastFetchResult Success(
+        Forecast forecast, string? etag, TimeSpan? maxAge, GeoCoordinate? center = null) =>
+        new() { Outcome = NwsFetchOutcome.Success, Forecast = forecast, ETag = etag, MaxAge = maxAge, Center = center };
 
     public static ForecastFetchResult NotModified(string? etag, TimeSpan? maxAge) =>
         new() { Outcome = NwsFetchOutcome.NotModified, ETag = etag, MaxAge = maxAge };

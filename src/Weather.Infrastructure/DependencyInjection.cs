@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.TryAddSingleton<ISqliteConnectionFactory, SqliteConnectionFactory>();
         services.TryAddSingleton<IForecastCache, SqliteForecastCache>();
         services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
+        services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
         services.AddHostedService<DatabaseInitializer>();
 
         // Resilient, identified NWS client. The standard resilience handler
