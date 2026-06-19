@@ -1,0 +1,50 @@
+# syntax=docker/dockerfile:1
+
+# ============================================================================
+# Weather.Api container — multi-stage build.
+#
+#   stage 1 (build): the .NET SDK restores and publishes a Release build.
+#   stage 2 (final): the smaller ASP.NET runtime image runs it as non-root.
+#
+# Build from the REPOSITORY ROOT so Central Package Management files
+# (Directory.Packages.props, Directory.Build.props, nuget.config, global.json)
+# and the referenced projects are all in context:
+#
+#   podman build -f Containerfile.api -t weather-api .
+# ============================================================================
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy the whole repo (the .containerignore keeps bin/obj/.git/tests out) so
+# the Api project and everything it references restore against the same CPM.
+COPY . .
+
+RUN dotnet restore src/Weather.Api/Weather.Api.csproj
+RUN dotnet publish src/Weather.Api/Weather.Api.csproj \
+    -c Release \
+    --no-restore \
+    -o /app/publish \
+    -p:UseAppHost=false
+
+# ----------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+
+# Listen on plain HTTP inside the container; TLS is terminated upstream
+# (Cloudflare tunnel / reverse proxy).
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_EnableDiagnostics=0
+
+# A writable directory for the SQLite cache, owned by the non-root app user
+# (UID 1654 ships in the .NET images). The compose file mounts a named volume
+# here, which keeps the cache off the host bind path — friendlier for SELinux.
+RUN mkdir -p /data && chown 1654:1654 /data
+VOLUME ["/data"]
+
+COPY --from=build --chown=1654:1654 /app/publish .
+
+USER 1654
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Weather.Api.dll"]

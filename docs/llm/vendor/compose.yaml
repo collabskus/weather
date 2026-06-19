@@ -1,0 +1,111 @@
+# ============================================================================
+# Weather dashboard — full local stack for Podman (or Docker) Compose.
+#
+#   cd deploy
+#   cp .env.example .env          # set your UPTRACE_DSN (or keep the demo one)
+#   podman compose -f compose.yaml up --build
+#
+# Brings up:
+#   * api               — the Weather Minimal API
+#   * web               — the Blazor Server dashboard
+#   * aspire-dashboard  — the STANDALONE Aspire dashboard (traces/metrics/logs)
+#   * otelcol           — OpenTelemetry Collector, fanning out to Aspire + Uptrace
+#   * tunnel-web/-api/-aspire — Cloudflare quick tunnels giving each a public URL
+#
+# Note on Aspire: the Aspire AppHost (src/Weather.AppHost) is a DEVELOPER
+# orchestrator — it launches the apps itself via DCP and is not containerized.
+# In containers we run the standalone *dashboard* image and feed it through the
+# collector, which is the supported production-style topology.
+#
+# SELinux/rootless friendly: all state is in named volumes and the collector
+# config is baked into its image, so there are no host bind mounts to relabel.
+# ============================================================================
+
+name: weather
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Containerfile.api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      # SQLite cache lives on a named volume (see `volumes:` below).
+      Cache__ConnectionString: "Data Source=/data/weather-cache.db"
+      # Telemetry → collector (the endpoint path wins over the Uptrace fallback).
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: weather-api
+    volumes:
+      - api-cache:/data
+    ports:
+      - "8080:8080"
+    depends_on:
+      - otelcol
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: Containerfile.web
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      # Reach the API over the compose network by service name.
+      WeatherApi__BaseUrl: http://api:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: weather-web
+    ports:
+      - "8081:8080"
+    depends_on:
+      - api
+      - otelcol
+    restart: unless-stopped
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
+    environment:
+      # Sandbox convenience: allow anonymous access to the dashboard UI.
+      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "18888:18888"   # dashboard UI
+    restart: unless-stopped
+
+  otelcol:
+    build:
+      context: ..
+      dockerfile: deploy/Containerfile.otelcol
+    environment:
+      UPTRACE_DSN: ${UPTRACE_DSN}
+    depends_on:
+      - aspire-dashboard
+    restart: unless-stopped
+
+  # --- Cloudflare quick tunnels: public HTTPS URLs, no account required. -----
+  # Each container prints a https://<random>.trycloudflare.com URL in its logs:
+  #   podman compose -f compose.yaml logs tunnel-web
+  tunnel-web:
+    image: docker.io/cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://web:8080
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  tunnel-api:
+    image: docker.io/cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://api:8080
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  tunnel-aspire:
+    image: docker.io/cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://aspire-dashboard:18888
+    depends_on:
+      - aspire-dashboard
+    restart: unless-stopped
+
+volumes:
+  api-cache:

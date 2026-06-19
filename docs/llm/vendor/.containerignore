@@ -1,0 +1,17 @@
+# Keep build context small and reproducible.
+**/bin/
+**/obj/
+**/.vs/
+.git/
+.github/
+.vscode/
+.idea/
+tests/
+docs/
+deploy/
+*.user
+*.db
+*.db-wal
+*.db-shm
+**/TestResults/
+**/.DS_Store

@@ -1,0 +1,9 @@
+# syntax=docker/dockerfile:1
+
+# A tiny image that bakes the collector configuration in, so no host bind mount
+# (and therefore no SELinux relabeling) is needed. Build from the repo root:
+#
+#   podman build -f deploy/Containerfile.otelcol -t weather-otelcol .
+FROM otel/opentelemetry-collector-contrib:0.119.0
+COPY deploy/otelcol-config.yaml /etc/otel/config.yaml
+CMD ["--config=/etc/otel/config.yaml"]

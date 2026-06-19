@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+
+# ============================================================================
+# Weather.Web (Blazor Server) container — multi-stage build.
+# Build from the repository root:
+#
+#   podman build -f Containerfile.web -t weather-web .
+# ============================================================================
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY . .
+
+RUN dotnet restore src/Weather.Web/Weather.Web.csproj
+RUN dotnet publish src/Weather.Web/Weather.Web.csproj \
+    -c Release \
+    --no-restore \
+    -o /app/publish \
+    -p:UseAppHost=false
+
+# ----------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_EnableDiagnostics=0
+
+COPY --from=build --chown=1654:1654 /app/publish .
+
+USER 1654
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Weather.Web.dll"]
