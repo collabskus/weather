@@ -8,7 +8,10 @@
 .idea/
 tests/
 docs/
-deploy/
+# NOTE: deploy/ is intentionally NOT excluded. Containerfile.otelcol copies
+# deploy/otelcol-config.yaml into its image, and ignore-file negation across an
+# excluded parent directory is unreliable across Docker/Podman/Buildah. The
+# deploy/ folder is only a few small text files, so the context cost is trivial.
 *.user
 *.db
 *.db-wal
