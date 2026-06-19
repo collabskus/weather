@@ -1,479 +1,16 @@
 PowerShell 7.6.2
-Loading personal and system profiles took 1226ms.
+Loading personal and system profiles took 858ms.
+PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
+2026-06-19-04-06-30
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-18-13-16-19
-2026-06-18-13-16-19
+2026-06-19-09-14-02
+2026-06-19-09-14-02
 On branch main
-Your branch is up to date with 'origin/main'.
-
-nothing to commit, working tree clean
-2026-06-18-13-16-19
-* remote origin
-  Fetch URL: https://github.com/collabskus/weather.git
-  Push  URL: https://github.com/collabskus/weather.git
-  HEAD branch: main
-  Remote branches:
-    dependabot/github_actions/actions/dependency-review-action-5 new (next fetch will store in remotes/origin)
-    dependabot/github_actions/actions/setup-node-6               new (next fetch will store in remotes/origin)
-    main                                                         tracked
-  Local branch configured for 'git pull':
-    main merges with remote main
-  Local ref configured for 'git push':
-    main pushes to main (up to date)
-2026-06-18-13-16-19
-Restore complete (2.1s)
-
-Build succeeded in 2.3s
-Project 'Weather.Api' has the following package references
-   [net10.0]:
-   Top-level Package                   Requested   Resolved
-   > Microsoft.AspNetCore.OpenApi      10.0.9      10.0.9
-
-Project 'Weather.AppHost' has the following package references
-   [net10.0]:
-   Top-level Package                              Requested    Resolved
-   > Aspire.Dashboard.Sdk.win-x64           (A)   [13.4.5, )   13.4.5
-   > Aspire.Hosting.AppHost                       13.4.5       13.4.5
-   > Aspire.Hosting.Orchestration.win-x64   (A)   [13.4.5, )   13.4.5
-
-Project 'Weather.Core' has the following package references
-   [net10.0]: No packages were found for this framework.
-Project 'Weather.Infrastructure' has the following package references
-   [net10.0]:
-   Top-level Package                           Requested   Resolved
-   > Dapper                                    2.1.79      2.1.79
-   > Microsoft.Data.Sqlite                     10.0.9      10.0.9
-   > Microsoft.Extensions.Hosting              10.0.9      10.0.9
-   > Microsoft.Extensions.Http.Resilience      10.7.0      10.7.0
-   > System.Threading.RateLimiting             10.0.9      10.0.9
-
-Project 'Weather.ServiceDefaults' has the following package references
-   [net10.0]:
-   Top-level Package                                   Requested   Resolved
-   > Microsoft.Extensions.Http.Resilience              10.7.0      10.7.0
-   > Microsoft.Extensions.ServiceDiscovery             10.7.0      10.7.0
-   > OpenTelemetry.Exporter.OpenTelemetryProtocol      1.16.0      1.16.0
-   > OpenTelemetry.Extensions.Hosting                  1.16.0      1.16.0
-   > OpenTelemetry.Instrumentation.AspNetCore          1.15.2      1.15.2
-   > OpenTelemetry.Instrumentation.Http                1.15.1      1.15.1
-   > OpenTelemetry.Instrumentation.Runtime             1.15.1      1.15.1
-
-Project 'Weather.Web' has the following package references
-   [net10.0]:
-   Top-level Package                                  Requested    Resolved
-   > Microsoft.AspNetCore.App.Internal.Assets   (A)   [10.0.9, )   10.0.9
-
-Project 'Weather.Api.Tests' has the following package references
-   [net10.0]:
-   Top-level Package                       Requested   Resolved
-   > Microsoft.AspNetCore.Mvc.Testing      10.0.9      10.0.9
-   > Shouldly                              4.3.0       4.3.0
-   > TUnit                                 1.56.0      1.56.0
-
-Project 'Weather.Core.Tests' has the following package references
-   [net10.0]:
-   Top-level Package      Requested   Resolved
-   > Shouldly             4.3.0       4.3.0
-   > TUnit                1.56.0      1.56.0
-
-Project 'Weather.Infrastructure.Tests' has the following package references
-   [net10.0]:
-   Top-level Package      Requested   Resolved
-   > NSubstitute          5.3.0       5.3.0
-   > Shouldly             4.3.0       4.3.0
-   > TUnit                1.56.0      1.56.0
-
-Project 'Weather.Web.Tests' has the following package references
-   [net10.0]:
-   Top-level Package      Requested   Resolved
-   > bunit.web            1.40.0      1.40.0
-   > Shouldly             4.3.0       4.3.0
-   > TUnit                1.56.0      1.56.0
-
-(A) : Auto-referenced package.
-2026-06-18-13-16-24
-Restore complete (1.3s)
-
-Build succeeded in 1.5s
-
-The following sources were used:
-   https://api.nuget.org/v3/index.json
-
-The given project `Weather.Api` has no updates given the current sources.
-The given project `Weather.AppHost` has no updates given the current sources.
-The given project `Weather.Core` has no updates given the current sources.
-The given project `Weather.Infrastructure` has no updates given the current sources.
-The given project `Weather.ServiceDefaults` has no updates given the current sources.
-The given project `Weather.Web` has no updates given the current sources.
-The given project `Weather.Api.Tests` has no updates given the current sources.
-The given project `Weather.Core.Tests` has no updates given the current sources.
-The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
-The given project `Weather.Web.Tests` has no updates given the current sources.
-2026-06-18-13-16-35
-2026-06-18-13-17-03
-On branch main
-Your branch is up to date with 'origin/main'.
-
-nothing to commit, working tree clean
-2026-06-18-13-17-03
-# Export Git-tracked ASP.NET Project Files to Single Text File
-# Uses `git ls-files` so only committed/staged files are included.
-
-param(
-    [string]$ProjectPath = ".",
-    [string]$OutputFile = "docs/llm/dump.txt"
-)
-
-# File extensions to include (without the leading dot)
-$IncludeExtensions = @(
-    "cs", "json", "xml", "csproj", "slnx", "sln", "config",
-    "cshtml", "razor", "js", "css", "scss", "html",
-    "yml", "yaml", "sql", "props", "targets", "sh",
-    "ps1"
-)
-
-# Exact filenames (no extension match needed)
-$IncludeSpecificFiles = @(
-    "Dockerfile", ".dockerignore", ".editorconfig",
-    ".gitignore", ".gitattributes"
-)
-
-# Directories to skip even if tracked (e.g. this script's own output)
-$ExcludeDirectories = @("docs")
-
-Write-Host "Starting project export..." -ForegroundColor Green
-Write-Host "Project Path: $ProjectPath" -ForegroundColor Yellow
-Write-Host "Output File: $OutputFile" -ForegroundColor Yellow
-
-# ── Resolve paths ────────────────────────────────────────────────────────────
-Push-Location $ProjectPath
-$ResolvedRoot = (Resolve-Path ".").Path
-
-$OutputPath = Join-Path $ResolvedRoot $OutputFile
-$outputDir  = Split-Path $OutputPath -Parent
-if (!(Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
-
-# ── Get tracked files from Git ───────────────────────────────────────────────
-Write-Host "Querying git for tracked files..." -ForegroundColor Cyan
-
-$gitFiles = git ls-files --cached --others --exclude-standard 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: git ls-files failed. Are you inside a git repository?" -ForegroundColor Red
-    Pop-Location
-    exit 1
-}
-
-# Filter to desired extensions / specific filenames, and exclude dirs
-$AllFiles = $gitFiles | ForEach-Object {
-    $rel = $_
-    $name = Split-Path $rel -Leaf
-    $ext  = ($name -replace '^.*\.', '').ToLower()
-
-    # Skip excluded directories
-    $skip = $false
-    foreach ($d in $ExcludeDirectories) {
-        if ($rel -like "$d/*" -or $rel -like "$d\*") { $skip = $true; break }
-    }
-    if ($skip) { return }
-
-    # Match by extension or specific filename
-    if ($IncludeExtensions -contains $ext -or $IncludeSpecificFiles -contains $name) {
-        $fullPath = Join-Path $ResolvedRoot $rel
-        if (Test-Path $fullPath) {
-            [PSCustomObject]@{ Relative = $rel; Full = $fullPath }
-        }
-    }
-} | Sort-Object Relative
-
-Write-Host "Found $($AllFiles.Count) files to export" -ForegroundColor Green
-
-# ── Write header ─────────────────────────────────────────────────────────────
-$header = @"
-===============================================================================
-ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: $(Get-Date)
-Project Path: $ResolvedRoot
-===============================================================================
-
-"@
-$header | Out-File -FilePath $OutputPath -Encoding UTF8
-
-# ── Directory tree (git ls-tree) ─────────────────────────────────────────────
-"DIRECTORY STRUCTURE (tracked):" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-"==============================" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-# Show a compact tree of tracked paths
-$gitFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-# ── File contents ────────────────────────────────────────────────────────────
-"FILE CONTENTS:" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-"==============" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-$i = 0
-foreach ($f in $AllFiles) {
-    $i++
-    $info = Get-Item $f.Full
-    Write-Host "Processing ($i/$($AllFiles.Count)): $($f.Relative)" -ForegroundColor White
-
-    $sep = "=" * 80
-    @"
-$sep
-FILE: $($f.Relative)
-SIZE: $([math]::Round($info.Length / 1KB, 2)) KB
-MODIFIED: $($info.LastWriteTime)
-$sep
-
-"@ | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-    try {
-        $content = Get-Content -Path $f.Full -Raw -ErrorAction Stop
-        if ($content) {
-            $content | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-        } else {
-            "[EMPTY FILE]" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-        }
-    } catch {
-        "[ERROR READING FILE: $($_.Exception.Message)]" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-    }
-
-    "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-    "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-}
-
-# ── Footer ───────────────────────────────────────────────────────────────────
-@"
-===============================================================================
-EXPORT COMPLETED: $(Get-Date)
-Total Files Exported: $i
-Output File: $OutputPath
-===============================================================================
-"@ | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-Pop-Location
-
-Write-Host "`nExport completed!" -ForegroundColor Green
-Write-Host "Total files exported: $i" -ForegroundColor Green
-Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-18-13-17-03
-Starting project export...
-Project Path: .
-Output File: docs/llm/dump.txt
-Querying git for tracked files...
-Found 110 files to export
-Processing (1/110): .editorconfig
-Processing (2/110): .gitattributes
-Processing (3/110): .github/dependabot.yml
-Processing (4/110): .github/workflows/build.yml
-Processing (5/110): .github/workflows/codeql.yml
-Processing (6/110): .github/workflows/dependency-review.yml
-Processing (7/110): .github/workflows/format.yml
-Processing (8/110): .github/workflows/markdown-lint.yml
-Processing (9/110): .github/workflows/test.yml
-Processing (10/110): .gitignore
-Processing (11/110): Directory.Build.props
-Processing (12/110): Directory.Packages.props
-Processing (13/110): export.ps1
-Processing (14/110): global.json
-Processing (15/110): nuget.config
-Processing (16/110): src/Weather.Api/appsettings.Development.json
-Processing (17/110): src/Weather.Api/appsettings.json
-Processing (18/110): src/Weather.Api/Contracts/ForecastResponse.cs
-Processing (19/110): src/Weather.Api/Contracts/NeighborhoodResponse.cs
-Processing (20/110): src/Weather.Api/Endpoints/WeatherEndpoints.cs
-Processing (21/110): src/Weather.Api/Program.cs
-Processing (22/110): src/Weather.Api/Properties/launchSettings.json
-Processing (23/110): src/Weather.Api/Weather.Api.csproj
-Processing (24/110): src/Weather.AppHost/appsettings.json
-Processing (25/110): src/Weather.AppHost/Program.cs
-Processing (26/110): src/Weather.AppHost/Weather.AppHost.csproj
-Processing (27/110): src/Weather.Core/Abstractions/IForecastCache.cs
-Processing (28/110): src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
-Processing (29/110): src/Weather.Core/Abstractions/INwsApiClient.cs
-Processing (30/110): src/Weather.Core/Abstractions/IPointMetadataCache.cs
-Processing (31/110): src/Weather.Core/Abstractions/IWeatherService.cs
-Processing (32/110): src/Weather.Core/Models/CachedForecast.cs
-Processing (33/110): src/Weather.Core/Models/CachedPointMetadata.cs
-Processing (34/110): src/Weather.Core/Models/Forecast.cs
-Processing (35/110): src/Weather.Core/Models/ForecastFetchResult.cs
-Processing (36/110): src/Weather.Core/Models/ForecastPeriod.cs
-Processing (37/110): src/Weather.Core/Models/GeoCoordinate.cs
-Processing (38/110): src/Weather.Core/Models/GridNeighborhood.cs
-Processing (39/110): src/Weather.Core/Models/GridPoint.cs
-Processing (40/110): src/Weather.Core/Models/NeighborhoodForecast.cs
-Processing (41/110): src/Weather.Core/Models/PointMetadata.cs
-Processing (42/110): src/Weather.Core/Telemetry/WeatherTelemetry.cs
-Processing (43/110): src/Weather.Core/Weather.Core.csproj
-Processing (44/110): src/Weather.Infrastructure/Caching/DatabaseInitializer.cs
-Processing (45/110): src/Weather.Infrastructure/Caching/SqliteCacheOptions.cs
-Processing (46/110): src/Weather.Infrastructure/Caching/SqliteConnectionFactory.cs
-Processing (47/110): src/Weather.Infrastructure/Caching/SqliteForecastCache.cs
-Processing (48/110): src/Weather.Infrastructure/Caching/SqlitePointMetadataCache.cs
-Processing (49/110): src/Weather.Infrastructure/Caching/TimestampText.cs
-Processing (50/110): src/Weather.Infrastructure/DependencyInjection.cs
-Processing (51/110): src/Weather.Infrastructure/Nws/NwsApiClient.cs
-Processing (52/110): src/Weather.Infrastructure/Nws/NwsClientOptions.cs
-Processing (53/110): src/Weather.Infrastructure/Nws/NwsJsonModels.cs
-Processing (54/110): src/Weather.Infrastructure/Serialization/WeatherJson.cs
-Processing (55/110): src/Weather.Infrastructure/Services/NeighborhoodWarmer.cs
-Processing (56/110): src/Weather.Infrastructure/Services/NeighborhoodWarmingBackgroundService.cs
-Processing (57/110): src/Weather.Infrastructure/Services/WeatherService.cs
-Processing (58/110): src/Weather.Infrastructure/Weather.Infrastructure.csproj
-Processing (59/110): src/Weather.ServiceDefaults/Extensions.cs
-Processing (60/110): src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj
-Processing (61/110): src/Weather.Web/appsettings.Development.json
-Processing (62/110): src/Weather.Web/appsettings.json
-Processing (63/110): src/Weather.Web/Components/_Imports.razor
-Processing (64/110): src/Weather.Web/Components/App.razor
-Processing (65/110): src/Weather.Web/Components/Layout/MainLayout.razor
-Processing (66/110): src/Weather.Web/Components/Layout/NavMenu.razor
-Processing (67/110): src/Weather.Web/Components/Pages/About.razor
-Processing (68/110): src/Weather.Web/Components/Pages/Error.razor
-Processing (69/110): src/Weather.Web/Components/Pages/Home.razor
-Processing (70/110): src/Weather.Web/Components/Routes.razor
-Processing (71/110): src/Weather.Web/Program.cs
-Processing (72/110): src/Weather.Web/Properties/launchSettings.json
-Processing (73/110): src/Weather.Web/Services/GeolocationService.cs
-Processing (74/110): src/Weather.Web/Services/IGeolocationService.cs
-Processing (75/110): src/Weather.Web/Services/IWeatherApiClient.cs
-Processing (76/110): src/Weather.Web/Services/SkyPalette.cs
-Processing (77/110): src/Weather.Web/Services/WeatherApiClient.cs
-Processing (78/110): src/Weather.Web/Services/WeatherViewModels.cs
-Processing (79/110): src/Weather.Web/Weather.Web.csproj
-Processing (80/110): src/Weather.Web/wwwroot/app.css
-Processing (81/110): src/Weather.Web/wwwroot/js/geolocation.js
-Processing (82/110): tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs
-Processing (83/110): tests/Weather.Api.Tests/ForecastEndpointsTests.cs
-Processing (84/110): tests/Weather.Api.Tests/GlobalUsings.cs
-Processing (85/110): tests/Weather.Api.Tests/Weather.Api.Tests.csproj
-Processing (86/110): tests/Weather.Api.Tests/WeatherApiFactory.cs
-Processing (87/110): tests/Weather.Core.Tests/ForecastFetchResultTests.cs
-Processing (88/110): tests/Weather.Core.Tests/GeoCoordinateTests.cs
-Processing (89/110): tests/Weather.Core.Tests/GlobalUsings.cs
-Processing (90/110): tests/Weather.Core.Tests/GridNeighborhoodTests.cs
-Processing (91/110): tests/Weather.Core.Tests/Weather.Core.Tests.csproj
-Processing (92/110): tests/Weather.Core.Tests/WeatherTelemetryTests.cs
-Processing (93/110): tests/Weather.Infrastructure.Tests/Caching/SqliteCacheHarness.cs
-Processing (94/110): tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
-Processing (95/110): tests/Weather.Infrastructure.Tests/Caching/SqlitePointMetadataCacheTests.cs
-Processing (96/110): tests/Weather.Infrastructure.Tests/Fakes/MutableTimeProvider.cs
-Processing (97/110): tests/Weather.Infrastructure.Tests/Fakes/NwsPayloads.cs
-Processing (98/110): tests/Weather.Infrastructure.Tests/Fakes/StubHttpMessageHandler.cs
-Processing (99/110): tests/Weather.Infrastructure.Tests/GlobalUsings.cs
-Processing (100/110): tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
-Processing (101/110): tests/Weather.Infrastructure.Tests/Services/NeighborhoodWarmerTests.cs
-Processing (102/110): tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
-Processing (103/110): tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj
-Processing (104/110): tests/Weather.Web.Tests/Fakes/FakeGeolocationService.cs
-Processing (105/110): tests/Weather.Web.Tests/Fakes/FakeWeatherApiClient.cs
-Processing (106/110): tests/Weather.Web.Tests/GlobalUsings.cs
-Processing (107/110): tests/Weather.Web.Tests/HomePageTests.cs
-Processing (108/110): tests/Weather.Web.Tests/SkyPaletteTests.cs
-Processing (109/110): tests/Weather.Web.Tests/Weather.Web.Tests.csproj
-Processing (110/110): weather.slnx
-
-Export completed!
-Total files exported: 110
-Output file size: 248.82 KB
-2026-06-18-13-17-04
-
-Build succeeded in 5.0s
-2026-06-18-13-17-11
-Restore complete (2.1s)
-
-Build succeeded in 2.5s
-2026-06-18-13-17-14
-Restore complete (2.4s)
-  Weather.Core net10.0 succeeded (5.2s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-  Weather.ServiceDefaults net10.0 succeeded (5.2s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-  Weather.Infrastructure net10.0 succeeded (3.4s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
-  Weather.Api net10.0 succeeded (3.2s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
-  Weather.Web net10.0 succeeded (7.1s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-  Weather.Core.Tests net10.0 succeeded (8.7s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-  Weather.Infrastructure.Tests net10.0 succeeded (6.1s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
-  Weather.Api.Tests net10.0 succeeded (3.7s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
-  Weather.Web.Tests net10.0 succeeded (1.7s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
-  Weather.AppHost net10.0 succeeded (2.8s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
-
-Build succeeded in 19.6s
-2026-06-18-13-17-35
-Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 307ms)
-tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 834ms)
-tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (1s 942ms)
-tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (2s 035ms)
-
-  In process file artifacts produced:
-    - tests\Weather.Core.Tests\bin\Debug\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
-    - tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\TestResults\Weather.Infrastructure.Tests-windows-net10.0-report.html
-    - tests\Weather.Web.Tests\bin\Debug\net10.0\TestResults\Weather.Web.Tests-windows-net10.0-report.html
-    - tests\Weather.Api.Tests\bin\Debug\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
-
-Test run summary: Passed!
-  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (2s 035ms)
-  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (1s 942ms)
-  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 834ms)
-  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 307ms)
-
-  total: 115
-  failed: 0
-  succeeded: 115
-  skipped: 0
-  duration: 2s 845ms
-2026-06-18-13-17-44
-PS D:\DEV\personal\weather> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-18-13-18-27
-PS D:\DEV\personal\weather> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\src\Weather.AppHost\"; $env:DOTNET_ASPIRE_SHOW_DOCKER_WARNING="false"; dotnet run
-2026-06-18-13-19-09
-2026-06-18-13-19-09
-On branch main
-Your branch is up to date with 'origin/main'.
-
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-        modified:   docs/llm/dump.txt
-
-no changes added to commit (use "git add" and/or "git commit -a")
-2026-06-18-13-19-09
-info: Aspire.Hosting.DistributedApplication[0]
-      Aspire AppHost version: 13.4.5+73114e86c64aeb9f3f3c7da8e37df1ae4281b27e
-info: Aspire.Hosting.DistributedApplication[0]
-      Distributed application starting.
-info: Aspire.Hosting.DistributedApplication[0]
-      Application host directory is: D:\DEV\personal\weather\src\Weather.AppHost
-info: Aspire.Hosting.DistributedApplication[0]
-      Generating a dynamic url for dashboard.  If you want a consistent url, configure `ASPNETCORE_URLS`
-info: Aspire.Hosting.DistributedApplication[0]
-      Now listening on: https://localhost:51956
-info: Aspire.Hosting.DistributedApplication[0]
-      Login to the dashboard at https://localhost:51956/login?t=b8e1dc3ee4f24945ae4b77e5c8b35d8a
-info: Aspire.Hosting.DistributedApplication[0]
-      Aspire Dashboard
-
-      - Dashboard:  https://localhost:51956
-      - Login URL:  https://localhost:51956/login?t=b8e1dc3ee4f24945ae4b77e5c8b35d8a
-      - OTLP/gRPC:  https://localhost:51955
-      - OTLP/HTTP:  https://localhost:51957
-
-info: Aspire.Hosting.DistributedApplication[0]
-      Distributed application started. Press Ctrl+C to shut down.
-PS D:\DEV\personal\weather\src\Weather.AppHost> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-19-04-01-25
-2026-06-19-04-01-25
-On branch main
-Your branch is ahead of 'origin/main' by 1 commit.
+Your branch is ahead of 'origin/main' by 3 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-19-04-01-25
+2026-06-19-09-14-02
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -486,10 +23,10 @@ nothing to commit, working tree clean
     main merges with remote main
   Local ref configured for 'git push':
     main pushes to main (fast-forwardable)
-2026-06-19-04-01-26
-Restore complete (1.5s)
+2026-06-19-09-14-02
+Restore complete (2.7s)
 
-Build succeeded in 1.7s
+Build succeeded in 3.3s
 Project 'Weather.Api' has the following package references
    [net10.0]:
    Top-level Package                   Requested   Resolved
@@ -557,10 +94,10 @@ Project 'Weather.Web.Tests' has the following package references
    > TUnit                1.56.0      1.56.0
 
 (A) : Auto-referenced package.
-2026-06-19-04-01-34
-Restore complete (2.0s)
+2026-06-19-09-14-15
+Restore complete (5.7s)
 
-Build succeeded in 2.3s
+Build succeeded in 6.1s
 
 The following sources were used:
    https://api.nuget.org/v3/index.json
@@ -575,14 +112,14 @@ The given project `Weather.Api.Tests` has no updates given the current sources.
 The given project `Weather.Core.Tests` has no updates given the current sources.
 The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
 The given project `Weather.Web.Tests` has no updates given the current sources.
-2026-06-19-04-01-48
-2026-06-19-04-02-17
+2026-06-19-09-14-29
+2026-06-19-09-15-02
 On branch main
-Your branch is ahead of 'origin/main' by 1 commit.
+Your branch is ahead of 'origin/main' by 3 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-19-04-02-17
+2026-06-19-09-15-02
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -726,7 +263,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-19-04-02-17
+2026-06-19-09-15-02
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -846,36 +383,36 @@ Processing (110/110): weather.slnx
 Export completed!
 Total files exported: 110
 Output file size: 248.82 KB
-2026-06-19-04-02-18
+2026-06-19-09-15-03
 
-Build succeeded in 1.4s
-2026-06-19-04-02-19
-Restore complete (2.5s)
+Build succeeded in 4.3s
+2026-06-19-09-15-08
+Restore complete (2.6s)
 
-Build succeeded in 3.1s
-2026-06-19-04-02-23
-Restore complete (2.5s)
-  Weather.Core net10.0 succeeded (5.7s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-  Weather.ServiceDefaults net10.0 succeeded (6.4s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-  Weather.Infrastructure net10.0 succeeded (3.6s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
-  Weather.Web net10.0 succeeded (6.7s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-  Weather.Core.Tests net10.0 succeeded (14.4s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-  Weather.Infrastructure.Tests net10.0 succeeded (11.1s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
-  Weather.Api net10.0 succeeded (3.8s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
-  Weather.Api.Tests net10.0 succeeded (3.3s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
-  Weather.Web.Tests net10.0 succeeded (5.9s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
-  Weather.AppHost net10.0 succeeded (11.2s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+Build succeeded in 2.9s
+2026-06-19-09-15-12
+Restore complete (1.9s)
+  Weather.Core net10.0 succeeded (6.0s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (7.8s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Infrastructure net10.0 succeeded (4.1s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+  Weather.Api net10.0 succeeded (3.6s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
+  Weather.Web net10.0 succeeded (5.0s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
+  Weather.Core.Tests net10.0 succeeded (17.1s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Api.Tests net10.0 succeeded (10.5s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+  Weather.Infrastructure.Tests net10.0 succeeded (2.6s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
+  Weather.AppHost net10.0 succeeded (15.0s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+  Weather.Web.Tests net10.0 succeeded (3.7s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
 
-Build succeeded in 35.0s
-2026-06-19-04-02-59
+Build succeeded in 34.0s
+2026-06-19-09-15-46
+Running tests from tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64)
+Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 511ms)
-tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 612ms)
-tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 101ms)
-tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (2s 197ms)
+tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 504ms)
+tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 786ms)
+tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 162ms)
+tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (2s 532ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Debug\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -884,15 +421,15 @@ tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) pa
     - tests\Weather.Api.Tests\bin\Debug\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (2s 197ms)
-  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 101ms)
-  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 511ms)
-  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 612ms)
+  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (2s 532ms)
+  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 786ms)
+  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 504ms)
+  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 162ms)
 
   total: 115
   failed: 0
   succeeded: 115
   skipped: 0
-  duration: 2s 908ms
-2026-06-19-04-03-08
+  duration: 3s 449ms
+2026-06-19-09-15-57
 PS D:\DEV\personal\weather>
