@@ -1,8 +1,8 @@
 using System.Net;
+using Microsoft.Extensions.Logging.Abstractions;
 using Weather.Core.Telemetry;
 using Weather.Infrastructure.Nws;
 using Weather.Infrastructure.Tests.Fakes;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Weather.Infrastructure.Tests.Nws;
 

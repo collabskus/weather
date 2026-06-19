@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/19/2026 11:41:42
+Generated: 06/19/2026 12:35:38
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -8712,14 +8712,14 @@ global using Weather.Core.Models;
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs
 SIZE: 5.02 KB
-MODIFIED: 06/19/2026 13:42:38
+MODIFIED: 06/19/2026 12:35:38
 ================================================================================
 
 using System.Net;
+using Microsoft.Extensions.Logging.Abstractions;
 using Weather.Core.Telemetry;
 using Weather.Infrastructure.Nws;
 using Weather.Infrastructure.Tests.Fakes;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Weather.Infrastructure.Tests.Nws;
 
@@ -10079,8 +10079,8 @@ MODIFIED: 06/19/2026 08:36:12
 
 ================================================================================
 FILE: weather.slnx
-SIZE: 1.39 KB
-MODIFIED: 06/19/2026 08:36:12
+SIZE: 1.12 KB
+MODIFIED: 06/19/2026 12:34:36
 ================================================================================
 
 <Solution>
@@ -10113,15 +10113,7 @@ MODIFIED: 06/19/2026 08:36:12
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/19/2026 04:02:18
-Total Files Exported: 110
-Output File: D:\DEV\personal\weather\docs\llm\dump.txt
-===============================================================================
-
-
-
-===============================================================================
-EXPORT COMPLETED: 06/19/2026 11:41:42
+EXPORT COMPLETED: 06/19/2026 12:35:39
 Total Files Exported: 125
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
