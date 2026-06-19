@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/19/2026 13:47:13
+Generated: 06/19/2026 14:06:32
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -379,7 +379,7 @@ jobs:
 ================================================================================
 FILE: .github/workflows/dependency-review.yml
 SIZE: 0.51 KB
-MODIFIED: 06/19/2026 08:36:12
+MODIFIED: 06/19/2026 14:05:18
 ================================================================================
 
 name: dependency-review
@@ -403,7 +403,7 @@ jobs:
       # Flags dependency changes in a PR that introduce known-vulnerable
       # packages or disallowed licences before they land.
       - name: Dependency review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
 
@@ -447,7 +447,7 @@ jobs:
 ================================================================================
 FILE: .github/workflows/markdown-lint.yml
 SIZE: 0.63 KB
-MODIFIED: 06/19/2026 08:36:12
+MODIFIED: 06/19/2026 14:05:43
 ================================================================================
 
 name: markdown-lint
@@ -473,7 +473,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
 
@@ -10117,7 +10117,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/19/2026 13:47:14
+EXPORT COMPLETED: 06/19/2026 14:06:32
 Total Files Exported: 125
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
