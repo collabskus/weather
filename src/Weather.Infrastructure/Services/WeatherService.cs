@@ -211,7 +211,7 @@ internal sealed class WeatherService(
         return extras;
     }
 
-    private double OrderKeyMeters(GeoCoordinate query, GridPoint origin, CellWeather cell) =>
+    private static double OrderKeyMeters(GeoCoordinate query, GridPoint origin, CellWeather cell) =>
         cell.Center is { } center
             ? query.DistanceMetersTo(center)
             : GridApproxMeters(origin, cell.Grid);
