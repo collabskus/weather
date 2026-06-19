@@ -1,16 +1,15 @@
 PowerShell 7.6.2
-Loading personal and system profiles took 1252ms.
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-19-11-39-01
+2026-06-19-11-41-38
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-19-11-39-05
-2026-06-19-11-39-05
+2026-06-19-11-41-40
+2026-06-19-11-41-40
 On branch main
-Your branch is ahead of 'origin/main' by 7 commits.
+Your branch is ahead of 'origin/main' by 9 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-19-11-39-05
+2026-06-19-11-41-40
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -23,24 +22,7 @@ nothing to commit, working tree clean
     main merges with remote main
   Local ref configured for 'git push':
     main pushes to main (fast-forwardable)
-2026-06-19-11-39-06
-D:\DEV\personal\weather\weather.slnx : error MSB4025:
-  The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
-     at System.Xml.XmlTextReaderImpl.Throw(Exception e)
-     at System.Xml.XmlTextReaderImpl.Throw(String res, String arg)
-     at System.Xml.XmlTextReaderImpl.ParseRootLevelWhitespace()
-     at System.Xml.XmlTextReaderImpl.ParseDocumentContent()
-     at System.Xml.XmlLoader.LoadDocSequence(XmlDocument parentDoc)
-     at System.Xml.XmlDocument.Load(XmlReader reader)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.LineInfoXmlDocument.Load(XmlReader reader)
-     at System.Xml.XmlDocument.Load(Stream inStream)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.SlnXmlSerializer.ReadModelAsync(String fullPath, Stream reader, CancellationToken cancellationToken)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.SingleFileSerializerBase`1.Microsoft.VisualStudio.SolutionPersistence.ISolutionSerializer.OpenAsync(String moniker, CancellationToken cancellationT
-  oken)
-     at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
-
-Build failed with 1 error(s) in 0.1s
-2026-06-19-11-39-06
+2026-06-19-11-41-40
 D:\DEV\personal\weather\weather.slnx : error MSB4025:
   The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
      at System.Xml.XmlTextReaderImpl.Throw(Exception e)
@@ -57,20 +39,37 @@ D:\DEV\personal\weather\weather.slnx : error MSB4025:
      at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
 
 Build failed with 1 error(s) in 0.0s
-2026-06-19-11-39-07
+2026-06-19-11-41-41
+D:\DEV\personal\weather\weather.slnx : error MSB4025:
+  The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
+     at System.Xml.XmlTextReaderImpl.Throw(Exception e)
+     at System.Xml.XmlTextReaderImpl.Throw(String res, String arg)
+     at System.Xml.XmlTextReaderImpl.ParseRootLevelWhitespace()
+     at System.Xml.XmlTextReaderImpl.ParseDocumentContent()
+     at System.Xml.XmlLoader.LoadDocSequence(XmlDocument parentDoc)
+     at System.Xml.XmlDocument.Load(XmlReader reader)
+     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.LineInfoXmlDocument.Load(XmlReader reader)
+     at System.Xml.XmlDocument.Load(Stream inStream)
+     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.SlnXmlSerializer.ReadModelAsync(String fullPath, Stream reader, CancellationToken cancellationToken)
+     at Microsoft.VisualStudio.SolutionPersistence.Serializer.SingleFileSerializerBase`1.Microsoft.VisualStudio.SolutionPersistence.ISolutionSerializer.OpenAsync(String moniker, CancellationToken cancellationT
+  oken)
+     at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
+
+Build failed with 1 error(s) in 0.0s
+2026-06-19-11-41-41
 Unhandled exception: System.Exception: Restore operation failed.
    at Microsoft.CodeAnalysis.Tools.CodeFormatter.OpenMSBuildWorkspaceAsync(String solutionOrProjectPath, WorkspaceType workspaceType, Boolean noRestore, Boolean requiresSemantics, String binaryLogPath, Boolean logWorkspaceWarnings, ILogger logger, CancellationToken cancellationToken)
    at Microsoft.CodeAnalysis.Tools.CodeFormatter.FormatWorkspaceAsync(FormatOptions formatOptions, ILogger logger, CancellationToken cancellationToken, String binaryLogPath)
    at Microsoft.CodeAnalysis.Tools.FormatCommandCommon.FormatAsync(FormatOptions formatOptions, ILogger`1 logger, CancellationToken cancellationToken)
    at Microsoft.CodeAnalysis.Tools.Commands.RootFormatCommand.FormatCommandDefaultHandler.InvokeAsync(ParseResult parseResult, CancellationToken cancellationToken)
    at System.CommandLine.Invocation.InvocationPipeline.InvokeAsync(ParseResult parseResult, CancellationToken cancellationToken)
-2026-06-19-11-39-07
+2026-06-19-11-41-41
 On branch main
-Your branch is ahead of 'origin/main' by 7 commits.
+Your branch is ahead of 'origin/main' by 9 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-19-11-39-07
+2026-06-19-11-41-42
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -214,299 +213,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-19-11-39-07
-.\export.ps1: File D:\DEV\personal\weather\export.ps1 cannot be loaded. The file D:\DEV\personal\weather\export.ps1 is not digitally signed. You cannot run this script on the current system. For more information about running scripts and setting execution policy, see about_Execution_Policies at https://go.microsoft.com/fwlink/?LinkID=135170.
-2026-06-19-11-39-08
-D:\DEV\personal\weather\weather.slnx : error MSB4025:
-  The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
-     at System.Xml.XmlTextReaderImpl.Throw(Exception e)
-     at System.Xml.XmlTextReaderImpl.Throw(String res, String arg)
-     at System.Xml.XmlTextReaderImpl.ParseRootLevelWhitespace()
-     at System.Xml.XmlTextReaderImpl.ParseDocumentContent()
-     at System.Xml.XmlLoader.LoadDocSequence(XmlDocument parentDoc)
-     at System.Xml.XmlDocument.Load(XmlReader reader)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.LineInfoXmlDocument.Load(XmlReader reader)
-     at System.Xml.XmlDocument.Load(Stream inStream)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.SlnXmlSerializer.ReadModelAsync(String fullPath, Stream reader, CancellationToken cancellationToken)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.SingleFileSerializerBase`1.Microsoft.VisualStudio.SolutionPersistence.ISolutionSerializer.OpenAsync(String moniker, CancellationToken cancellationT
-  oken)
-     at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
-
-Build failed with 1 error(s) in 0.0s
-2026-06-19-11-39-08
-D:\DEV\personal\weather\weather.slnx : error MSB4025:
-  The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
-     at System.Xml.XmlTextReaderImpl.Throw(Exception e)
-     at System.Xml.XmlTextReaderImpl.Throw(String res, String arg)
-     at System.Xml.XmlTextReaderImpl.ParseRootLevelWhitespace()
-     at System.Xml.XmlTextReaderImpl.ParseDocumentContent()
-     at System.Xml.XmlLoader.LoadDocSequence(XmlDocument parentDoc)
-     at System.Xml.XmlDocument.Load(XmlReader reader)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.LineInfoXmlDocument.Load(XmlReader reader)
-     at System.Xml.XmlDocument.Load(Stream inStream)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.SlnXmlSerializer.ReadModelAsync(String fullPath, Stream reader, CancellationToken cancellationToken)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.SingleFileSerializerBase`1.Microsoft.VisualStudio.SolutionPersistence.ISolutionSerializer.OpenAsync(String moniker, CancellationToken cancellationT
-  oken)
-     at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
-
-Build failed with 1 error(s) in 0.0s
-2026-06-19-11-39-08
-D:\DEV\personal\weather\weather.slnx : error MSB4025:
-  The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
-     at System.Xml.XmlTextReaderImpl.Throw(Exception e)
-     at System.Xml.XmlTextReaderImpl.Throw(String res, String arg)
-     at System.Xml.XmlTextReaderImpl.ParseRootLevelWhitespace()
-     at System.Xml.XmlTextReaderImpl.ParseDocumentContent()
-     at System.Xml.XmlLoader.LoadDocSequence(XmlDocument parentDoc)
-     at System.Xml.XmlDocument.Load(XmlReader reader)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.LineInfoXmlDocument.Load(XmlReader reader)
-     at System.Xml.XmlDocument.Load(Stream inStream)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.SlnXmlSerializer.ReadModelAsync(String fullPath, Stream reader, CancellationToken cancellationToken)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.SingleFileSerializerBase`1.Microsoft.VisualStudio.SolutionPersistence.ISolutionSerializer.OpenAsync(String moniker, CancellationToken cancellationT
-  oken)
-     at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
-
-Build failed with 1 error(s) in 0.0s
-2026-06-19-11-39-09
-D:\DEV\personal\weather\weather.slnx : error MSB4025:
-  The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
-     at System.Xml.XmlTextReaderImpl.Throw(Exception e)
-     at System.Xml.XmlTextReaderImpl.Throw(String res, String arg)
-     at System.Xml.XmlTextReaderImpl.ParseRootLevelWhitespace()
-     at System.Xml.XmlTextReaderImpl.ParseDocumentContent()
-     at System.Xml.XmlLoader.LoadDocSequence(XmlDocument parentDoc)
-     at System.Xml.XmlDocument.Load(XmlReader reader)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.LineInfoXmlDocument.Load(XmlReader reader)
-     at System.Xml.XmlDocument.Load(Stream inStream)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.SlnXmlSerializer.ReadModelAsync(String fullPath, Stream reader, CancellationToken cancellationToken)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.SingleFileSerializerBase`1.Microsoft.VisualStudio.SolutionPersistence.ISolutionSerializer.OpenAsync(String moniker, CancellationToken cancellationT
-  oken)
-     at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
-Build failed with exit code: 1.
-2026-06-19-11-39-09
-PS D:\DEV\personal\weather> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-19-11-41-10
-2026-06-19-11-41-10
-On branch main
-Your branch is ahead of 'origin/main' by 8 commits.
-  (use "git push" to publish your local commits)
-
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-        modified:   export.ps1
-
-no changes added to commit (use "git add" and/or "git commit -a")
-2026-06-19-11-41-11
-* remote origin
-  Fetch URL: https://github.com/collabskus/weather.git
-  Push  URL: https://github.com/collabskus/weather.git
-  HEAD branch: main
-  Remote branches:
-    dependabot/github_actions/actions/dependency-review-action-5 new (next fetch will store in remotes/origin)
-    dependabot/github_actions/actions/setup-node-6               new (next fetch will store in remotes/origin)
-    main                                                         tracked
-  Local branch configured for 'git pull':
-    main merges with remote main
-  Local ref configured for 'git push':
-    main pushes to main (fast-forwardable)
-2026-06-19-11-41-11
-D:\DEV\personal\weather\weather.slnx : error MSB4025:
-  The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
-     at System.Xml.XmlTextReaderImpl.Throw(Exception e)
-     at System.Xml.XmlTextReaderImpl.Throw(String res, String arg)
-     at System.Xml.XmlTextReaderImpl.ParseRootLevelWhitespace()
-     at System.Xml.XmlTextReaderImpl.ParseDocumentContent()
-     at System.Xml.XmlLoader.LoadDocSequence(XmlDocument parentDoc)
-     at System.Xml.XmlDocument.Load(XmlReader reader)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.LineInfoXmlDocument.Load(XmlReader reader)
-     at System.Xml.XmlDocument.Load(Stream inStream)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.SlnXmlSerializer.ReadModelAsync(String fullPath, Stream reader, CancellationToken cancellationToken)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.SingleFileSerializerBase`1.Microsoft.VisualStudio.SolutionPersistence.ISolutionSerializer.OpenAsync(String moniker, CancellationToken cancellationT
-  oken)
-     at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
-
-Build failed with 1 error(s) in 0.0s
-2026-06-19-11-41-11
-D:\DEV\personal\weather\weather.slnx : error MSB4025:
-  The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
-     at System.Xml.XmlTextReaderImpl.Throw(Exception e)
-     at System.Xml.XmlTextReaderImpl.Throw(String res, String arg)
-     at System.Xml.XmlTextReaderImpl.ParseRootLevelWhitespace()
-     at System.Xml.XmlTextReaderImpl.ParseDocumentContent()
-     at System.Xml.XmlLoader.LoadDocSequence(XmlDocument parentDoc)
-     at System.Xml.XmlDocument.Load(XmlReader reader)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.LineInfoXmlDocument.Load(XmlReader reader)
-     at System.Xml.XmlDocument.Load(Stream inStream)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.Xml.SlnXmlSerializer.ReadModelAsync(String fullPath, Stream reader, CancellationToken cancellationToken)
-     at Microsoft.VisualStudio.SolutionPersistence.Serializer.SingleFileSerializerBase`1.Microsoft.VisualStudio.SolutionPersistence.ISolutionSerializer.OpenAsync(String moniker, CancellationToken cancellationT
-  oken)
-     at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
-
-Build failed with 1 error(s) in 0.1s
-2026-06-19-11-41-12
-Unhandled exception: System.Exception: Restore operation failed.
-   at Microsoft.CodeAnalysis.Tools.CodeFormatter.OpenMSBuildWorkspaceAsync(String solutionOrProjectPath, WorkspaceType workspaceType, Boolean noRestore, Boolean requiresSemantics, String binaryLogPath, Boolean logWorkspaceWarnings, ILogger logger, CancellationToken cancellationToken)
-   at Microsoft.CodeAnalysis.Tools.CodeFormatter.FormatWorkspaceAsync(FormatOptions formatOptions, ILogger logger, CancellationToken cancellationToken, String binaryLogPath)
-   at Microsoft.CodeAnalysis.Tools.FormatCommandCommon.FormatAsync(FormatOptions formatOptions, ILogger`1 logger, CancellationToken cancellationToken)
-   at Microsoft.CodeAnalysis.Tools.Commands.RootFormatCommand.FormatCommandDefaultHandler.InvokeAsync(ParseResult parseResult, CancellationToken cancellationToken)
-   at System.CommandLine.Invocation.InvocationPipeline.InvokeAsync(ParseResult parseResult, CancellationToken cancellationToken)
-2026-06-19-11-41-12
-On branch main
-Your branch is ahead of 'origin/main' by 8 commits.
-  (use "git push" to publish your local commits)
-
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-        modified:   export.ps1
-
-no changes added to commit (use "git add" and/or "git commit -a")
-2026-06-19-11-41-12
-# Export Git-tracked ASP.NET Project Files to Single Text File
-# Uses `git ls-files` so only committed/staged files are included.
-
-param(
-    [string]$ProjectPath = ".",
-    [string]$OutputFile = "docs/llm/dump.txt"
-)
-
-# File extensions to include (without the leading dot)
-$IncludeExtensions = @(
-    "cs", "json", "xml", "csproj", "slnx", "sln", "config",
-    "cshtml", "razor", "js", "css", "scss", "html",
-    "yml", "yaml", "sql", "props", "targets", "sh",
-    "ps1"
-)
-
-# Exact filenames (no extension match needed)
-$IncludeSpecificFiles = @(
-    "Dockerfile", ".dockerignore", ".editorconfig",
-    ".gitignore", ".gitattributes"
-)
-
-# Directories to skip even if tracked (e.g. this script's own output)
-$ExcludeDirectories = @("docs")
-
-Write-Host "Starting project export..." -ForegroundColor Green
-Write-Host "Project Path: $ProjectPath" -ForegroundColor Yellow
-Write-Host "Output File: $OutputFile" -ForegroundColor Yellow
-
-# ── Resolve paths ────────────────────────────────────────────────────────────
-Push-Location $ProjectPath
-$ResolvedRoot = (Resolve-Path ".").Path
-
-$OutputPath = Join-Path $ResolvedRoot $OutputFile
-$outputDir  = Split-Path $OutputPath -Parent
-if (!(Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
-
-# ── Get tracked files from Git ───────────────────────────────────────────────
-Write-Host "Querying git for tracked files..." -ForegroundColor Cyan
-
-$gitFiles = git ls-files --cached --others --exclude-standard 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: git ls-files failed. Are you inside a git repository?" -ForegroundColor Red
-    Pop-Location
-    exit 1
-}
-
-# Filter to desired extensions / specific filenames, and exclude dirs
-$AllFiles = $gitFiles | ForEach-Object {
-    $rel = $_
-    $name = Split-Path $rel -Leaf
-    $ext  = ($name -replace '^.*\.', '').ToLower()
-
-    # Skip excluded directories
-    $skip = $false
-    foreach ($d in $ExcludeDirectories) {
-        if ($rel -like "$d/*" -or $rel -like "$d\*") { $skip = $true; break }
-    }
-    if ($skip) { return }
-
-    # Match by extension or specific filename
-    if ($IncludeExtensions -contains $ext -or $IncludeSpecificFiles -contains $name) {
-        $fullPath = Join-Path $ResolvedRoot $rel
-        if (Test-Path $fullPath) {
-            [PSCustomObject]@{ Relative = $rel; Full = $fullPath }
-        }
-    }
-} | Sort-Object Relative
-
-Write-Host "Found $($AllFiles.Count) files to export" -ForegroundColor Green
-
-# ── Write header ─────────────────────────────────────────────────────────────
-$header = @"
-===============================================================================
-ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: $(Get-Date)
-Project Path: $ResolvedRoot
-===============================================================================
-
-"@
-$header | Out-File -FilePath $OutputPath -Encoding UTF8
-
-# ── Directory tree (git ls-tree) ─────────────────────────────────────────────
-"DIRECTORY STRUCTURE (tracked):" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-"==============================" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-# Show a compact tree of tracked paths
-$gitFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-# ── File contents ────────────────────────────────────────────────────────────
-"FILE CONTENTS:" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-"==============" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-$i = 0
-foreach ($f in $AllFiles) {
-    $i++
-    $info = Get-Item $f.Full
-    Write-Host "Processing ($i/$($AllFiles.Count)): $($f.Relative)" -ForegroundColor White
-
-    $sep = "=" * 80
-    @"
-$sep
-FILE: $($f.Relative)
-SIZE: $([math]::Round($info.Length / 1KB, 2)) KB
-MODIFIED: $($info.LastWriteTime)
-$sep
-
-"@ | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-    try {
-        $content = Get-Content -Path $f.Full -Raw -ErrorAction Stop
-        if ($content) {
-            $content | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-        } else {
-            "[EMPTY FILE]" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-        }
-    } catch {
-        "[ERROR READING FILE: $($_.Exception.Message)]" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-    }
-
-    "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-    "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-}
-
-# ── Footer ───────────────────────────────────────────────────────────────────
-@"
-===============================================================================
-EXPORT COMPLETED: $(Get-Date)
-Total Files Exported: $i
-Output File: $OutputPath
-===============================================================================
-"@ | Out-File -FilePath $OutputPath -Append -Encoding UTF8
-
-Pop-Location
-
-Write-Host "`nExport completed!" -ForegroundColor Green
-Write-Host "Total files exported: $i" -ForegroundColor Green
-Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-19-11-41-12
+2026-06-19-11-41-42
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -641,7 +348,7 @@ Processing (125/125): weather.slnx
 Export completed!
 Total files exported: 125
 Output file size: 345.58 KB
-2026-06-19-11-41-13
+2026-06-19-11-41-42
 D:\DEV\personal\weather\weather.slnx : error MSB4025:
   The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
      at System.Xml.XmlTextReaderImpl.Throw(Exception e)
@@ -657,8 +364,8 @@ D:\DEV\personal\weather\weather.slnx : error MSB4025:
   oken)
      at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
 
-Build failed with 1 error(s) in 0.1s
-2026-06-19-11-41-13
+Build failed with 1 error(s) in 0.0s
+2026-06-19-11-41-43
 D:\DEV\personal\weather\weather.slnx : error MSB4025:
   The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
      at System.Xml.XmlTextReaderImpl.Throw(Exception e)
@@ -674,8 +381,8 @@ D:\DEV\personal\weather\weather.slnx : error MSB4025:
   oken)
      at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
 
-Build failed with 1 error(s) in 0.1s
-2026-06-19-11-41-14
+Build failed with 1 error(s) in 0.0s
+2026-06-19-11-41-43
 D:\DEV\personal\weather\weather.slnx : error MSB4025:
   The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
      at System.Xml.XmlTextReaderImpl.Throw(Exception e)
@@ -691,8 +398,8 @@ D:\DEV\personal\weather\weather.slnx : error MSB4025:
   oken)
      at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
 
-Build failed with 1 error(s) in 0.1s
-2026-06-19-11-41-14
+Build failed with 1 error(s) in 0.0s
+2026-06-19-11-41-43
 D:\DEV\personal\weather\weather.slnx : error MSB4025:
   The project file could not be loaded. System.Xml.XmlException: Data at the root level is invalid. Line 30, position 1.
      at System.Xml.XmlTextReaderImpl.Throw(Exception e)
@@ -708,5 +415,5 @@ D:\DEV\personal\weather\weather.slnx : error MSB4025:
   oken)
      at Microsoft.Build.Construction.SolutionFile.ParseUsingNewParser()
 Build failed with exit code: 1.
-2026-06-19-11-41-14
+2026-06-19-11-41-44
 PS D:\DEV\personal\weather>
