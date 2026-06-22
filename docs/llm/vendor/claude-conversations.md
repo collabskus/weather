@@ -750,3 +750,17 @@ Claude is AI and can make mistakes. Please double-check responses.
 
 38
 16
+
+I see two errors here 
+please fix all the errors and warnings
+ignore notices for now
+
+Severity	Code	Description	Project	File	Line	Suppression State
+Warning (active)	NU1603	Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.	Weather.Api.Tests	D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj	1	
+Warning (active)	NU1603	Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.	Weather.Infrastructure.Tests	D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj	1	
+Warning (active)	CA1859	Using concrete types avoids virtual or interface call overhead and enables inlining.	Weather.Infrastructure.Tests	D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceAreaTests.cs	34	
+Warning (active)	NU1603	Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.	Weather.Api	D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj	1	
+Warning (active)	NU1603	Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.	Weather.Infrastructure	D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj	1	
+Warning (active)	CA1001	Type 'Flight' owns disposable field(s) '_cts' but is not disposable (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1001)	Weather.Infrastructure	D:\DEV\personal\weather\src\Weather.Infrastructure\Services\Requestcoalescer.cs	180	
+Error (active)	CS7036	There is no argument given that corresponds to the required parameter 'logger' of 'WeatherService.WeatherService(IPointMetadataCache, IForecastCache, ICellExtrasCache, INwsApiClient, INeighborhoodWarmer, IRequestCoalescer<GridPoint>, WeatherTelemetry, TimeProvider, IOptions<NwsClientOptions>, ILogger<WeatherService>)'	Weather.Infrastructure.Tests	D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceAreaTests.cs	60	
+Error (active)	CS0411	The type arguments for method 'RequestCoalescer<GridPoint>.RunAsync<TValue>(GridPoint, Func<CancellationToken, Task<TValue>>, CancellationToken)' cannot be inferred from the usage. Try specifying the type arguments explicitly.	Weather.Infrastructure.Tests	D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\RequestCoalescerTests.cs	178	
