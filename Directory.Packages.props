@@ -43,7 +43,7 @@
       SQLitePCLRaw.bundle_e_sqlite3 (>= 2.1.11)  -> resolves to 3.0.3
       SQLitePCLRaw.core            (>= 2.1.11)  -> resolves to 3.0.3
     and bundle_e_sqlite3 3.0.3 in turn depends on:
-      SourceGear.sqlite3            (>= 3.50.4.5)  -- the NATIVE SQLite build
+      SourceGear.sqlite3            (>= 3.50.4.5)  - the NATIVE SQLite build
       SQLitePCLRaw.config.e_sqlite3 (>= 3.0.3)
 
     The native-code package was RENAMED from `SQLitePCLRaw.lib.e_sqlite3`
