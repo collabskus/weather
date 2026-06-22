@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/22/2026 14:15:24
+Generated: 06/22/2026 14:18:51
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -820,7 +820,7 @@ MODIFIED: 06/19/2026 08:36:12
 ================================================================================
 FILE: Directory.Packages.props
 SIZE: 2.34 KB
-MODIFIED: 06/19/2026 13:00:24
+MODIFIED: 06/22/2026 14:17:30
 ================================================================================
 
 <Project>
@@ -828,7 +828,7 @@ MODIFIED: 06/19/2026 13:00:24
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     <!-- Shared version variables to keep families aligned. -->
-    <AspireVersion>13.4.5</AspireVersion>
+    <AspireVersion>13.4.6</AspireVersion>
     <OpenTelemetryVersion>1.10.0</OpenTelemetryVersion>
   </PropertyGroup>
   <ItemGroup Label="Data access (SQLite + Dapper)">
@@ -855,7 +855,7 @@ MODIFIED: 06/19/2026 13:00:24
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
   </ItemGroup>
   <ItemGroup Label="Testing (TUnit runner + Shouldly + bUnit + NSubstitute)">
-    <PackageVersion Include="TUnit" Version="1.56.0" />
+    <PackageVersion Include="TUnit" Version="1.56.25" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="bunit.web" Version="1.40.0" />
@@ -1660,7 +1660,7 @@ builder.Build().Run();
 ================================================================================
 FILE: src/Weather.AppHost/Weather.AppHost.csproj
 SIZE: 1.11 KB
-MODIFIED: 06/19/2026 08:36:12
+MODIFIED: 06/22/2026 14:17:31
 ================================================================================
 
 <Project Sdk="Microsoft.NET.Sdk">
@@ -1670,7 +1670,7 @@ MODIFIED: 06/19/2026 08:36:12
        Program.cs. Its version must match the Aspire.Hosting.AppHost package
        (managed centrally in Directory.Packages.props); an SDK reference can't
        be version-managed by Central Package Management, so it's pinned here. -->
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.4.5" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.4.6" />
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -10117,7 +10117,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/22/2026 14:15:24
+EXPORT COMPLETED: 06/22/2026 14:18:51
 Total Files Exported: 125
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================

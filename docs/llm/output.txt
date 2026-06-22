@@ -1,13 +1,13 @@
 PowerShell 7.6.2
-Loading personal and system profiles took 1027ms.
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test --configuration Release; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-22-14-14-07
-2026-06-22-14-14-07
+2026-06-22-14-18-03
+2026-06-22-14-18-03
 On branch main
-Your branch is up to date with 'origin/main'.
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-22-14-14-07
+2026-06-22-14-18-03
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -19,15 +19,15 @@ nothing to commit, working tree clean
   Local branch configured for 'git pull':
     main merges with remote main
   Local ref configured for 'git push':
-    main pushes to main (up to date)
-2026-06-22-14-14-08
-Restore succeeded with 4 warning(s) in 2.4s
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+    main pushes to main (fast-forwardable)
+2026-06-22-14-18-03
+Restore succeeded with 4 warning(s) in 8.4s
     D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
 
-Build succeeded with 4 warning(s) in 2.7s
+Build succeeded with 4 warning(s) in 8.6s
 Project 'Weather.Api' has the following package references
    [net10.0]:
    Top-level Package                   Requested   Resolved
@@ -36,9 +36,9 @@ Project 'Weather.Api' has the following package references
 Project 'Weather.AppHost' has the following package references
    [net10.0]:
    Top-level Package                              Requested    Resolved
-   > Aspire.Dashboard.Sdk.win-x64           (A)   [13.4.5, )   13.4.5
-   > Aspire.Hosting.AppHost                       13.4.5       13.4.5
-   > Aspire.Hosting.Orchestration.win-x64   (A)   [13.4.5, )   13.4.5
+   > Aspire.Dashboard.Sdk.win-x64           (A)   [13.4.6, )   13.4.6
+   > Aspire.Hosting.AppHost                       13.4.6       13.4.6
+   > Aspire.Hosting.Orchestration.win-x64   (A)   [13.4.6, )   13.4.6
 
 Project 'Weather.Core' has the following package references
    [net10.0]: No packages were found for this framework.
@@ -72,79 +72,60 @@ Project 'Weather.Api.Tests' has the following package references
    Top-level Package                       Requested   Resolved
    > Microsoft.AspNetCore.Mvc.Testing      10.0.9      10.0.9
    > Shouldly                              4.3.0       4.3.0
-   > TUnit                                 1.56.0      1.56.0
+   > TUnit                                 1.56.25     1.56.25
 
 Project 'Weather.Core.Tests' has the following package references
    [net10.0]:
    Top-level Package      Requested   Resolved
    > Shouldly             4.3.0       4.3.0
-   > TUnit                1.56.0      1.56.0
+   > TUnit                1.56.25     1.56.25
 
 Project 'Weather.Infrastructure.Tests' has the following package references
    [net10.0]:
    Top-level Package      Requested   Resolved
    > NSubstitute          5.3.0       5.3.0
    > Shouldly             4.3.0       4.3.0
-   > TUnit                1.56.0      1.56.0
+   > TUnit                1.56.25     1.56.25
 
 Project 'Weather.Web.Tests' has the following package references
    [net10.0]:
    Top-level Package      Requested   Resolved
    > bunit.web            1.40.0      1.40.0
    > Shouldly             4.3.0       4.3.0
-   > TUnit                1.56.0      1.56.0
+   > TUnit                1.56.25     1.56.25
 
 (A) : Auto-referenced package.
-2026-06-22-14-14-15
-Restore succeeded with 4 warning(s) in 4.1s
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+2026-06-22-14-18-16
+Restore succeeded with 4 warning(s) in 1.9s
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
 
-Build succeeded with 4 warning(s) in 4.7s
+Build succeeded with 4 warning(s) in 2.1s
 
 The following sources were used:
    https://api.nuget.org/v3/index.json
 
 The given project `Weather.Api` has no updates given the current sources.
-Project `Weather.AppHost` has the following updates to its packages
-   [net10.0]:
-   Top-level Package             Requested   Resolved   Latest
-   > Aspire.Hosting.AppHost      13.4.5      13.4.5     13.4.6
-
+The given project `Weather.AppHost` has no updates given the current sources.
 The given project `Weather.Core` has no updates given the current sources.
 The given project `Weather.Infrastructure` has no updates given the current sources.
 The given project `Weather.ServiceDefaults` has no updates given the current sources.
 The given project `Weather.Web` has no updates given the current sources.
-Project `Weather.Api.Tests` has the following updates to its packages
-   [net10.0]:
-   Top-level Package      Requested   Resolved   Latest
-   > TUnit                1.56.0      1.56.0     1.56.25
-
-Project `Weather.Core.Tests` has the following updates to its packages
-   [net10.0]:
-   Top-level Package      Requested   Resolved   Latest
-   > TUnit                1.56.0      1.56.0     1.56.25
-
-Project `Weather.Infrastructure.Tests` has the following updates to its packages
-   [net10.0]:
-   Top-level Package      Requested   Resolved   Latest
-   > TUnit                1.56.0      1.56.0     1.56.25
-
-Project `Weather.Web.Tests` has the following updates to its packages
-   [net10.0]:
-   Top-level Package      Requested   Resolved   Latest
-   > TUnit                1.56.0      1.56.0     1.56.25
-
-2026-06-22-14-14-43
+The given project `Weather.Api.Tests` has no updates given the current sources.
+The given project `Weather.Core.Tests` has no updates given the current sources.
+The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
+The given project `Weather.Web.Tests` has no updates given the current sources.
+2026-06-22-14-18-24
 Warnings were encountered while loading the workspace. Set the verbosity option to the 'diagnostic' level to log warnings.
-2026-06-22-14-15-23
+2026-06-22-14-18-50
 On branch main
-Your branch is up to date with 'origin/main'.
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-22-14-15-23
+2026-06-22-14-18-50
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -288,7 +269,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-22-14-15-23
+2026-06-22-14-18-50
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -423,62 +404,62 @@ Processing (125/125): weather.slnx
 Export completed!
 Total files exported: 125
 Output file size: 345.51 KB
-2026-06-22-14-15-24
+2026-06-22-14-18-51
 
-Build succeeded in 4.1s
-2026-06-22-14-15-29
-Restore succeeded with 4 warning(s) in 2.6s
+Build succeeded in 2.5s
+2026-06-22-14-18-54
+Restore succeeded with 4 warning(s) in 1.8s
     D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
 
-Build succeeded with 4 warning(s) in 3.1s
-2026-06-22-14-15-33
-Restore succeeded with 4 warning(s) in 2.4s
+Build succeeded with 4 warning(s) in 2.2s
+2026-06-22-14-18-57
+Restore succeeded with 4 warning(s) in 1.5s
     D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Core net10.0 succeeded (6.2s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-  Weather.ServiceDefaults net10.0 succeeded (7.6s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-  Weather.Infrastructure net10.0 succeeded with 1 warning(s) (3.6s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+  Weather.Core net10.0 succeeded (0.9s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (0.7s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Infrastructure net10.0 succeeded with 1 warning(s) (1.3s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
     D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Web net10.0 succeeded (5.5s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-  Weather.Api net10.0 succeeded with 1 warning(s) (3.6s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Core.Tests net10.0 succeeded (16.1s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-  Weather.Api.Tests net10.0 succeeded with 1 warning(s) (9.6s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Infrastructure.Tests net10.0 succeeded with 2 warning(s) (2.8s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
+  Weather.Web net10.0 succeeded (3.0s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
+  Weather.Core.Tests net10.0 succeeded (10.9s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Infrastructure.Tests net10.0 succeeded with 2 warning(s) (10.1s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceAreaTests.cs(34,50): warning CA1859: Change return type of method 'HourlyTwo' from 'System.Collections.Generic.IReadOnlyList<Weather.Core.Models.ForecastPeriod>' to 'Weather.Core.Models.ForecastPeriod[]' for improved performance (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1859)
-  Weather.AppHost net10.0 succeeded (15.1s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
-  Weather.Web.Tests net10.0 succeeded (5.5s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
-
-Build succeeded with 9 warning(s) in 32.8s
-2026-06-22-14-16-06
-Restore succeeded with 4 warning(s) in 2.0s
-    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-    D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+  Weather.Web.Tests net10.0 succeeded (1.0s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
+  Weather.Api net10.0 succeeded with 1 warning(s) (2.7s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
     D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Infrastructure net10.0 succeeded with 1 warning(s) (0.9s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+  Weather.AppHost net10.0 succeeded (1.3s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+  Weather.Api.Tests net10.0 succeeded with 1 warning(s) (1.8s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+
+Build succeeded with 9 warning(s) in 16.4s
+2026-06-22-14-19-14
+Restore succeeded with 4 warning(s) in 2.3s
+    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Infrastructure.Tests net10.0 succeeded with 1 warning(s) (0.5s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
+    D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+  Weather.Infrastructure net10.0 succeeded with 1 warning(s) (0.3s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+  Weather.Infrastructure.Tests net10.0 succeeded with 1 warning(s) (0.4s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
   Weather.Api net10.0 succeeded with 1 warning(s) (1.2s)
     D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Api.Tests net10.0 succeeded with 1 warning(s) (0.6s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+  Weather.Api.Tests net10.0 succeeded with 1 warning(s) (0.5s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
     D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
 Running tests from tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 560ms)
-tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 209ms)
-tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (5s 984ms)
-tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (15s 739ms)
+Running tests from tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64)
+tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 134ms)
+tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 850ms)
+tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 790ms)
+tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 422ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Debug\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -487,39 +468,39 @@ tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) pa
     - tests\Weather.Api.Tests\bin\Debug\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (15s 739ms)
-  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 560ms)
-  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (5s 984ms)
-  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 209ms)
+  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 134ms)
+  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 850ms)
+  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 422ms)
+  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 790ms)
 
   total: 138
   failed: 0
   succeeded: 138
   skipped: 0
-  duration: 16s 750ms
-2026-06-22-14-16-31
-Restore succeeded with 4 warning(s) in 2.7s
+  duration: 15s 041ms
+2026-06-22-14-19-36
+Restore succeeded with 4 warning(s) in 2.5s
     D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
+    D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Infrastructure net10.0 succeeded with 1 warning(s) (1.5s) → src\Weather.Infrastructure\bin\Release\net10.0\Weather.Infrastructure.dll
+  Weather.Infrastructure net10.0 succeeded with 1 warning(s) (1.0s) → src\Weather.Infrastructure\bin\Release\net10.0\Weather.Infrastructure.dll
     D:\DEV\personal\weather\src\Weather.Infrastructure\Weather.Infrastructure.csproj : warning NU1603: Weather.Infrastructure depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Infrastructure.Tests net10.0 succeeded with 2 warning(s) (1.7s) → tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll
+  Weather.Infrastructure.Tests net10.0 succeeded with 2 warning(s) (1.6s) → tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Weather.Infrastructure.Tests.csproj : warning NU1603: Weather.Infrastructure.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
     D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceAreaTests.cs(34,50): warning CA1859: Change return type of method 'HourlyTwo' from 'System.Collections.Generic.IReadOnlyList<Weather.Core.Models.ForecastPeriod>' to 'Weather.Core.Models.ForecastPeriod[]' for improved performance (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1859)
-  Weather.Api net10.0 succeeded with 1 warning(s) (2.6s)
+  Weather.Api net10.0 succeeded with 1 warning(s) (1.3s) → src\Weather.Api\bin\Release\net10.0\Weather.Api.dll
     D:\DEV\personal\weather\src\Weather.Api\Weather.Api.csproj : warning NU1603: Weather.Api depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-  Weather.Api.Tests net10.0 succeeded with 1 warning(s) (1.3s) → tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll
+  Weather.Api.Tests net10.0 succeeded with 1 warning(s) (2.0s)
     D:\DEV\personal\weather\tests\Weather.Api.Tests\Weather.Api.Tests.csproj : warning NU1603: Weather.Api.Tests depends on SQLitePCLRaw.lib.e_sqlite3 (>= 2.1.12) but SQLitePCLRaw.lib.e_sqlite3 2.1.12 was not found. SQLitePCLRaw.lib.e_sqlite3 3.50.3 was resolved instead.
-Running tests from tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 950ms)
-tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 133ms)
-tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (8s 264ms)
-tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (24s 319ms)
+Running tests from tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64)
+Running tests from tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
+tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 428ms)
+tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 103ms)
+tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (4s 303ms)
+tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (15s 208ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Release\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -528,15 +509,15 @@ tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) 
     - tests\Weather.Api.Tests\bin\Release\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 950ms)
-  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (24s 319ms)
-  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 133ms)
-  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (8s 264ms)
+  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (4s 303ms)
+  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (15s 208ms)
+  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 103ms)
+  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 428ms)
 
   total: 138
   failed: 0
   succeeded: 138
   skipped: 0
-  duration: 25s 628ms
-2026-06-22-14-17-07
+  duration: 16s 019ms
+2026-06-22-14-20-01
 PS D:\DEV\personal\weather>
