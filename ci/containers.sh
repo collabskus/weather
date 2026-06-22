@@ -123,9 +123,16 @@ cmd_api_lifecycle() {
   local name="${API_CONTAINER}"
 
   # Best-effort teardown on ANY exit, so we never leak a container or image.
+  #
+  # IMPORTANT: an EXIT trap fires *after* this function has already returned and
+  # its `local` variables have gone out of scope. Referencing ${name}/${tag}
+  # here would therefore expand an unset variable, and under `set -u` that is a
+  # fatal error (the `|| true` can't save it — the failure happens during
+  # expansion, before `||` is ever reached). So the trap reads the durable
+  # script-scope config instead, which is still defined when the trap runs.
   cleanup() {
-    pm rm --force "${name}" >/dev/null 2>&1 || true
-    pm rmi "${tag}"         >/dev/null 2>&1 || true
+    pm rm --force "${API_CONTAINER}"   >/dev/null 2>&1 || true
+    pm rmi "weather-api:${CI_TAG}"     >/dev/null 2>&1 || true
   }
   trap cleanup EXIT
 
