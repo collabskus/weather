@@ -3,7 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     <!-- Shared version variables to keep families aligned. -->
-    <AspireVersion>13.4.5</AspireVersion>
+    <AspireVersion>13.4.6</AspireVersion>
     <OpenTelemetryVersion>1.10.0</OpenTelemetryVersion>
   </PropertyGroup>
   <ItemGroup Label="Data access (SQLite + Dapper)">
@@ -30,7 +30,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
   </ItemGroup>
   <ItemGroup Label="Testing (TUnit runner + Shouldly + bUnit + NSubstitute)">
-    <PackageVersion Include="TUnit" Version="1.56.0" />
+    <PackageVersion Include="TUnit" Version="1.56.25" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="bunit.web" Version="1.40.0" />
