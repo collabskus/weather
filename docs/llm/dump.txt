@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/22/2026 16:55:07
+Generated: 06/22/2026 18:37:36
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -317,7 +317,7 @@ updates:
 ================================================================================
 FILE: .github/workflows/build.yml
 SIZE: 0.75 KB
-MODIFIED: 06/19/2026 08:36:12
+MODIFIED: 06/22/2026 18:36:31
 ================================================================================
 
 name: build
@@ -343,7 +343,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
@@ -362,7 +362,7 @@ jobs:
 ================================================================================
 FILE: .github/workflows/codeql.yml
 SIZE: 0.96 KB
-MODIFIED: 06/19/2026 08:36:12
+MODIFIED: 06/22/2026 18:36:31
 ================================================================================
 
 name: codeql
@@ -391,7 +391,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
@@ -417,7 +417,7 @@ jobs:
 ================================================================================
 FILE: .github/workflows/containers.yml
 SIZE: 1.97 KB
-MODIFIED: 06/22/2026 16:54:07
+MODIFIED: 06/22/2026 18:36:31
 ================================================================================
 
 name: containers
@@ -470,7 +470,7 @@ jobs:
         image: [ api, web, otelcol ]
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Build and inspect
         run: bash ci/containers.sh build "${{ matrix.image }}"
 
@@ -481,7 +481,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Run lifecycle smoke test
         run: bash ci/containers.sh api-lifecycle
 
@@ -492,7 +492,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Render compose config
         run: bash ci/containers.sh compose-validate
 
@@ -501,7 +501,7 @@ jobs:
 ================================================================================
 FILE: .github/workflows/dependency-review.yml
 SIZE: 0.51 KB
-MODIFIED: 06/19/2026 14:05:18
+MODIFIED: 06/22/2026 18:36:31
 ================================================================================
 
 name: dependency-review
@@ -520,7 +520,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # Flags dependency changes in a PR that introduce known-vulnerable
       # packages or disallowed licences before they land.
@@ -534,7 +534,7 @@ jobs:
 ================================================================================
 FILE: .github/workflows/format.yml
 SIZE: 0.55 KB
-MODIFIED: 06/19/2026 08:36:12
+MODIFIED: 06/22/2026 18:36:31
 ================================================================================
 
 name: format
@@ -553,7 +553,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
@@ -569,7 +569,7 @@ jobs:
 ================================================================================
 FILE: .github/workflows/markdown-lint.yml
 SIZE: 0.63 KB
-MODIFIED: 06/19/2026 14:05:43
+MODIFIED: 06/22/2026 18:36:31
 ================================================================================
 
 name: markdown-lint
@@ -592,7 +592,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -608,7 +608,7 @@ jobs:
 ================================================================================
 FILE: .github/workflows/test.yml
 SIZE: 0.91 KB
-MODIFIED: 06/19/2026 08:36:12
+MODIFIED: 06/22/2026 18:36:31
 ================================================================================
 
 name: test
@@ -633,7 +633,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Check out
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
@@ -11343,7 +11343,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/22/2026 16:55:08
+EXPORT COMPLETED: 06/22/2026 18:37:37
 Total Files Exported: 134
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
