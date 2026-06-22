@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/22/2026 14:58:29
+Generated: 06/22/2026 15:06:15
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -13,6 +13,7 @@ DIRECTORY STRUCTURE (tracked):
 .github/dependabot.yml
 .github/workflows/build.yml
 .github/workflows/codeql.yml
+.github/workflows/containers.yml
 .github/workflows/dependency-review.yml
 .github/workflows/format.yml
 .github/workflows/markdown-lint.yml
@@ -34,6 +35,7 @@ docs/llm/output.txt
 docs/llm/vendor/claude-conversations.md
 docs/llm/vendor/gemini-conversations.md
 docs/OBSERVABILITY.md
+docs/STAMPEDE.md
 export.ps1
 global.json
 LICENSE
@@ -58,6 +60,7 @@ src/Weather.Core/Abstractions/IForecastCache.cs
 src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
 src/Weather.Core/Abstractions/INwsApiClient.cs
 src/Weather.Core/Abstractions/IPointMetadataCache.cs
+src/Weather.Core/Abstractions/IRequestCoalescer.cs
 src/Weather.Core/Abstractions/IWeatherService.cs
 src/Weather.Core/Models/AreaForecast.cs
 src/Weather.Core/Models/CachedForecast.cs
@@ -93,6 +96,7 @@ src/Weather.Infrastructure/README.md
 src/Weather.Infrastructure/Serialization/WeatherJson.cs
 src/Weather.Infrastructure/Services/NeighborhoodWarmer.cs
 src/Weather.Infrastructure/Services/NeighborhoodWarmingBackgroundService.cs
+src/Weather.Infrastructure/Services/Requestcoalescer.cs
 src/Weather.Infrastructure/Services/WeatherService.cs
 src/Weather.Infrastructure/Weather.Infrastructure.csproj
 src/Weather.ServiceDefaults/Extensions.cs
@@ -143,6 +147,7 @@ tests/Weather.Infrastructure.Tests/GlobalUsings.cs
 tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs
 tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
 tests/Weather.Infrastructure.Tests/Services/NeighborhoodWarmerTests.cs
+tests/Weather.Infrastructure.Tests/Services/RequestCoalescerTests.cs
 tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
 tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
 tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj
@@ -157,6 +162,35 @@ weather.slnx
 
 FILE CONTENTS:
 ==============
+
+================================================================================
+FILE: .containerignore
+SIZE: 0.47 KB
+MODIFIED: 06/19/2026 14:39:59
+================================================================================
+
+# Keep build context small and reproducible.
+**/bin/
+**/obj/
+**/.vs/
+.git/
+.github/
+.vscode/
+.idea/
+tests/
+docs/
+# NOTE: deploy/ is intentionally NOT excluded. Containerfile.otelcol copies
+# deploy/otelcol-config.yaml into its image, and ignore-file negation across an
+# excluded parent directory is unreliable across Docker/Podman/Buildah. The
+# deploy/ folder is only a few small text files, so the context cost is trivial.
+*.user
+*.db
+*.db-wal
+*.db-shm
+**/TestResults/
+**/.DS_Store
+
+
 
 ================================================================================
 FILE: .editorconfig
@@ -377,6 +411,201 @@ jobs:
 
 
 ================================================================================
+FILE: .github/workflows/containers.yml
+SIZE: 6.01 KB
+MODIFIED: 06/22/2026 15:04:46
+================================================================================
+
+name: containers
+
+# Validates that every Containerfile in the repo BUILDS, and that the API image
+# can be created, started, health-probed and torn down cleanly. GitHub's
+# ubuntu-latest runners ship Podman preinstalled, so this mirrors the local
+# Fedora/Podman workflow without needing Podman on a Windows dev box.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Containerfile.*'
+      - 'deploy/**'
+      - 'src/**'
+      - 'Directory.*.props'
+      - 'global.json'
+      - 'nuget.config'
+      - '.github/workflows/containers.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Containerfile.*'
+      - 'deploy/**'
+      - 'src/**'
+      - 'Directory.*.props'
+      - 'global.json'
+      - 'nuget.config'
+      - '.github/workflows/containers.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: containers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ----------------------------------------------------------------------
+  # 1. Build every image. A matrix so each Containerfile reports its own
+  #    pass/fail and they build in parallel.
+  # ----------------------------------------------------------------------
+  build-images:
+    name: Build image (${{ matrix.image.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: api
+            containerfile: Containerfile.api
+            context: .
+          - name: web
+            containerfile: Containerfile.web
+            context: .
+          - name: otelcol
+            containerfile: deploy/Containerfile.otelcol
+            context: .
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Show Podman version
+        run: podman version
+
+      - name: Confirm Containerfile exists
+        run: |
+          set -euo pipefail
+          if [ ! -f "${{ matrix.image.containerfile }}" ]; then
+            echo "::error::Missing ${{ matrix.image.containerfile }}"
+            exit 1
+          fi
+
+      - name: Build ${{ matrix.image.name }} image
+        run: |
+          set -euo pipefail
+          podman build \
+            --file "${{ matrix.image.containerfile }}" \
+            --tag "weather-${{ matrix.image.name }}:ci" \
+            "${{ matrix.image.context }}"
+
+      - name: Inspect image
+        run: podman image inspect "weather-${{ matrix.image.name }}:ci" --format 'OK: {{.Id}}'
+
+  # ----------------------------------------------------------------------
+  # 2. Lifecycle smoke test for the API: build, run, probe /alive, stop,
+  #    and assert the container is gone afterwards (create AND destroy).
+  # ----------------------------------------------------------------------
+  api-lifecycle:
+    name: API container lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Show Podman version
+        run: podman version
+
+      - name: Build API image
+        run: |
+          set -euo pipefail
+          podman build --file Containerfile.api --tag weather-api:ci .
+
+      - name: Run the API container
+        run: |
+          set -euo pipefail
+          # /alive and /health are only mapped in Development (see ServiceDefaults),
+          # so run the smoke test in that environment. The SQLite cache goes to a
+          # throwaway in-container path; no host bind mount, so no SELinux concerns.
+          podman run --detach \
+            --name weather-api-ci \
+            --publish 8080:8080 \
+            --env ASPNETCORE_ENVIRONMENT=Development \
+            --env ASPNETCORE_URLS=http://+:8080 \
+            --env Cache__ConnectionString="Data Source=/tmp/weather-cache.db" \
+            weather-api:ci
+
+      - name: Wait for liveness
+        run: |
+          set -euo pipefail
+          ok=false
+          for i in $(seq 1 30); do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/alive || true)
+            echo "attempt $i: /alive -> ${code}"
+            if [ "$code" = "200" ]; then
+              ok=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ok" != "true" ]; then
+            echo "::error::API container did not become live within timeout"
+            echo "----- container logs -----"
+            podman logs weather-api-ci || true
+            exit 1
+          fi
+
+      - name: Dump logs (always)
+        if: always()
+        run: podman logs weather-api-ci || true
+
+      - name: Stop and remove the container
+        run: |
+          set -euo pipefail
+          podman stop weather-api-ci
+          podman rm weather-api-ci
+
+      - name: Assert the container is gone
+        run: |
+          set -euo pipefail
+          if podman container exists weather-api-ci; then
+            echo "::error::Container still present after rm"
+            exit 1
+          fi
+          echo "Container created and destroyed cleanly."
+
+      - name: Clean up image
+        if: always()
+        run: podman rmi weather-api:ci || true
+
+  # ----------------------------------------------------------------------
+  # 3. Validate the Compose file parses and resolves with Podman Compose.
+  #    `config` does a dry-run render without starting anything, which is a
+  #    cheap guard against a malformed compose.yaml.
+  # ----------------------------------------------------------------------
+  compose-validate:
+    name: Validate compose.yaml
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Install podman-compose
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user podman-compose
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Render compose config
+        working-directory: deploy
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          podman-compose -f compose.yaml config
+
+
+
+================================================================================
 FILE: .github/workflows/dependency-review.yml
 SIZE: 0.51 KB
 MODIFIED: 06/19/2026 14:05:18
@@ -570,6 +799,108 @@ Thumbs.db
 
 
 ================================================================================
+FILE: Containerfile.api
+SIZE: 1.79 KB
+MODIFIED: 06/19/2026 13:44:48
+================================================================================
+
+# syntax=docker/dockerfile:1
+
+# ============================================================================
+# Weather.Api container — multi-stage build.
+#
+#   stage 1 (build): the .NET SDK restores and publishes a Release build.
+#   stage 2 (final): the smaller ASP.NET runtime image runs it as non-root.
+#
+# Build from the REPOSITORY ROOT so Central Package Management files
+# (Directory.Packages.props, Directory.Build.props, nuget.config, global.json)
+# and the referenced projects are all in context:
+#
+#   podman build -f Containerfile.api -t weather-api .
+# ============================================================================
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy the whole repo (the .containerignore keeps bin/obj/.git/tests out) so
+# the Api project and everything it references restore against the same CPM.
+COPY . .
+
+RUN dotnet restore src/Weather.Api/Weather.Api.csproj
+RUN dotnet publish src/Weather.Api/Weather.Api.csproj \
+    -c Release \
+    --no-restore \
+    -o /app/publish \
+    -p:UseAppHost=false
+
+# ----------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+
+# Listen on plain HTTP inside the container; TLS is terminated upstream
+# (Cloudflare tunnel / reverse proxy).
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_EnableDiagnostics=0
+
+# A writable directory for the SQLite cache, owned by the non-root app user
+# (UID 1654 ships in the .NET images). The compose file mounts a named volume
+# here, which keeps the cache off the host bind path — friendlier for SELinux.
+RUN mkdir -p /data && chown 1654:1654 /data
+VOLUME ["/data"]
+
+COPY --from=build --chown=1654:1654 /app/publish .
+
+USER 1654
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Weather.Api.dll"]
+
+
+
+================================================================================
+FILE: Containerfile.web
+SIZE: 0.95 KB
+MODIFIED: 06/19/2026 13:44:48
+================================================================================
+
+# syntax=docker/dockerfile:1
+
+# ============================================================================
+# Weather.Web (Blazor Server) container — multi-stage build.
+# Build from the repository root:
+#
+#   podman build -f Containerfile.web -t weather-web .
+# ============================================================================
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY . .
+
+RUN dotnet restore src/Weather.Web/Weather.Web.csproj
+RUN dotnet publish src/Weather.Web/Weather.Web.csproj \
+    -c Release \
+    --no-restore \
+    -o /app/publish \
+    -p:UseAppHost=false
+
+# ----------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_EnableDiagnostics=0
+
+COPY --from=build --chown=1654:1654 /app/publish .
+
+USER 1654
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Weather.Web.dll"]
+
+
+
+================================================================================
 FILE: deploy/compose.yaml
 SIZE: 3.62 KB
 MODIFIED: 06/19/2026 13:45:18
@@ -686,6 +1017,24 @@ services:
 
 volumes:
   api-cache:
+
+
+
+================================================================================
+FILE: deploy/Containerfile.otelcol
+SIZE: 0.39 KB
+MODIFIED: 06/19/2026 13:44:48
+================================================================================
+
+# syntax=docker/dockerfile:1
+
+# A tiny image that bakes the collector configuration in, so no host bind mount
+# (and therefore no SELinux relabeling) is needed. Build from the repo root:
+#
+#   podman build -f deploy/Containerfile.otelcol -t weather-otelcol .
+FROM otel/opentelemetry-collector-contrib:0.119.0
+COPY deploy/otelcol-config.yaml /etc/otel/config.yaml
+CMD ["--config=/etc/otel/config.yaml"]
 
 
 
@@ -871,8 +1220,8 @@ MODIFIED: 06/22/2026 14:17:30
 
 ================================================================================
 FILE: export.ps1
-SIZE: 5.97 KB
-MODIFIED: 06/19/2026 11:41:06
+SIZE: 6.05 KB
+MODIFIED: 06/22/2026 15:04:57
 ================================================================================
 
 # Export Git-tracked ASP.NET Project Files to Single Text File
@@ -891,11 +1240,22 @@ $IncludeExtensions = @(
     "ps1"
 )
 
-# Exact filenames (no extension match needed)
+# Exact filenames (no extension match needed).
+# NOTE: Containerfile.* have no extension that matches the list above, so they
+# must be enumerated here or they silently fall out of the dump. The previous
+# version only listed Dockerfile/.dockerignore, which is why the Podman
+# Containerfiles never appeared.
 $IncludeSpecificFiles = @(
     "Dockerfile", ".dockerignore", ".editorconfig",
-    ".gitignore", ".gitattributes"
+    ".gitignore", ".gitattributes",
+    "Containerfile", ".containerignore",
+    "Containerfile.api", "Containerfile.web",
+    "Containerfile.otelcol"
 )
+
+# Also include any file whose name STARTS WITH "Containerfile" (e.g. a future
+# Containerfile.worker) without having to list each one.
+$IncludeFilenamePrefixes = @("Containerfile")
 
 # Directories to skip even if tracked (e.g. this script's own output)
 $ExcludeDirectories = @("docs")
@@ -904,7 +1264,7 @@ Write-Host "Starting project export..." -ForegroundColor Green
 Write-Host "Project Path: $ProjectPath" -ForegroundColor Yellow
 Write-Host "Output File: $OutputFile" -ForegroundColor Yellow
 
-# ── Resolve paths ────────────────────────────────────────────────────────────
+# -- Resolve paths ------------------------------------------------------------
 Push-Location $ProjectPath
 $ResolvedRoot = (Resolve-Path ".").Path
 
@@ -912,7 +1272,7 @@ $OutputPath = Join-Path $ResolvedRoot $OutputFile
 $outputDir  = Split-Path $OutputPath -Parent
 if (!(Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
 
-# ── Get tracked files from Git ───────────────────────────────────────────────
+# -- Get tracked files from Git -----------------------------------------------
 Write-Host "Querying git for tracked files..." -ForegroundColor Cyan
 
 $gitFiles = git ls-files --cached --others --exclude-standard 2>&1
@@ -935,18 +1295,25 @@ $AllFiles = $gitFiles | ForEach-Object {
     }
     if ($skip) { return }
 
-    # Match by extension or specific filename
-    if ($IncludeExtensions -contains $ext -or $IncludeSpecificFiles -contains $name) {
+    # Match by extension, exact filename, or filename prefix
+    $matchesPrefix = $false
+    foreach ($p in $IncludeFilenamePrefixes) {
+        if ($name.StartsWith($p)) { $matchesPrefix = $true; break }
+    }
+
+    if ($IncludeExtensions -contains $ext -or
+        $IncludeSpecificFiles -contains $name -or
+        $matchesPrefix) {
         $fullPath = Join-Path $ResolvedRoot $rel
         if (Test-Path $fullPath) {
             [PSCustomObject]@{ Relative = $rel; Full = $fullPath }
         }
     }
-} | Sort-Object Relative
+} | Sort-Object Relative -Unique
 
 Write-Host "Found $($AllFiles.Count) files to export" -ForegroundColor Green
 
-# ── Write header ─────────────────────────────────────────────────────────────
+# -- Write header -------------------------------------------------------------
 $header = @"
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
@@ -957,7 +1324,7 @@ Project Path: $ResolvedRoot
 "@
 $header | Out-File -FilePath $OutputPath -Encoding UTF8
 
-# ── Directory tree (git ls-tree) ─────────────────────────────────────────────
+# -- Directory tree (git ls-tree) ---------------------------------------------
 "DIRECTORY STRUCTURE (tracked):" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 "==============================" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
@@ -968,7 +1335,7 @@ $gitFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 
-# ── File contents ────────────────────────────────────────────────────────────
+# -- File contents ------------------------------------------------------------
 "FILE CONTENTS:" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 "==============" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
@@ -1004,7 +1371,7 @@ $sep
     "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 }
 
-# ── Footer ───────────────────────────────────────────────────────────────────
+# -- Footer -------------------------------------------------------------------
 @"
 ===============================================================================
 EXPORT COMPLETED: $(Get-Date)
@@ -1855,6 +2222,63 @@ public interface IPointMetadataCache
 
 
 ================================================================================
+FILE: src/Weather.Core/Abstractions/IRequestCoalescer.cs
+SIZE: 2.19 KB
+MODIFIED: 06/22/2026 15:06:14
+================================================================================
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>
+/// In-process "single-flight" coordinator. When many callers ask for the same
+/// <typeparamref name="TKey"/> at the same time, only the FIRST runs the
+/// supplied factory; every other concurrent caller awaits and shares that one
+/// result. This is the defence against a cache <em>stampede</em> (a.k.a.
+/// "dogpile" / "thundering herd"): without it, every request that arrives
+/// during a cache-fill window is an independent upstream call.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The contract is deliberately tight: the coalescer guarantees that no more
+/// than one factory invocation per key is in flight at any instant. It makes
+/// NO promises about caching across time — once a flight completes, the entry
+/// is removed and the next caller starts a fresh flight. Durable freshness is
+/// the cache's job; collapsing concurrent work is the coalescer's job.
+/// </para>
+/// <para>
+/// Implementations must be thread-safe and must not leak entries: a completed,
+/// faulted or cancelled flight is always removed so a later caller is never
+/// handed a stale, failed task.
+/// </para>
+/// </remarks>
+public interface IRequestCoalescer<TKey>
+    where TKey : notnull
+{
+    /// <summary>
+    /// Run <paramref name="factory"/> for <paramref name="key"/>, or — if a
+    /// flight for that key is already running — await and return its result
+    /// instead of starting a second one.
+    /// </summary>
+    /// <param name="key">The coalescing key (e.g. a grid cell).</param>
+    /// <param name="factory">
+    /// Produces the value for a cold key. Invoked at most once per concurrent
+    /// flight. It should observe the <see cref="CancellationToken"/> it is
+    /// given, which is a token shared by the flight (see remarks on cancellation
+    /// in the implementation).
+    /// </param>
+    /// <param name="cancellationToken">
+    /// The calling request's token. Cancelling it detaches THIS caller from the
+    /// flight; the shared flight itself continues for the remaining callers.
+    /// </param>
+    Task<TValue> RunAsync<TValue>(
+        TKey key,
+        Func<CancellationToken, Task<TValue>> factory,
+        CancellationToken cancellationToken = default);
+}
+
+
+
+================================================================================
 FILE: src/Weather.Core/Abstractions/IWeatherService.cs
 SIZE: 1.94 KB
 MODIFIED: 06/19/2026 08:53:20
@@ -2377,8 +2801,8 @@ public sealed record WeatherAlert(
 
 ================================================================================
 FILE: src/Weather.Core/Telemetry/WeatherTelemetry.cs
-SIZE: 3.69 KB
-MODIFIED: 06/19/2026 08:36:12
+SIZE: 4.72 KB
+MODIFIED: 06/22/2026 15:03:24
 ================================================================================
 
 using System.Diagnostics;
@@ -2402,6 +2826,7 @@ public sealed class WeatherTelemetry : IDisposable
 
     private readonly Meter _meter;
     private readonly Counter<long> _cacheRequests;
+    private readonly Counter<long> _coalescedRequests;
     private readonly Histogram<double> _nwsRequestDuration;
     private readonly Counter<long> _nwsThrottled;
     private readonly Counter<long> _nwsErrors;
@@ -2418,6 +2843,11 @@ public sealed class WeatherTelemetry : IDisposable
             "weather.cache.requests",
             unit: "{request}",
             description: "Cache look-ups, tagged by cache name and hit/miss outcome.");
+
+        _coalescedRequests = _meter.CreateCounter<long>(
+            "weather.cache.coalesced",
+            unit: "{request}",
+            description: "Forecast fetches collapsed into an in-flight request by the single-flight coalescer, tagged by leader/follower. Followers are upstream calls that were AVOIDED — a high follower count under load means stampede protection is working.");
 
         _nwsRequestDuration = _meter.CreateHistogram<double>(
             "weather.nws.request.duration",
@@ -2449,6 +2879,18 @@ public sealed class WeatherTelemetry : IDisposable
         1,
         new KeyValuePair<string, object?>("cache", cache),
         new KeyValuePair<string, object?>("result", "miss"));
+
+    /// <summary>The caller that actually ran the upstream fetch for a cold key.</summary>
+    public void RecordCoalesceLeader(string cache) => _coalescedRequests.Add(
+        1,
+        new KeyValuePair<string, object?>("cache", cache),
+        new KeyValuePair<string, object?>("role", "leader"));
+
+    /// <summary>A caller that shared an in-flight fetch instead of starting its own.</summary>
+    public void RecordCoalesceFollower(string cache) => _coalescedRequests.Add(
+        1,
+        new KeyValuePair<string, object?>("cache", cache),
+        new KeyValuePair<string, object?>("role", "follower"));
 
     public void RecordNwsRequest(string endpoint, int statusCode, double elapsedMs, bool conditional) =>
         _nwsRequestDuration.Record(
@@ -3008,8 +3450,8 @@ internal static class TimestampText
 
 ================================================================================
 FILE: src/Weather.Infrastructure/DependencyInjection.cs
-SIZE: 3.71 KB
-MODIFIED: 06/19/2026 08:57:18
+SIZE: 4.2 KB
+MODIFIED: 06/22/2026 15:03:07
 ================================================================================
 
 using System.Threading.RateLimiting;
@@ -3018,6 +3460,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Weather.Core.Abstractions;
+using Weather.Core.Models;
 using Weather.Core.Telemetry;
 using Weather.Infrastructure.Caching;
 using Weather.Infrastructure.Nws;
@@ -3054,6 +3497,13 @@ public static class DependencyInjection
         services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
         services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
         services.AddHostedService<DatabaseInitializer>();
+
+        // Single-flight coalescer for forecast fetches. MUST be a singleton:
+        // its whole job is to collapse concurrent misses ACROSS requests into
+        // one upstream call, which only works if every request shares the same
+        // in-flight dictionary. A scoped registration would give each request
+        // its own dictionary and reintroduce the stampede.
+        services.TryAddSingleton<IRequestCoalescer<GridPoint>, RequestCoalescer<GridPoint>>();
 
         // Resilient, identified NWS client. The standard resilience handler
         // wraps Polly v8 (retry w/ jitter, circuit breaker, timeout) and emits
@@ -4091,9 +4541,345 @@ internal sealed class NeighborhoodWarmingBackgroundService(
 
 
 ================================================================================
+FILE: src/Weather.Infrastructure/Services/Requestcoalescer.cs
+SIZE: 12.49 KB
+MODIFIED: 06/22/2026 15:06:14
+================================================================================
+
+using System.Collections.Concurrent;
+using Weather.Core.Abstractions;
+
+namespace Weather.Infrastructure.Services;
+
+/// <summary>
+/// Thread-safe, in-process implementation of <see cref="IRequestCoalescer{TKey}"/>.
+///
+/// <para>
+/// <b>How it collapses a stampede.</b> The first caller for a key wins a race
+/// to insert a <see cref="Flight"/> into a <see cref="ConcurrentDictionary{TKey,TValue}"/>
+/// and starts the factory. Concurrent callers for the same key lose the race,
+/// find the existing flight, and await its task. The instant the factory
+/// completes, the flight is evicted so the NEXT caller (after the cache has
+/// presumably been filled by the winner) is free to start a new flight if the
+/// cache is cold again.
+/// </para>
+///
+/// <para>
+/// <b>Cancellation.</b> A flight is shared by N callers, so one caller's
+/// cancellation must not abort the work the other N-1 are waiting on. Each
+/// caller therefore awaits with <c>Task.WaitAsync(callerToken)</c>, which
+/// detaches only that caller. The underlying factory runs under a flight-owned
+/// linked token that is cancelled only when EVERY attached caller has gone
+/// away (reference-counted), so an abandoned flight does not keep an upstream
+/// call alive needlessly.
+/// </para>
+///
+/// <para>
+/// The dictionary key is the coalescing key; the stored value is weakly typed
+/// as <see cref="object"/> because a single coalescer instance is generic over
+/// the key but each call supplies its own value type. The cast back is always
+/// safe: a given key is only ever used with one value type in this codebase
+/// (a <c>GridPoint</c> always yields a forecast tuple).
+/// </para>
+/// </summary>
+internal sealed class RequestCoalescer<TKey> : IRequestCoalescer<TKey>
+    where TKey : notnull
+{
+    private readonly ConcurrentDictionary<TKey, Flight> _flights = new();
+
+    public async Task<TValue> RunAsync<TValue>(
+        TKey key,
+        Func<CancellationToken, Task<TValue>> factory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(factory);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Attach to an existing flight or become the owner of a new one. The
+        // loop guards the tiny window where a flight is removed (because it just
+        // completed) between our GetOrAdd and our successful attach.
+        while (true)
+        {
+            // Construct a candidate up front and let GetOrAdd decide the winner
+            // by reference. Using the value-overload (not the factory-overload)
+            // means ownership is unambiguous even under heavy contention: the
+            // owner is whoever's candidate is the one actually stored. A losing
+            // candidate is simply discarded (and disposed) without ever running
+            // the factory, so NWS is never called by a non-owner.
+            var candidate = new Flight();
+            var flight = _flights.GetOrAdd(key, candidate);
+            var isOwner = ReferenceEquals(flight, candidate);
+
+            if (!isOwner)
+            {
+                // Lost the race: dispose our unused candidate's token source.
+                candidate.DisposeUnused();
+            }
+
+            // Attach (owner and followers alike). If the flight has already
+            // finished and been evicted, start over with a fresh one.
+            if (!flight.TryAttach())
+            {
+                continue;
+            }
+
+            // The OWNER kicks off the single factory invocation. It runs
+            // detached from any one caller's token (it observes the flight's
+            // own token, which is cancelled only when EVERY caller has gone)
+            // and arranges its own eviction on completion. Crucially, the owner
+            // does NOT await the factory directly — it awaits the shared task
+            // below, just like a follower, so the owner's own cancellation
+            // detaches only the owner and never aborts work others are awaiting.
+            if (isOwner)
+            {
+                StartFlight(key, flight, factory);
+            }
+
+            try
+            {
+                // Every caller awaits the shared result, but its own token
+                // detaches only itself.
+                var result = (TValue)await flight.Task
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return result;
+            }
+            finally
+            {
+                flight.Detach();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Run the factory exactly once for an owned flight, bind its outcome to the
+    /// shared task, and evict the flight when it finishes (success, fault, or
+    /// cancellation) so the next caller starts fresh. Runs detached: no single
+    /// caller's lifetime governs it.
+    /// </summary>
+    private void StartFlight<TValue>(
+        TKey key, Flight flight, Func<CancellationToken, Task<TValue>> factory)
+    {
+        Task<TValue> task;
+        try
+        {
+            task = factory(flight.Token);
+        }
+        catch (Exception ex)
+        {
+            // Synchronous throw from the factory: fault the shared task so all
+            // attached callers observe the failure, then evict.
+            flight.Fault(ex);
+            EvictAndDispose(key, flight);
+            return;
+        }
+
+        flight.Bind(task);
+
+        // Detached eviction: when the factory's task settles, remove the flight.
+        // We do not await this; the callers await flight.Task instead.
+        _ = task.ContinueWith(
+            (_, state) =>
+            {
+                var (self, k, f) = ((RequestCoalescer<TKey>, TKey, Flight))state!;
+                self.EvictAndDispose(k, f);
+            },
+            (this, key, flight),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private void EvictAndDispose(TKey key, Flight flight)
+    {
+        // Remove only if it's still the same flight (a newer one may have taken
+        // the slot already). Dispose is deferred until all callers detach via
+        // the flight's own ref-count, so we mark it evictable here and let the
+        // last Detach dispose it.
+        _flights.TryRemove(new KeyValuePair<TKey, Flight>(key, flight));
+        flight.MarkEvicted();
+    }
+
+    /// <summary>
+    /// A single in-flight factory invocation, shared by all concurrent callers
+    /// for one key.
+    ///
+    /// <para>
+    /// <b>Lifecycle.</b> Callers attach (ref-count++) and detach (ref-count--).
+    /// The flight becomes "evictable" when its factory settles (success, fault
+    /// or cancellation) — at which point <see cref="MarkEvicted"/> is called and
+    /// it is removed from the dictionary so the next caller starts fresh.
+    /// Disposal of the <see cref="CancellationTokenSource"/> is deferred until
+    /// BOTH conditions hold: the flight has been evicted AND every attached
+    /// caller has detached. That ordering prevents disposing the CTS while a
+    /// late follower might still be touching it.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Token semantics.</b> The factory observes <see cref="Token"/>, which is
+    /// cancelled only when ALL callers detach before the factory completes — i.e.
+    /// the request is genuinely abandoned by everyone. One caller cancelling
+    /// detaches only itself (via <c>WaitAsync</c> on the shared task) and never
+    /// cancels the shared token while others remain attached.
+    /// </para>
+    /// </summary>
+    private sealed class Flight
+    {
+        private readonly CancellationTokenSource _cts = new();
+        private readonly TaskCompletionSource<object> _bound =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Attach/detach reference count of live callers.
+        private int _refCount;
+
+        // 0 = active, 1 = evicted (factory settled, removed from dictionary).
+        private int _evicted;
+
+        // 0 = CTS live, 1 = CTS disposed. Guards against double-dispose and
+        // use-after-dispose of the token source.
+        private int _ctsDisposed;
+
+        /// <summary>Token the factory observes; cancelled when all callers leave.</summary>
+        public CancellationToken Token => _cts.Token;
+
+        /// <summary>
+        /// The shared result task. All callers (owner and followers) await this
+        /// via <c>WaitAsync</c> with their own token. It is completed from the
+        /// factory's task in <see cref="Bind"/> or directly via <see cref="Fault"/>.
+        /// </summary>
+        public Task<object> Task => _bound.Task;
+
+        /// <summary>
+        /// Try to register a caller. Fails once the flight has been evicted, so a
+        /// caller that loses the race against eviction loops back and starts a
+        /// fresh flight rather than attaching to a dead one.
+        /// </summary>
+        public bool TryAttach()
+        {
+            if (Volatile.Read(ref _evicted) != 0)
+            {
+                return false;
+            }
+
+            Interlocked.Increment(ref _refCount);
+
+            // Re-check after incrementing to close the race with MarkEvicted.
+            if (Volatile.Read(ref _evicted) != 0)
+            {
+                // We attached to an evicted flight. Back the count out; if that
+                // makes us the last detacher, run the same teardown path.
+                DetachCore();
+                return false;
+            }
+
+            return true;
+        }
+
+        public void Detach() => DetachCore();
+
+        private void DetachCore()
+        {
+            if (Interlocked.Decrement(ref _refCount) != 0)
+            {
+                return;
+            }
+
+            // Last caller gone.
+            if (Volatile.Read(ref _evicted) != 0)
+            {
+                // Factory already settled and flight removed → safe to dispose.
+                DisposeCts();
+                return;
+            }
+
+            // Everyone abandoned the request before the factory finished: signal
+            // the factory it may stop. We do NOT dispose the CTS here because the
+            // factory's eviction continuation will still run and call MarkEvicted,
+            // which disposes once it observes a zero ref-count.
+            if (!_cts.IsCancellationRequested && Volatile.Read(ref _ctsDisposed) == 0)
+            {
+                try
+                {
+                    _cts.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Raced with disposal; nothing to cancel.
+                }
+            }
+        }
+
+        /// <summary>
+        /// Marks the flight as removed from the dictionary (its factory has
+        /// settled). Disposes the CTS if no callers remain attached.
+        /// </summary>
+        public void MarkEvicted()
+        {
+            if (Interlocked.Exchange(ref _evicted, 1) != 0)
+            {
+                return;
+            }
+
+            // If all callers have already detached, dispose now; otherwise the
+            // last DetachCore will dispose once it sees _evicted == 1.
+            if (Volatile.Read(ref _refCount) == 0)
+            {
+                DisposeCts();
+            }
+        }
+
+        public void Fault(Exception ex) => _bound.TrySetException(ex);
+
+        public void Bind<TValue>(Task<TValue> task)
+        {
+            // Marshal the strongly-typed factory task onto the weakly-typed
+            // shared completion source so all callers can await one object.
+            _ = task.ContinueWith(
+                static (t, state) =>
+                {
+                    var tcs = (TaskCompletionSource<object>)state!;
+                    if (t.IsCanceled)
+                    {
+                        tcs.TrySetCanceled();
+                    }
+                    else if (t.IsFaulted)
+                    {
+                        tcs.TrySetException(t.Exception!.InnerExceptions);
+                    }
+                    else
+                    {
+                        tcs.TrySetResult(t.Result!);
+                    }
+                },
+                _bound,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
+
+        /// <summary>Dispose the unused token source of a candidate that lost the GetOrAdd race.</summary>
+        public void DisposeUnused() => DisposeCts();
+
+        private void DisposeCts()
+        {
+            if (Interlocked.Exchange(ref _ctsDisposed, 1) != 0)
+            {
+                return;
+            }
+
+            _cts.Dispose();
+        }
+    }
+}
+
+
+
+================================================================================
 FILE: src/Weather.Infrastructure/Services/WeatherService.cs
-SIZE: 12.92 KB
-MODIFIED: 06/19/2026 12:38:48
+SIZE: 15.07 KB
+MODIFIED: 06/22/2026 15:02:57
 ================================================================================
 
 using System.Collections.Concurrent;
@@ -4112,6 +4898,16 @@ namespace Weather.Infrastructure.Services;
 /// Cache-Control, conditional GETs to refresh expiry cheaply, and serving a
 /// stale-but-valid copy when NWS is unreachable. Cache hit/miss telemetry is
 /// recorded here because only this layer knows the <em>semantic</em> outcome.
+///
+/// <para>
+/// <b>Stampede protection.</b> The forecast fetch for a single grid cell is run
+/// through an <see cref="IRequestCoalescer{TKey}"/> keyed by the cell. When a
+/// cell is cold (or has just expired) and many requests arrive at once — the
+/// "refresh-spam from many browsers" case — only the first request calls NWS;
+/// the rest await that one in-flight fetch and share its result. This is what
+/// guarantees that load on NWS is bounded by the number of <em>distinct cold
+/// cells</em>, not by the number of users.
+/// </para>
 /// </summary>
 internal sealed class WeatherService(
     IPointMetadataCache metadataCache,
@@ -4119,6 +4915,7 @@ internal sealed class WeatherService(
     ICellExtrasCache extrasCache,
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
+    IRequestCoalescer<GridPoint> forecastCoalescer,
     WeatherTelemetry telemetry,
     TimeProvider timeProvider,
     IOptions<NwsClientOptions> options,
@@ -4358,12 +5155,54 @@ internal sealed class WeatherService(
     }
 
     /// <summary>
-    /// Cache-aside fetch of the headline daily forecast for a cell. Also returns
-    /// the cell's approximate centre when it came from a fresh fetch (it is not
-    /// stored in the daily cache, so a pure cache hit yields a null centre and
-    /// the caller falls back to the extras-cached centre or a grid estimate).
+    /// Cache-aside fetch of the headline daily forecast for a cell, protected by
+    /// the single-flight coalescer so concurrent misses for the same cell
+    /// collapse into one upstream call. Also returns the cell's approximate
+    /// centre when it came from a fresh fetch (it is not stored in the daily
+    /// cache, so a pure cache hit yields a null centre and the caller falls back
+    /// to the extras-cached centre or a grid estimate).
     /// </summary>
-    private async Task<(Forecast? Forecast, GeoCoordinate? Center)> GetForecastByGridCoreAsync(
+    private Task<(Forecast? Forecast, GeoCoordinate? Center)> GetForecastByGridCoreAsync(
+        GridPoint grid, CancellationToken cancellationToken)
+    {
+        // A flag the factory flips when THIS call is the one that actually ran
+        // the fetch (the coalescer "leader"). Everyone else is a follower whose
+        // upstream call was avoided.
+        var ranFactory = false;
+
+        return RunCoalescedAsync();
+
+        async Task<(Forecast?, GeoCoordinate?)> RunCoalescedAsync()
+        {
+            var result = await forecastCoalescer.RunAsync(
+                grid,
+                async flightToken =>
+                {
+                    ranFactory = true;
+                    return await FetchForecastCoreAsync(grid, flightToken).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (ranFactory)
+            {
+                telemetry.RecordCoalesceLeader(ForecastCacheName);
+            }
+            else
+            {
+                telemetry.RecordCoalesceFollower(ForecastCacheName);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// The actual cache-aside body, run by at most one caller per cell at a
+    /// time (the coalescer guarantees this). Re-reads the cache first, so a
+    /// follower that waited for an earlier flight — and then started a fresh one
+    /// — still sees the freshly-filled cache and never calls NWS.
+    /// </summary>
+    private async Task<(Forecast? Forecast, GeoCoordinate? Center)> FetchForecastCoreAsync(
         GridPoint grid, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
@@ -9193,6 +10032,195 @@ public sealed class NeighborhoodWarmerTests
 
 
 ================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Services/RequestCoalescerTests.cs
+SIZE: 5.42 KB
+MODIFIED: 06/22/2026 15:06:14
+================================================================================
+
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Infrastructure.Services;
+
+namespace Weather.Infrastructure.Tests.Services;
+
+/// <summary>
+/// Focused unit tests for the single-flight coalescer in isolation from the
+/// weather service. These pin the contract the stampede fix depends on.
+/// </summary>
+public sealed class RequestCoalescerTests
+{
+    private static readonly GridPoint KeyA = new("AKQ", 83, 61);
+    private static readonly GridPoint KeyB = new("LWX", 96, 70);
+
+    [Test]
+    public async Task ConcurrentCallsForSameKeyRunFactoryOnce()
+    {
+        var coalescer = new RequestCoalescer<GridPoint>();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var invocations = 0;
+
+        async Task<int> Factory(CancellationToken _)
+        {
+            Interlocked.Increment(ref invocations);
+            await gate.Task;
+            return 42;
+        }
+
+        var tasks = Enumerable.Range(0, 100)
+            .Select(_ => coalescer.RunAsync(KeyA, Factory))
+            .ToArray();
+
+        await Task.Delay(50);
+        gate.SetResult();
+
+        var results = await Task.WhenAll(tasks);
+
+        results.ShouldAllBe(r => r == 42);
+        invocations.ShouldBe(1);
+    }
+
+    [Test]
+    public async Task DifferentKeysRunInParallel()
+    {
+        var coalescer = new RequestCoalescer<GridPoint>();
+        var invocations = 0;
+
+        Task<int> Factory(CancellationToken _)
+        {
+            Interlocked.Increment(ref invocations);
+            return Task.FromResult(1);
+        }
+
+        await Task.WhenAll(
+            coalescer.RunAsync(KeyA, Factory),
+            coalescer.RunAsync(KeyB, Factory));
+
+        // Two distinct keys → two independent flights.
+        invocations.ShouldBe(2);
+    }
+
+    [Test]
+    public async Task SequentialCallsEachRunFactory()
+    {
+        var coalescer = new RequestCoalescer<GridPoint>();
+        var invocations = 0;
+
+        Task<int> Factory(CancellationToken _)
+        {
+            Interlocked.Increment(ref invocations);
+            return Task.FromResult(7);
+        }
+
+        await coalescer.RunAsync(KeyA, Factory);
+        await coalescer.RunAsync(KeyA, Factory);
+
+        // No overlap → flight evicted between calls → factory runs twice.
+        invocations.ShouldBe(2);
+    }
+
+    [Test]
+    public async Task FactoryExceptionPropagatesToAllWaiters()
+    {
+        var coalescer = new RequestCoalescer<GridPoint>();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<int> Factory(CancellationToken _)
+        {
+            await gate.Task;
+            throw new InvalidOperationException("boom");
+        }
+
+        var tasks = Enumerable.Range(0, 10)
+            .Select(_ => coalescer.RunAsync(KeyA, Factory))
+            .ToArray();
+
+        await Task.Delay(50);
+        gate.SetResult();
+
+        foreach (var t in tasks)
+        {
+            await Should.ThrowAsync<InvalidOperationException>(async () => await t);
+        }
+    }
+
+    [Test]
+    public async Task FlightIsEvictedAfterFailureSoNextCallRetries()
+    {
+        var coalescer = new RequestCoalescer<GridPoint>();
+        var invocations = 0;
+
+        Task<int> Throwing(CancellationToken _)
+        {
+            Interlocked.Increment(ref invocations);
+            throw new InvalidOperationException();
+        }
+
+        await Should.ThrowAsync<InvalidOperationException>(async () => await coalescer.RunAsync(KeyA, Throwing));
+        await Should.ThrowAsync<InvalidOperationException>(async () => await coalescer.RunAsync(KeyA, Throwing));
+
+        // A failed flight must not be cached; the second call starts fresh.
+        invocations.ShouldBe(2);
+    }
+
+    [Test]
+    public async Task OneCallerCancellingDoesNotAbortTheSharedResultForOthers()
+    {
+        var coalescer = new RequestCoalescer<GridPoint>();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<int> Factory(CancellationToken _)
+        {
+            await gate.Task;
+            return 99;
+        }
+
+        using var cts = new CancellationTokenSource();
+
+        var cancellable = coalescer.RunAsync(KeyA, Factory, cts.Token);
+        var survivor = coalescer.RunAsync(KeyA, Factory);
+
+        await Task.Delay(50);
+
+        // Detach the first caller mid-flight.
+        cts.Cancel();
+        await Should.ThrowAsync<OperationCanceledException>(async () => await cancellable);
+
+        // The shared flight is still alive for the remaining caller.
+        gate.SetResult();
+        (await survivor).ShouldBe(99);
+    }
+
+    [Test]
+    public async Task CancellingBeforeStartThrowsImmediately()
+    {
+        var coalescer = new RequestCoalescer<GridPoint>();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Should.ThrowAsync<OperationCanceledException>(async () =>
+            await coalescer.RunAsync(KeyA, _ => Task.FromResult(1), cts.Token));
+    }
+
+    [Test]
+    public async Task NullKeyThrows()
+    {
+        var coalescer = new RequestCoalescer<string>();
+        await Should.ThrowAsync<ArgumentNullException>(async () =>
+            await coalescer.RunAsync(null!, _ => Task.FromResult(1)));
+    }
+
+    [Test]
+    public async Task NullFactoryThrows()
+    {
+        var coalescer = new RequestCoalescer<GridPoint>();
+        await Should.ThrowAsync<ArgumentNullException>(async () =>
+            await coalescer.RunAsync(KeyA, null!));
+    }
+}
+
+
+
+================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
 SIZE: 7.48 KB
 MODIFIED: 06/19/2026 13:43:12
@@ -9387,8 +10415,8 @@ public sealed class WeatherServiceAreaTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
-SIZE: 9.52 KB
-MODIFIED: 06/19/2026 09:07:50
+SIZE: 13.54 KB
+MODIFIED: 06/22/2026 15:04:17
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -9434,12 +10462,18 @@ public sealed class WeatherServiceTests
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
+
+        // A REAL coalescer — its logic is pure and in-process, so wiring it in
+        // keeps the existing behavioural tests honest (the hot path now always
+        // runs through it) while still letting the stampede test exercise it.
+        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+
         public WeatherService Service { get; }
 
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, Coalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
@@ -9608,6 +10642,85 @@ public sealed class WeatherServiceTests
 
         result.ShouldNotBeNull();
         h.Warmer.DidNotReceive().RequestWarming(Arg.Any<GridPoint>());
+    }
+
+    // ----------------------------------------------------------------------
+    // Stampede protection. This is the behaviour the whole change exists for:
+    // many concurrent cold requests for the SAME cell must collapse into a
+    // single upstream NWS call.
+    // ----------------------------------------------------------------------
+
+    [Test]
+    public async Task ConcurrentColdRequestsForSameGridCallNwsOnce()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+
+        // The forecast cache starts empty. After the first upsert, subsequent
+        // reads return the freshly-stored value — exactly like the real SQLite
+        // cache. We model that here so a "follower" that starts a fresh flight
+        // after the leader finishes sees the filled cache and does NOT call NWS.
+        CachedForecast? stored = null;
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>())
+            .Returns(_ => stored);
+        h.ForecastCache
+            .When(c => c.UpsertAsync(Arg.Any<CachedForecast>(), Arg.Any<CancellationToken>()))
+            .Do(call => stored = call.Arg<CachedForecast>());
+
+        // Gate the NWS call so all callers pile up behind one slow, in-flight
+        // fetch — the precise condition that used to stampede.
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var nwsCalls = 0;
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                Interlocked.Increment(ref nwsCalls);
+                await gate.Task;
+                return ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30));
+            });
+
+        // Fire 50 concurrent requests for the same coordinate.
+        var requests = Enumerable.Range(0, 50)
+            .Select(_ => h.Service.GetForecastAsync(Coord))
+            .ToArray();
+
+        // Let them all attach to the single flight, then release NWS.
+        await Task.Delay(50);
+        gate.SetResult();
+
+        var results = await Task.WhenAll(requests);
+
+        results.ShouldAllBe(r => r != null && r.Grid == Grid);
+        // The crux: 50 concurrent cold requests → exactly ONE upstream call.
+        nwsCalls.ShouldBe(1);
+        await h.ForecastCache.Received(1).UpsertAsync(Arg.Any<CachedForecast>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task SequentialRequestsAfterExpiryEachStartANewFlight()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        // Cache stays cold (always null) → each sequential call is a genuine miss.
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns((CachedForecast?)null);
+
+        var nwsCalls = 0;
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Interlocked.Increment(ref nwsCalls);
+                return ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30));
+            });
+
+        // Three calls, one after another (no overlap) → coalescer never merges
+        // them, so we expect three upstream calls. This proves the coalescer
+        // only suppresses CONCURRENT duplicates, not across-time ones (that is
+        // the cache's job, and is exercised separately).
+        await h.Service.GetForecastAsync(Coord);
+        await h.Service.GetForecastAsync(Coord);
+        await h.Service.GetForecastAsync(Coord);
+
+        nwsCalls.ShouldBe(3);
     }
 }
 
@@ -10117,7 +11230,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/22/2026 14:58:29
-Total Files Exported: 125
+EXPORT COMPLETED: 06/22/2026 15:06:15
+Total Files Exported: 133
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
