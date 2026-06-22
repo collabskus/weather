@@ -1,14 +1,15 @@
 name: containers
 
-# Validates that every Containerfile in the repo BUILDS, and that the API image
-# can be created, started, health-probed and torn down cleanly. GitHub's
-# ubuntu-latest runners ship Podman preinstalled, so this mirrors the local
-# Fedora/Podman workflow without needing Podman on a Windows dev box.
+# Thin workflow on purpose: every step is a single `bash ci/containers.sh <cmd>`
+# call, and all the real container logic lives in ci/containers.sh. Keeping shell
+# out of YAML avoids the parser pitfalls that come from inlining commands into
+# `run:` scalars, and lets you run each step locally, identical to CI.
 
 on:
   push:
     branches: [ main ]
     paths:
+      - 'ci/**'
       - 'Containerfile.*'
       - 'deploy/**'
       - 'src/**'
@@ -19,6 +20,7 @@ on:
   pull_request:
     branches: [ main ]
     paths:
+      - 'ci/**'
       - 'Containerfile.*'
       - 'deploy/**'
       - 'src/**'
@@ -35,57 +37,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ----------------------------------------------------------------------
-  # 1. Build every image. A matrix so each Containerfile reports its own
-  #    pass/fail and they build in parallel.
-  # ----------------------------------------------------------------------
+  # Build every image in parallel; each matrix leg reports its own pass/fail.
   build-images:
-    name: Build image (${{ matrix.image.name }})
+    name: Build image
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - name: api
-            containerfile: Containerfile.api
-            context: .
-          - name: web
-            containerfile: Containerfile.web
-            context: .
-          - name: otelcol
-            containerfile: deploy/Containerfile.otelcol
-            context: .
+        image: [ api, web, otelcol ]
     steps:
       - name: Check out
         uses: actions/checkout@v6
+      - name: Build and inspect
+        run: bash ci/containers.sh build "${{ matrix.image }}"
 
-      - name: Show Podman version
-        run: podman version
-
-      - name: Confirm Containerfile exists
-        run: |
-          set -euo pipefail
-          if [ ! -f "${{ matrix.image.containerfile }}" ]; then
-            echo "::error::Missing ${{ matrix.image.containerfile }}"
-            exit 1
-          fi
-
-      - name: Build ${{ matrix.image.name }} image
-        run: |
-          set -euo pipefail
-          podman build \
-            --file "${{ matrix.image.containerfile }}" \
-            --tag "weather-${{ matrix.image.name }}:ci" \
-            "${{ matrix.image.context }}"
-
-      - name: Inspect image
-        run: podman image inspect "weather-${{ matrix.image.name }}:ci" --format 'OK: {{.Id}}'
-
-  # ----------------------------------------------------------------------
-  # 2. Lifecycle smoke test for the API: build, run, probe /alive, stop,
-  #    and assert the container is gone afterwards (create AND destroy).
-  # ----------------------------------------------------------------------
+  # Build the API image, run it, probe /alive, then stop, remove and assert gone.
   api-lifecycle:
     name: API container lifecycle
     runs-on: ubuntu-latest
@@ -93,77 +60,10 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v6
+      - name: Run lifecycle smoke test
+        run: bash ci/containers.sh api-lifecycle
 
-      - name: Show Podman version
-        run: podman version
-
-      - name: Build API image
-        run: |
-          set -euo pipefail
-          podman build --file Containerfile.api --tag weather-api:ci .
-
-      - name: Run the API container
-        run: |
-          set -euo pipefail
-          # /alive and /health are only mapped in Development (see ServiceDefaults),
-          # so run the smoke test in that environment. The SQLite cache goes to a
-          # throwaway in-container path; no host bind mount, so no SELinux concerns.
-          podman run --detach \
-            --name weather-api-ci \
-            --publish 8080:8080 \
-            --env ASPNETCORE_ENVIRONMENT=Development \
-            --env ASPNETCORE_URLS=http://+:8080 \
-            --env Cache__ConnectionString="Data Source=/tmp/weather-cache.db" \
-            weather-api:ci
-
-      - name: Wait for liveness
-        run: |
-          set -euo pipefail
-          ok=false
-          for i in $(seq 1 30); do
-            code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/alive || true)
-            echo "attempt $i: /alive -> ${code}"
-            if [ "$code" = "200" ]; then
-              ok=true
-              break
-            fi
-            sleep 2
-          done
-          if [ "$ok" != "true" ]; then
-            echo "::error::API container did not become live within timeout"
-            echo "----- container logs -----"
-            podman logs weather-api-ci || true
-            exit 1
-          fi
-
-      - name: Dump logs (always)
-        if: always()
-        run: podman logs weather-api-ci || true
-
-      - name: Stop and remove the container
-        run: |
-          set -euo pipefail
-          podman stop weather-api-ci
-          podman rm weather-api-ci
-
-      - name: Assert the container is gone
-        run: |
-          set -euo pipefail
-          if podman container exists weather-api-ci; then
-            echo "::error::Container still present after rm"
-            exit 1
-          fi
-          echo "Container created and destroyed cleanly."
-
-      - name: Clean up image
-        if: always()
-        run: podman rmi weather-api:ci || true
-
-  # ----------------------------------------------------------------------
-  # 3. Validate the Compose file parses and resolves with Podman Compose.
-  #    `config` does a dry-run render without starting anything, which is a
-  #    cheap guard against a malformed compose.yaml.
-  # ----------------------------------------------------------------------
+  # Dry-run render of deploy/compose.yaml; starts nothing.
   compose-validate:
     name: Validate compose.yaml
     runs-on: ubuntu-latest
@@ -171,16 +71,5 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v6
-
-      - name: Install podman-compose
-        run: |
-          set -euo pipefail
-          python3 -m pip install --user podman-compose
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
       - name: Render compose config
-        working-directory: deploy
-        run: |
-          set -euo pipefail
-          cp .env.example .env
-          podman-compose -f compose.yaml config
+        run: bash ci/containers.sh compose-validate
