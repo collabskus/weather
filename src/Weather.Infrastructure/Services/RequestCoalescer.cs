@@ -176,8 +176,16 @@ internal sealed class RequestCoalescer<TKey> : IRequestCoalescer<TKey>
     /// detaches only itself (via <c>WaitAsync</c> on the shared task) and never
     /// cancels the shared token while others remain attached.
     /// </para>
+    ///
+    /// <para>
+    /// Implements <see cref="IDisposable"/> so the type satisfies CA1001 (it owns
+    /// a disposable <see cref="CancellationTokenSource"/>). In normal operation
+    /// the CTS is disposed deterministically through the evict/detach handshake;
+    /// <see cref="Dispose"/> is an idempotent alias for that same teardown for
+    /// any path that wants to release the candidate explicitly.
+    /// </para>
     /// </summary>
-    private sealed class Flight
+    private sealed class Flight : IDisposable
     {
         private readonly CancellationTokenSource _cts = new();
         private readonly TaskCompletionSource<object> _bound =
@@ -313,6 +321,12 @@ internal sealed class RequestCoalescer<TKey> : IRequestCoalescer<TKey>
 
         /// <summary>Dispose the unused token source of a candidate that lost the GetOrAdd race.</summary>
         public void DisposeUnused() => DisposeCts();
+
+        /// <summary>
+        /// Idempotent alias for the CTS teardown. Present to satisfy CA1001;
+        /// the normal lifecycle disposes via the evict/detach handshake.
+        /// </summary>
+        public void Dispose() => DisposeCts();
 
         private void DisposeCts()
         {

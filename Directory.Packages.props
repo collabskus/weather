@@ -36,8 +36,31 @@
     <PackageVersion Include="bunit.web" Version="1.40.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.9" />
   </ItemGroup>
-  <ItemGroup>
+  <!--
+    SQLite native + SQLitePCLRaw transitive pins.
+
+    Microsoft.Data.Sqlite 10.0.9 depends transitively on:
+      SQLitePCLRaw.bundle_e_sqlite3 (>= 2.1.11)  -> resolves to 3.0.3
+      SQLitePCLRaw.core            (>= 2.1.11)  -> resolves to 3.0.3
+    and bundle_e_sqlite3 3.0.3 in turn depends on:
+      SourceGear.sqlite3            (>= 3.50.4.5)  -- the NATIVE SQLite build
+      SQLitePCLRaw.config.e_sqlite3 (>= 3.0.3)
+
+    The native-code package was RENAMED from `SQLitePCLRaw.lib.e_sqlite3`
+    (last published 2.1.11) to `SourceGear.sqlite3` (3.50.x). The previous pin
+    of `SQLitePCLRaw.lib.e_sqlite3` to 2.1.12 caused NU1603 because 2.1.12 does
+    not exist on nuget.org (the resolver fell back to 3.50.3). It is also no
+    longer part of the 3.x resolution graph at all, so it was removed.
+
+    With CentralPackageTransitivePinningEnabled, these transitive packages must
+    be pinned here to be deterministic. They are pinned to the versions the
+    modern chain actually resolves to.
+  -->
+  <ItemGroup Label="SQLite native runtime (transitively pinned)">
     <PackageVersion Include="SourceGear.sqlite3" Version="3.50.4.5" />
-    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.3" />
+    <PackageVersion Include="SQLitePCLRaw.config.e_sqlite3" Version="3.0.3" />
+    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.3" />
   </ItemGroup>
 </Project>

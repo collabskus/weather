@@ -31,7 +31,10 @@ public sealed class WeatherServiceAreaTests
     private static GeoCoordinate CenterFor(GridPoint grid) =>
         new(37.0 + (grid.GridY * 0.01), -76.0 - (grid.GridX * 0.01));
 
-    private static IReadOnlyList<ForecastPeriod> HourlyTwo() => new[]
+    // Return the concrete array type (CA1859): the method is private and every
+    // caller is fine with ForecastPeriod[], which still satisfies the
+    // IReadOnlyList<ForecastPeriod> parameters it is passed to.
+    private static ForecastPeriod[] HourlyTwo() => new[]
     {
         new ForecastPeriod(1, string.Empty, Now, Now.AddHours(1), true, 90, "F", 2,
             "6 mph", "S", "Sunny", string.Empty, "icon"),
@@ -53,12 +56,18 @@ public sealed class WeatherServiceAreaTests
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
+
+        // A REAL coalescer: its logic is pure and in-process, so the area hot
+        // path runs through it exactly as in production while these tests keep
+        // asserting cache-aside behaviour.
+        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+
         public WeatherService Service { get; }
 
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, Coalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
