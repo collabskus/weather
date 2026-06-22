@@ -46,7 +46,7 @@ public sealed class WeatherServiceTests
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, new RequestCoalescer<GridPoint>(),
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }

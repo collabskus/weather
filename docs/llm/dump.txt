@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/22/2026 15:44:01
+Generated: 06/22/2026 15:50:38
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -10463,8 +10463,8 @@ public sealed class WeatherServiceAreaTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
-SIZE: 9.52 KB
-MODIFIED: 06/22/2026 15:39:56
+SIZE: 9.56 KB
+MODIFIED: 06/22/2026 15:49:55
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10515,7 +10515,7 @@ public sealed class WeatherServiceTests
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, new RequestCoalescer<GridPoint>(),
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
@@ -11193,7 +11193,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/22/2026 15:44:02
+EXPORT COMPLETED: 06/22/2026 15:50:39
 Total Files Exported: 133
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
