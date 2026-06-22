@@ -19,6 +19,7 @@ public sealed class WeatherTelemetry : IDisposable
 
     private readonly Meter _meter;
     private readonly Counter<long> _cacheRequests;
+    private readonly Counter<long> _coalescedRequests;
     private readonly Histogram<double> _nwsRequestDuration;
     private readonly Counter<long> _nwsThrottled;
     private readonly Counter<long> _nwsErrors;
@@ -35,6 +36,11 @@ public sealed class WeatherTelemetry : IDisposable
             "weather.cache.requests",
             unit: "{request}",
             description: "Cache look-ups, tagged by cache name and hit/miss outcome.");
+
+        _coalescedRequests = _meter.CreateCounter<long>(
+            "weather.cache.coalesced",
+            unit: "{request}",
+            description: "Forecast fetches collapsed into an in-flight request by the single-flight coalescer, tagged by leader/follower. Followers are upstream calls that were AVOIDED — a high follower count under load means stampede protection is working.");
 
         _nwsRequestDuration = _meter.CreateHistogram<double>(
             "weather.nws.request.duration",
@@ -66,6 +72,18 @@ public sealed class WeatherTelemetry : IDisposable
         1,
         new KeyValuePair<string, object?>("cache", cache),
         new KeyValuePair<string, object?>("result", "miss"));
+
+    /// <summary>The caller that actually ran the upstream fetch for a cold key.</summary>
+    public void RecordCoalesceLeader(string cache) => _coalescedRequests.Add(
+        1,
+        new KeyValuePair<string, object?>("cache", cache),
+        new KeyValuePair<string, object?>("role", "leader"));
+
+    /// <summary>A caller that shared an in-flight fetch instead of starting its own.</summary>
+    public void RecordCoalesceFollower(string cache) => _coalescedRequests.Add(
+        1,
+        new KeyValuePair<string, object?>("cache", cache),
+        new KeyValuePair<string, object?>("role", "follower"));
 
     public void RecordNwsRequest(string endpoint, int statusCode, double elapsedMs, bool conditional) =>
         _nwsRequestDuration.Record(

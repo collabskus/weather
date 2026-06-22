@@ -14,6 +14,16 @@ namespace Weather.Infrastructure.Services;
 /// Cache-Control, conditional GETs to refresh expiry cheaply, and serving a
 /// stale-but-valid copy when NWS is unreachable. Cache hit/miss telemetry is
 /// recorded here because only this layer knows the <em>semantic</em> outcome.
+///
+/// <para>
+/// <b>Stampede protection.</b> The forecast fetch for a single grid cell is run
+/// through an <see cref="IRequestCoalescer{TKey}"/> keyed by the cell. When a
+/// cell is cold (or has just expired) and many requests arrive at once — the
+/// "refresh-spam from many browsers" case — only the first request calls NWS;
+/// the rest await that one in-flight fetch and share its result. This is what
+/// guarantees that load on NWS is bounded by the number of <em>distinct cold
+/// cells</em>, not by the number of users.
+/// </para>
 /// </summary>
 internal sealed class WeatherService(
     IPointMetadataCache metadataCache,
@@ -21,6 +31,7 @@ internal sealed class WeatherService(
     ICellExtrasCache extrasCache,
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
+    IRequestCoalescer<GridPoint> forecastCoalescer,
     WeatherTelemetry telemetry,
     TimeProvider timeProvider,
     IOptions<NwsClientOptions> options,
@@ -260,12 +271,54 @@ internal sealed class WeatherService(
     }
 
     /// <summary>
-    /// Cache-aside fetch of the headline daily forecast for a cell. Also returns
-    /// the cell's approximate centre when it came from a fresh fetch (it is not
-    /// stored in the daily cache, so a pure cache hit yields a null centre and
-    /// the caller falls back to the extras-cached centre or a grid estimate).
+    /// Cache-aside fetch of the headline daily forecast for a cell, protected by
+    /// the single-flight coalescer so concurrent misses for the same cell
+    /// collapse into one upstream call. Also returns the cell's approximate
+    /// centre when it came from a fresh fetch (it is not stored in the daily
+    /// cache, so a pure cache hit yields a null centre and the caller falls back
+    /// to the extras-cached centre or a grid estimate).
     /// </summary>
-    private async Task<(Forecast? Forecast, GeoCoordinate? Center)> GetForecastByGridCoreAsync(
+    private Task<(Forecast? Forecast, GeoCoordinate? Center)> GetForecastByGridCoreAsync(
+        GridPoint grid, CancellationToken cancellationToken)
+    {
+        // A flag the factory flips when THIS call is the one that actually ran
+        // the fetch (the coalescer "leader"). Everyone else is a follower whose
+        // upstream call was avoided.
+        var ranFactory = false;
+
+        return RunCoalescedAsync();
+
+        async Task<(Forecast?, GeoCoordinate?)> RunCoalescedAsync()
+        {
+            var result = await forecastCoalescer.RunAsync(
+                grid,
+                async flightToken =>
+                {
+                    ranFactory = true;
+                    return await FetchForecastCoreAsync(grid, flightToken).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (ranFactory)
+            {
+                telemetry.RecordCoalesceLeader(ForecastCacheName);
+            }
+            else
+            {
+                telemetry.RecordCoalesceFollower(ForecastCacheName);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// The actual cache-aside body, run by at most one caller per cell at a
+    /// time (the coalescer guarantees this). Re-reads the cache first, so a
+    /// follower that waited for an earlier flight — and then started a fresh one
+    /// — still sees the freshly-filled cache and never calls NWS.
+    /// </summary>
+    private async Task<(Forecast? Forecast, GeoCoordinate? Center)> FetchForecastCoreAsync(
         GridPoint grid, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();

@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Weather.Core.Abstractions;
+using Weather.Core.Models;
 using Weather.Core.Telemetry;
 using Weather.Infrastructure.Caching;
 using Weather.Infrastructure.Nws;
@@ -40,6 +41,13 @@ public static class DependencyInjection
         services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
         services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
         services.AddHostedService<DatabaseInitializer>();
+
+        // Single-flight coalescer for forecast fetches. MUST be a singleton:
+        // its whole job is to collapse concurrent misses ACROSS requests into
+        // one upstream call, which only works if every request shares the same
+        // in-flight dictionary. A scoped registration would give each request
+        // its own dictionary and reintroduce the stampede.
+        services.TryAddSingleton<IRequestCoalescer<GridPoint>, RequestCoalescer<GridPoint>>();
 
         // Resilient, identified NWS client. The standard resilience handler
         // wraps Polly v8 (retry w/ jitter, circuit breaker, timeout) and emits

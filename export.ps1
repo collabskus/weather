@@ -14,11 +14,22 @@ $IncludeExtensions = @(
     "ps1"
 )
 
-# Exact filenames (no extension match needed)
+# Exact filenames (no extension match needed).
+# NOTE: Containerfile.* have no extension that matches the list above, so they
+# must be enumerated here or they silently fall out of the dump. The previous
+# version only listed Dockerfile/.dockerignore, which is why the Podman
+# Containerfiles never appeared.
 $IncludeSpecificFiles = @(
     "Dockerfile", ".dockerignore", ".editorconfig",
-    ".gitignore", ".gitattributes"
+    ".gitignore", ".gitattributes",
+    "Containerfile", ".containerignore",
+    "Containerfile.api", "Containerfile.web",
+    "Containerfile.otelcol"
 )
+
+# Also include any file whose name STARTS WITH "Containerfile" (e.g. a future
+# Containerfile.worker) without having to list each one.
+$IncludeFilenamePrefixes = @("Containerfile")
 
 # Directories to skip even if tracked (e.g. this script's own output)
 $ExcludeDirectories = @("docs")
@@ -27,7 +38,7 @@ Write-Host "Starting project export..." -ForegroundColor Green
 Write-Host "Project Path: $ProjectPath" -ForegroundColor Yellow
 Write-Host "Output File: $OutputFile" -ForegroundColor Yellow
 
-# ── Resolve paths ────────────────────────────────────────────────────────────
+# -- Resolve paths ------------------------------------------------------------
 Push-Location $ProjectPath
 $ResolvedRoot = (Resolve-Path ".").Path
 
@@ -35,7 +46,7 @@ $OutputPath = Join-Path $ResolvedRoot $OutputFile
 $outputDir  = Split-Path $OutputPath -Parent
 if (!(Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
 
-# ── Get tracked files from Git ───────────────────────────────────────────────
+# -- Get tracked files from Git -----------------------------------------------
 Write-Host "Querying git for tracked files..." -ForegroundColor Cyan
 
 $gitFiles = git ls-files --cached --others --exclude-standard 2>&1
@@ -58,18 +69,25 @@ $AllFiles = $gitFiles | ForEach-Object {
     }
     if ($skip) { return }
 
-    # Match by extension or specific filename
-    if ($IncludeExtensions -contains $ext -or $IncludeSpecificFiles -contains $name) {
+    # Match by extension, exact filename, or filename prefix
+    $matchesPrefix = $false
+    foreach ($p in $IncludeFilenamePrefixes) {
+        if ($name.StartsWith($p)) { $matchesPrefix = $true; break }
+    }
+
+    if ($IncludeExtensions -contains $ext -or
+        $IncludeSpecificFiles -contains $name -or
+        $matchesPrefix) {
         $fullPath = Join-Path $ResolvedRoot $rel
         if (Test-Path $fullPath) {
             [PSCustomObject]@{ Relative = $rel; Full = $fullPath }
         }
     }
-} | Sort-Object Relative
+} | Sort-Object Relative -Unique
 
 Write-Host "Found $($AllFiles.Count) files to export" -ForegroundColor Green
 
-# ── Write header ─────────────────────────────────────────────────────────────
+# -- Write header -------------------------------------------------------------
 $header = @"
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
@@ -80,7 +98,7 @@ Project Path: $ResolvedRoot
 "@
 $header | Out-File -FilePath $OutputPath -Encoding UTF8
 
-# ── Directory tree (git ls-tree) ─────────────────────────────────────────────
+# -- Directory tree (git ls-tree) ---------------------------------------------
 "DIRECTORY STRUCTURE (tracked):" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 "==============================" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
@@ -91,7 +109,7 @@ $gitFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 
-# ── File contents ────────────────────────────────────────────────────────────
+# -- File contents ------------------------------------------------------------
 "FILE CONTENTS:" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 "==============" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
@@ -127,7 +145,7 @@ $sep
     "" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 }
 
-# ── Footer ───────────────────────────────────────────────────────────────────
+# -- Footer -------------------------------------------------------------------
 @"
 ===============================================================================
 EXPORT COMPLETED: $(Get-Date)
