@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/22/2026 15:50:38
+Generated: 06/22/2026 16:04:53
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -10463,8 +10463,8 @@ public sealed class WeatherServiceAreaTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
-SIZE: 9.56 KB
-MODIFIED: 06/22/2026 15:49:55
+SIZE: 9.83 KB
+MODIFIED: 06/22/2026 16:04:11
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10511,11 +10511,15 @@ public sealed class WeatherServiceTests
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
         public WeatherService Service { get; }
+        // A REAL coalescer: its logic is pure and in-process, so the area hot
+        // path runs through it exactly as in production while these tests keep
+        // asserting cache-aside behaviour.
+        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
 
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, new RequestCoalescer<GridPoint>(),
+                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, Coalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
@@ -11193,7 +11197,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/22/2026 15:50:39
+EXPORT COMPLETED: 06/22/2026 16:04:54
 Total Files Exported: 133
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
