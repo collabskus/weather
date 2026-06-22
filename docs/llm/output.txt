@@ -1,13 +1,14 @@
 PowerShell 7.6.2
+PS C:\Users\kushal>
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test --configuration Release; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-22-15-31-15
-2026-06-22-15-31-15
+2026-06-22-15-37-02
+2026-06-22-15-37-02
 On branch main
-Your branch is ahead of 'origin/main' by 3 commits.
+Your branch is ahead of 'origin/main' by 4 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-22-15-31-15
+2026-06-22-15-37-02
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -19,28 +20,103 @@ nothing to commit, working tree clean
     main merges with remote main
   Local ref configured for 'git push':
     main pushes to main (fast-forwardable)
-2026-06-22-15-31-15
-C:\Users\kushal\.nuget\packages\aspire.apphost.sdk\13.4.6\Sdk\Sdk.targets(113,5): error Weather.AppHost is an Aspire AppHost project that needs a package reference to Aspire.Hosting.AppHost version 8.2.0 or above to work correctly.
+2026-06-22-15-37-02
+Restore complete (1.1s)
 
-Restore failed with 1 error(s) in 0.8s
-2026-06-22-15-31-16
-C:\Users\kushal\.nuget\packages\aspire.apphost.sdk\13.4.6\Sdk\Sdk.targets(113,5): error Weather.AppHost is an Aspire AppHost project that needs a package reference to Aspire.Hosting.AppHost version 8.2.0 or above to work correctly.
+Build succeeded in 1.3s
+Project 'Weather.Api' has the following package references
+   [net10.0]:
+   Top-level Package                   Requested   Resolved
+   > Microsoft.AspNetCore.OpenApi      10.0.9      10.0.9
 
-Restore failed with 1 error(s) in 0.8s
-2026-06-22-15-31-17
-Unhandled exception: System.Exception: Restore operation failed.
-   at Microsoft.CodeAnalysis.Tools.CodeFormatter.OpenMSBuildWorkspaceAsync(String solutionOrProjectPath, WorkspaceType workspaceType, Boolean noRestore, Boolean requiresSemantics, String binaryLogPath, Boolean logWorkspaceWarnings, ILogger logger, CancellationToken cancellationToken)
-   at Microsoft.CodeAnalysis.Tools.CodeFormatter.FormatWorkspaceAsync(FormatOptions formatOptions, ILogger logger, CancellationToken cancellationToken, String binaryLogPath)
-   at Microsoft.CodeAnalysis.Tools.FormatCommandCommon.FormatAsync(FormatOptions formatOptions, ILogger`1 logger, CancellationToken cancellationToken)
-   at Microsoft.CodeAnalysis.Tools.Commands.RootFormatCommand.FormatCommandDefaultHandler.InvokeAsync(ParseResult parseResult, CancellationToken cancellationToken)
-   at System.CommandLine.Invocation.InvocationPipeline.InvokeAsync(ParseResult parseResult, CancellationToken cancellationToken)
-2026-06-22-15-31-19
+Project 'Weather.AppHost' has the following package references
+   [net10.0]:
+   Top-level Package                              Requested    Resolved
+   > Aspire.Dashboard.Sdk.win-x64           (A)   [13.4.6, )   13.4.6
+   > Aspire.Hosting.AppHost                       13.4.6       13.4.6
+   > Aspire.Hosting.Orchestration.win-x64   (A)   [13.4.6, )   13.4.6
+
+Project 'Weather.Core' has the following package references
+   [net10.0]: No packages were found for this framework.
+Project 'Weather.Infrastructure' has the following package references
+   [net10.0]:
+   Top-level Package                           Requested   Resolved
+   > Dapper                                    2.1.79      2.1.79
+   > Microsoft.Data.Sqlite                     10.0.9      10.0.9
+   > Microsoft.Extensions.Hosting              10.0.9      10.0.9
+   > Microsoft.Extensions.Http.Resilience      10.7.0      10.7.0
+   > System.Threading.RateLimiting             10.0.9      10.0.9
+
+Project 'Weather.ServiceDefaults' has the following package references
+   [net10.0]:
+   Top-level Package                                   Requested   Resolved
+   > Microsoft.Extensions.Http.Resilience              10.7.0      10.7.0
+   > Microsoft.Extensions.ServiceDiscovery             10.7.0      10.7.0
+   > OpenTelemetry.Exporter.OpenTelemetryProtocol      1.16.0      1.16.0
+   > OpenTelemetry.Extensions.Hosting                  1.16.0      1.16.0
+   > OpenTelemetry.Instrumentation.AspNetCore          1.15.2      1.15.2
+   > OpenTelemetry.Instrumentation.Http                1.15.1      1.15.1
+   > OpenTelemetry.Instrumentation.Runtime             1.15.1      1.15.1
+
+Project 'Weather.Web' has the following package references
+   [net10.0]:
+   Top-level Package                                  Requested    Resolved
+   > Microsoft.AspNetCore.App.Internal.Assets   (A)   [10.0.9, )   10.0.9
+
+Project 'Weather.Api.Tests' has the following package references
+   [net10.0]:
+   Top-level Package                       Requested   Resolved
+   > Microsoft.AspNetCore.Mvc.Testing      10.0.9      10.0.9
+   > Shouldly                              4.3.0       4.3.0
+   > TUnit                                 1.56.25     1.56.25
+
+Project 'Weather.Core.Tests' has the following package references
+   [net10.0]:
+   Top-level Package      Requested   Resolved
+   > Shouldly             4.3.0       4.3.0
+   > TUnit                1.56.25     1.56.25
+
+Project 'Weather.Infrastructure.Tests' has the following package references
+   [net10.0]:
+   Top-level Package      Requested   Resolved
+   > NSubstitute          5.3.0       5.3.0
+   > Shouldly             4.3.0       4.3.0
+   > TUnit                1.56.25     1.56.25
+
+Project 'Weather.Web.Tests' has the following package references
+   [net10.0]:
+   Top-level Package      Requested   Resolved
+   > bunit.web            1.40.0      1.40.0
+   > Shouldly             4.3.0       4.3.0
+   > TUnit                1.56.25     1.56.25
+
+(A) : Auto-referenced package.
+2026-06-22-15-37-06
+Restore complete (1.1s)
+
+Build succeeded in 1.2s
+
+The following sources were used:
+   https://api.nuget.org/v3/index.json
+
+The given project `Weather.Api` has no updates given the current sources.
+The given project `Weather.AppHost` has no updates given the current sources.
+The given project `Weather.Core` has no updates given the current sources.
+The given project `Weather.Infrastructure` has no updates given the current sources.
+The given project `Weather.ServiceDefaults` has no updates given the current sources.
+The given project `Weather.Web` has no updates given the current sources.
+The given project `Weather.Api.Tests` has no updates given the current sources.
+The given project `Weather.Core.Tests` has no updates given the current sources.
+The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
+The given project `Weather.Web.Tests` has no updates given the current sources.
+2026-06-22-15-37-13
+2026-06-22-15-37-32
 On branch main
-Your branch is ahead of 'origin/main' by 3 commits.
+Your branch is ahead of 'origin/main' by 4 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-22-15-31-19
+2026-06-22-15-37-32
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -202,7 +278,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-22-15-31-19
+2026-06-22-15-37-32
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -345,42 +421,60 @@ Processing (133/133): weather.slnx
 Export completed!
 Total files exported: 133
 Output file size: 379.73 KB
-2026-06-22-15-31-20
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
-   failed with 1 error(s) (0.0s)
-    C:\Program Files\dotnet\sdk\10.0.301\NuGet.props(35,3): error MSB4024: The imported project file "D:\DEV\personal\weather\Directory.Packages.props" could not be loaded. An XML comment cannot contain '--', and '-' cannot be the last character. Line 46, position 52.
+2026-06-22-15-37-32
 
-Build failed with 10 error(s) in 0.3s
-2026-06-22-15-31-20
-C:\Users\kushal\.nuget\packages\aspire.apphost.sdk\13.4.6\Sdk\Sdk.targets(113,5): error Weather.AppHost is an Aspire AppHost project that needs a package reference to Aspire.Hosting.AppHost version 8.2.0 or above to work correctly.
+Build succeeded in 1.6s
+2026-06-22-15-37-34
+Restore complete (1.2s)
 
-Restore failed with 1 error(s) in 1.1s
-2026-06-22-15-31-22
-C:\Users\kushal\.nuget\packages\aspire.apphost.sdk\13.4.6\Sdk\Sdk.targets(113,5): error Weather.AppHost is an Aspire AppHost project that needs a package reference to Aspire.Hosting.AppHost version 8.2.0 or above to work correctly.
+Build succeeded in 1.4s
+2026-06-22-15-37-36
+Restore complete (1.2s)
+  Weather.Core net10.0 succeeded (0.4s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (0.5s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Core.Tests net10.0 succeeded (0.9s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Web net10.0 succeeded (1.4s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
+  Weather.Infrastructure net10.0 succeeded (1.5s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+  Weather.Infrastructure.Tests net10.0 failed with 10 error(s) (0.6s)
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(11,21): error CS0101: The namespace 'Weather.Infrastructure.Tests.Services' already contains a definition for 'RequestCoalescerTests'
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(17,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'ConcurrentCallsForSameKeyRunFactoryOnce' with the same parameter types
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(44,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'DifferentKeysRunInParallel' with the same parameter types
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(64,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'SequentialCallsEachRunFactory' with the same parameter types
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(83,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'FactoryExceptionPropagatesToAllWaiters' with the same parameter types
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(108,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'FlightIsEvictedAfterFailureSoNextCallRetries' with the same parameter types
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(127,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'OneCallerCancellingDoesNotAbortTheSharedResultForOthers' with the same parameter types
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(155,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'CancellingBeforeStartThrowsImmediately' with the same parameter types
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(166,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'NullKeyThrows' with the same parameter types
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(174,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'NullFactoryThrows' with the same parameter types
+  Weather.Web.Tests net10.0 succeeded (1.0s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
+  Weather.Api net10.0 succeeded (2.1s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
+  Weather.AppHost net10.0 succeeded (0.6s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+  Weather.Api.Tests net10.0 succeeded (1.4s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
 
-Restore failed with 1 error(s) in 1.0s
-2026-06-22-15-31-23
-C:\Users\kushal\.nuget\packages\aspire.apphost.sdk\13.4.6\Sdk\Sdk.targets(113,5): error Weather.AppHost is an Aspire AppHost project that needs a package reference to Aspire.Hosting.AppHost version 8.2.0 or above to work correctly.
+Build failed with 10 error(s) in 6.5s
+2026-06-22-15-37-43
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(11,21): error CS0101: The namespace 'Weather.Infrastructure.Tests.Services' already contains a definition for 'RequestCoalescerTests'
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(17,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'ConcurrentCallsForSameKeyRunFactoryOnce' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(44,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'DifferentKeysRunInParallel' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(64,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'SequentialCallsEachRunFactory' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(83,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'FactoryExceptionPropagatesToAllWaiters' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(108,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'FlightIsEvictedAfterFailureSoNextCallRetries' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(127,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'OneCallerCancellingDoesNotAbortTheSharedResultForOthers' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(155,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'CancellingBeforeStartThrowsImmediately' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(166,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'NullKeyThrows' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(174,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'NullFactoryThrows' with the same parameter types
 Build failed with exit code: 1.
-2026-06-22-15-31-24
-C:\Users\kushal\.nuget\packages\aspire.apphost.sdk\13.4.6\Sdk\Sdk.targets(113,5): error Weather.AppHost is an Aspire AppHost project that needs a package reference to Aspire.Hosting.AppHost version 8.2.0 or above to work correctly.
+2026-06-22-15-37-46
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(11,21): error CS0101: The namespace 'Weather.Infrastructure.Tests.Services' already contains a definition for 'RequestCoalescerTests'
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(17,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'ConcurrentCallsForSameKeyRunFactoryOnce' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(44,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'DifferentKeysRunInParallel' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(64,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'SequentialCallsEachRunFactory' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(83,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'FactoryExceptionPropagatesToAllWaiters' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(108,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'FlightIsEvictedAfterFailureSoNextCallRetries' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(127,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'OneCallerCancellingDoesNotAbortTheSharedResultForOthers' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(155,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'CancellingBeforeStartThrowsImmediately' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(166,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'NullKeyThrows' with the same parameter types
+D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(174,23): error CS0111: Type 'RequestCoalescerTests' already defines a member called 'NullFactoryThrows' with the same parameter types
 Build failed with exit code: 1.
-2026-06-22-15-31-25
+2026-06-22-15-37-52
 PS D:\DEV\personal\weather>

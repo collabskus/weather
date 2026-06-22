@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/22/2026 15:31:19
+Generated: 06/22/2026 15:37:32
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -1169,7 +1169,7 @@ MODIFIED: 06/19/2026 08:36:12
 ================================================================================
 FILE: Directory.Packages.props
 SIZE: 3.61 KB
-MODIFIED: 06/22/2026 15:29:46
+MODIFIED: 06/22/2026 15:36:32
 ================================================================================
 
 <Project>
@@ -1217,7 +1217,7 @@ MODIFIED: 06/22/2026 15:29:46
       SQLitePCLRaw.bundle_e_sqlite3 (>= 2.1.11)  -> resolves to 3.0.3
       SQLitePCLRaw.core            (>= 2.1.11)  -> resolves to 3.0.3
     and bundle_e_sqlite3 3.0.3 in turn depends on:
-      SourceGear.sqlite3            (>= 3.50.4.5)  -- the NATIVE SQLite build
+      SourceGear.sqlite3            (>= 3.50.4.5)  - the NATIVE SQLite build
       SQLitePCLRaw.config.e_sqlite3 (>= 3.0.3)
 
     The native-code package was RENAMED from `SQLitePCLRaw.lib.e_sqlite3`
@@ -11154,7 +11154,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/22/2026 15:31:20
+EXPORT COMPLETED: 06/22/2026 15:37:32
 Total Files Exported: 133
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
