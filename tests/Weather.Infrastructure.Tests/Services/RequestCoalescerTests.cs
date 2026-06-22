@@ -174,7 +174,9 @@ public sealed class RequestCoalescerTests
     public async Task NullFactoryThrows()
     {
         var coalescer = new RequestCoalescer<GridPoint>();
+        // Explicit type argument: TValue cannot be inferred from an untyped
+        // `null!` factory, which is what previously caused CS0411.
         await Should.ThrowAsync<ArgumentNullException>(async () =>
-            await coalescer.RunAsync(KeyA, null!));
+            await coalescer.RunAsync<int>(KeyA, null!));
     }
 }
