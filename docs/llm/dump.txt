@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/22/2026 15:40:57
+Generated: 06/22/2026 15:44:01
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -4566,7 +4566,7 @@ internal sealed class NeighborhoodWarmingBackgroundService(
 ================================================================================
 FILE: src/Weather.Infrastructure/Services/RequestCoalescer.cs
 SIZE: 13.16 KB
-MODIFIED: 06/22/2026 15:30:22
+MODIFIED: 06/22/2026 15:42:31
 ================================================================================
 
 using System.Collections.Concurrent;
@@ -10070,8 +10070,8 @@ public sealed class NeighborhoodWarmerTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/RequestCoalescerTests.cs
-SIZE: 5.42 KB
-MODIFIED: 06/22/2026 15:18:45
+SIZE: 5.56 KB
+MODIFIED: 06/22/2026 15:43:14
 ================================================================================
 
 using Weather.Core.Abstractions;
@@ -10250,8 +10250,10 @@ public sealed class RequestCoalescerTests
     public async Task NullFactoryThrows()
     {
         var coalescer = new RequestCoalescer<GridPoint>();
+        // Explicit type argument: TValue cannot be inferred from an untyped
+        // `null!` factory, which is what previously caused CS0411.
         await Should.ThrowAsync<ArgumentNullException>(async () =>
-            await coalescer.RunAsync(KeyA, null!));
+            await coalescer.RunAsync<int>(KeyA, null!));
     }
 }
 
@@ -10260,7 +10262,7 @@ public sealed class RequestCoalescerTests
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
 SIZE: 7.99 KB
-MODIFIED: 06/22/2026 15:30:50
+MODIFIED: 06/22/2026 15:42:54
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11191,7 +11193,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/22/2026 15:40:58
+EXPORT COMPLETED: 06/22/2026 15:44:02
 Total Files Exported: 133
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================

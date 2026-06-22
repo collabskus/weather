@@ -1,13 +1,13 @@
 PowerShell 7.6.2
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test --configuration Release; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-22-15-40-24
-2026-06-22-15-40-24
+2026-06-22-15-43-34
+2026-06-22-15-43-34
 On branch main
-Your branch is ahead of 'origin/main' by 6 commits.
+Your branch is ahead of 'origin/main' by 7 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-22-15-40-24
+2026-06-22-15-43-34
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -19,10 +19,10 @@ nothing to commit, working tree clean
     main merges with remote main
   Local ref configured for 'git push':
     main pushes to main (fast-forwardable)
-2026-06-22-15-40-24
+2026-06-22-15-43-34
 Restore complete (1.0s)
 
-Build succeeded in 1.1s
+Build succeeded in 1.2s
 Project 'Weather.Api' has the following package references
    [net10.0]:
    Top-level Package                   Requested   Resolved
@@ -90,8 +90,8 @@ Project 'Weather.Web.Tests' has the following package references
    > TUnit                1.56.25     1.56.25
 
 (A) : Auto-referenced package.
-2026-06-22-15-40-28
-Restore complete (1.0s)
+2026-06-22-15-43-38
+Restore complete (1.1s)
 
 Build succeeded in 1.2s
 
@@ -108,14 +108,14 @@ The given project `Weather.Api.Tests` has no updates given the current sources.
 The given project `Weather.Core.Tests` has no updates given the current sources.
 The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
 The given project `Weather.Web.Tests` has no updates given the current sources.
-2026-06-22-15-40-33
-2026-06-22-15-40-57
+2026-06-22-15-43-43
+2026-06-22-15-44-01
 On branch main
-Your branch is ahead of 'origin/main' by 6 commits.
+Your branch is ahead of 'origin/main' by 7 commits.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-22-15-40-57
+2026-06-22-15-44-01
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -277,7 +277,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-22-15-40-57
+2026-06-22-15-44-01
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -419,37 +419,34 @@ Processing (133/133): weather.slnx
 
 Export completed!
 Total files exported: 133
-Output file size: 383.69 KB
-2026-06-22-15-40-58
+Output file size: 383.83 KB
+2026-06-22-15-44-02
 
-Build succeeded in 2.6s
-2026-06-22-15-41-01
-Restore complete (1.7s)
-
-Build succeeded in 1.9s
-2026-06-22-15-41-03
+Build succeeded in 1.6s
+2026-06-22-15-44-04
 Restore complete (1.3s)
-  Weather.Core net10.0 succeeded (0.3s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-  Weather.ServiceDefaults net10.0 succeeded (0.7s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-  Weather.Infrastructure net10.0 succeeded (0.9s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
-  Weather.Core.Tests net10.0 succeeded (1.0s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-  Weather.Web net10.0 succeeded (1.6s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-  Weather.Infrastructure.Tests net10.0 failed with 2 error(s) (0.9s)
-    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\RequestCoalescerTests.cs(178,29): error CS0411: The type arguments for method 'RequestCoalescer<GridPoint>.RunAsync<TValue>(GridPoint, Func<CancellationToken, Task<TValue>>, CancellationToken)' cannot be inferred from the usage. Try specifying the type arguments explicitly.
-    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(48,27): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'WeatherService.WeatherService(IPointMetadataCache, IForecastCache, ICellExtrasCache, INwsApiClient, INeighborhoodWarmer, IRequestCoalescer<GridPoint>, WeatherTelemetry, TimeProvider, IOptions<NwsClientOptions>, ILogger<WeatherService>)'
-  Weather.Web.Tests net10.0 succeeded (0.9s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
-  Weather.Api net10.0 succeeded (2.5s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
-  Weather.AppHost net10.0 succeeded (0.9s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
-  Weather.Api.Tests net10.0 succeeded (1.3s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
 
-Build failed with 2 error(s) in 6.7s
-2026-06-22-15-41-10
+Build succeeded in 1.6s
+2026-06-22-15-44-06
+Restore complete (1.2s)
+  Weather.Core net10.0 succeeded (0.4s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (0.5s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Infrastructure net10.0 succeeded (1.1s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+  Weather.Core.Tests net10.0 succeeded (1.1s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Infrastructure.Tests net10.0 failed with 1 error(s) (1.1s)
+    D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(48,27): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'WeatherService.WeatherService(IPointMetadataCache, IForecastCache, ICellExtrasCache, INwsApiClient, INeighborhoodWarmer, IRequestCoalescer<GridPoint>, WeatherTelemetry, TimeProvider, IOptions<NwsClientOptions>, ILogger<WeatherService>)'
+  Weather.Web net10.0 succeeded (2.1s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
+  Weather.Web.Tests net10.0 succeeded (1.2s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
+  Weather.Api net10.0 succeeded (3.0s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
+  Weather.AppHost net10.0 succeeded (0.7s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+  Weather.Api.Tests net10.0 succeeded (1.0s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+
+Build failed with 1 error(s) in 6.7s
+2026-06-22-15-44-13
 D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(48,27): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'WeatherService.WeatherService(IPointMetadataCache, IForecastCache, ICellExtrasCache, INwsApiClient, INeighborhoodWarmer, IRequestCoalescer<GridPoint>, WeatherTelemetry, TimeProvider, IOptions<NwsClientOptions>, ILogger<WeatherService>)'
-D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\RequestCoalescerTests.cs(178,29): error CS0411: The type arguments for method 'RequestCoalescer<GridPoint>.RunAsync<TValue>(GridPoint, Func<CancellationToken, Task<TValue>>, CancellationToken)' cannot be inferred from the usage. Try specifying the type arguments explicitly.
 Build failed with exit code: 1.
-2026-06-22-15-41-14
+2026-06-22-15-44-16
 D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\WeatherServiceTests.cs(48,27): error CS7036: There is no argument given that corresponds to the required parameter 'logger' of 'WeatherService.WeatherService(IPointMetadataCache, IForecastCache, ICellExtrasCache, INwsApiClient, INeighborhoodWarmer, IRequestCoalescer<GridPoint>, WeatherTelemetry, TimeProvider, IOptions<NwsClientOptions>, ILogger<WeatherService>)'
-D:\DEV\personal\weather\tests\Weather.Infrastructure.Tests\Services\RequestCoalescerTests.cs(178,29): error CS0411: The type arguments for method 'RequestCoalescer<GridPoint>.RunAsync<TValue>(GridPoint, Func<CancellationToken, Task<TValue>>, CancellationToken)' cannot be inferred from the usage. Try specifying the type arguments explicitly.
 Build failed with exit code: 1.
-2026-06-22-15-41-20
+2026-06-22-15-44-21
 PS D:\DEV\personal\weather>
