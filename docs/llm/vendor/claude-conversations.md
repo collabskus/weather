@@ -2999,3 +2999,101 @@ Claude is AI and can make mistakes. Please double-check responses.
 
 28
 35
+
+cd ~/src/dotnet/weather; time git status; time git remote show origin; time git pull origin main --verbose; cd ~/src/dotnet/weather/deploy; podman pull mcr.microsoft.com/dotnet/sdk:10.0; podman pull mcr.microsoft.com/dotnet/aspnet:10.0; podman compose -f compose.yaml up --build --detach; podman compose -f compose.yaml ps; podman logs weather_tunnel-web_1 2>&1 | grep trycloudflare.com;
+
+podman compose -f compose.yaml down;
+
+cd ~/src/dotnet/weather; time git status; time git remote show origin; time git pull origin main --verbose; cd ~/src/dotnet/weather/deploy; time podman compose -f compose.yaml down; time podman pull mcr.microsoft.com/dotnet/sdk:10.0; time podman pull mcr.microsoft.com/dotnet/aspnet:10.0; time podman compose -f compose.yaml up --build --detach; podman compose -f compose.yaml ps; podman logs weather_tunnel-web_1 2>&1 | grep trycloudflare.com;
+
+
+the good news I guess is the error rate is fairly low 
+
+but it still bothers me how many requests I see to 
+
+_display_name
+
+__chips__
+
+_time
+
+_dur_ms
+
+
+GET https://api.weather.gov/alerts/active
+
+Jun 23 2026 14:30:10.5595538ms
+
+
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast
+
+Jun 23 2026 14:29:42.185272ms
+
+
+GET https://api.weather.gov/alerts/active
+
+Jun 23 2026 14:27:41.560339ms
+
+
+GET https://api.weather.gov/stations/KLFI/observations/latest
+
+Jun 23 2026 14:26:24.371187ms
+
+
+GET https://api.weather.gov/stations/KLFI/observations/latest
+
+Jun 23 2026 14:26:24.34528.3ms
+
+
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations
+
+Jun 23 2026 14:26:24.34025.6ms
+
+
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations
+
+Jun 23 2026 14:26:24.32317.4ms
+
+
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly
+
+Jun 23 2026 14:26:24.29536.4ms
+
+
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly
+
+Jun 23 2026 14:26:24.29517.1ms
+
+
+GET https://api.weather.gov/stations/KLFI/observations/latest
+
+Jun 23 2026 14:26:24.29417.9ms
+
+
+GET https://api.weather.gov/stations/KLFI/observations/latest
+
+Jun 23 2026 14:26:24.29019.3ms
+
+
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations
+
+Jun 23 2026 14:26:24.26717.3ms
+
+
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations
+
+Jun 23 2026 14:26:24.26622.9ms
+
+
+GET https://api.weather.gov/stations/KPHF/observations/latest
+
+Jun 23 2026 14:26:24.25026.2ms
+
+
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations
+
+Jun 23 2026 14:26:24.20136.1ms
+
+
+
+are these being preempted by the cache? 

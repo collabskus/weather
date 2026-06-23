@@ -1,21 +1,27 @@
 PowerShell 7.6.3
-Loading personal and system profiles took 1018ms.
-PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-23-12-56-49
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test --configuration Release; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-23-12-56-59
-2026-06-23-12-56-59
+2026-06-23-13-16-20
+2026-06-23-13-16-20
 On branch main
-Your branch is ahead of 'origin/main' by 1 commit.
+Your branch is ahead of 'origin/main' by 3 commits.
   (use "git push" to publish your local commits)
 
 Changes not staged for commit:
   (use "git add <file>..." to update what will be committed)
   (use "git restore <file>..." to discard changes in working directory)
-        modified:   docs/llm/dump.txt
+        modified:   docs/llm/vendor/claude-conversations.md
+        modified:   src/Weather.Api/appsettings.json
+        modified:   src/Weather.Infrastructure/DependencyInjection.cs
+        modified:   src/Weather.Infrastructure/Services/WeatherService.cs
+        modified:   tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
+        modified:   tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        tests/Weather.Infrastructure.Tests/Caching/SqliteAlertCacheTests.cs
 
 no changes added to commit (use "git add" and/or "git commit -a")
-2026-06-23-12-56-59
+2026-06-23-13-16-20
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -26,10 +32,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
     main merges with remote main
   Local ref configured for 'git push':
     main pushes to main (fast-forwardable)
-2026-06-23-12-56-59
-Restore complete (2.1s)
+2026-06-23-13-16-20
+Restore complete (3.0s)
 
-Build succeeded in 2.3s
+Build succeeded in 3.2s
 Project 'Weather.Api' has the following package references
    [net10.0]:
    Top-level Package                   Requested   Resolved
@@ -97,10 +103,10 @@ Project 'Weather.Web.Tests' has the following package references
    > TUnit                1.56.25     1.56.25
 
 (A) : Auto-referenced package.
-2026-06-23-12-57-04
-Restore complete (1.9s)
+2026-06-23-13-16-26
+Restore complete (1.3s)
 
-Build succeeded in 2.1s
+Build succeeded in 1.5s
 
 The following sources were used:
    https://api.nuget.org/v3/index.json
@@ -115,19 +121,30 @@ The given project `Weather.Api.Tests` has no updates given the current sources.
 The given project `Weather.Core.Tests` has no updates given the current sources.
 The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
 The given project `Weather.Web.Tests` has no updates given the current sources.
-2026-06-23-12-57-15
-2026-06-23-12-57-41
+2026-06-23-13-16-34
+2026-06-23-13-17-06
 On branch main
-Your branch is ahead of 'origin/main' by 1 commit.
+Your branch is ahead of 'origin/main' by 3 commits.
   (use "git push" to publish your local commits)
 
 Changes not staged for commit:
   (use "git add <file>..." to update what will be committed)
   (use "git restore <file>..." to discard changes in working directory)
-        modified:   docs/llm/dump.txt
+        modified:   docs/llm/vendor/claude-conversations.md
+        modified:   src/Weather.Api/appsettings.json
+        modified:   src/Weather.Core/Abstractions/IAlertCache.cs
+        modified:   src/Weather.Infrastructure/Caching/SqliteAlertCache.cs
+        modified:   src/Weather.Infrastructure/DependencyInjection.cs
+        modified:   src/Weather.Infrastructure/Services/WeatherService.cs
+        modified:   tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
+        modified:   tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        tests/Weather.Infrastructure.Tests/Caching/SqliteAlertCacheTests.cs
 
 no changes added to commit (use "git add" and/or "git commit -a")
-2026-06-23-12-57-41
+2026-06-23-13-17-06
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -289,180 +306,183 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-23-12-57-41
+2026-06-23-13-17-06
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
 Querying git for tracked files...
-Found 134 files to export
-Processing (1/134): .containerignore
-Processing (2/134): .editorconfig
-Processing (3/134): .gitattributes
-Processing (4/134): .github/dependabot.yml
-Processing (5/134): .github/workflows/build.yml
-Processing (6/134): .github/workflows/codeql.yml
-Processing (7/134): .github/workflows/containers.yml
-Processing (8/134): .github/workflows/dependency-review.yml
-Processing (9/134): .github/workflows/format.yml
-Processing (10/134): .github/workflows/markdown-lint.yml
-Processing (11/134): .github/workflows/test.yml
-Processing (12/134): .gitignore
-Processing (13/134): ci/containers.sh
-Processing (14/134): Containerfile.api
-Processing (15/134): Containerfile.web
-Processing (16/134): deploy/compose.yaml
-Processing (17/134): deploy/Containerfile.otelcol
-Processing (18/134): deploy/otelcol-config.yaml
-Processing (19/134): Directory.Build.props
-Processing (20/134): Directory.Packages.props
-Processing (21/134): export.ps1
-Processing (22/134): global.json
-Processing (23/134): nuget.config
-Processing (24/134): src/Weather.Api/appsettings.Development.json
-Processing (25/134): src/Weather.Api/appsettings.json
-Processing (26/134): src/Weather.Api/Contracts/AreaResponse.cs
-Processing (27/134): src/Weather.Api/Contracts/ForecastResponse.cs
-Processing (28/134): src/Weather.Api/Contracts/NeighborhoodResponse.cs
-Processing (29/134): src/Weather.Api/Endpoints/WeatherEndpoints.cs
-Processing (30/134): src/Weather.Api/Program.cs
-Processing (31/134): src/Weather.Api/Properties/launchSettings.json
-Processing (32/134): src/Weather.Api/Weather.Api.csproj
-Processing (33/134): src/Weather.AppHost/appsettings.json
-Processing (34/134): src/Weather.AppHost/Program.cs
-Processing (35/134): src/Weather.AppHost/Weather.AppHost.csproj
-Processing (36/134): src/Weather.Core/Abstractions/ICellExtrasCache.cs
-Processing (37/134): src/Weather.Core/Abstractions/IForecastCache.cs
-Processing (38/134): src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
-Processing (39/134): src/Weather.Core/Abstractions/INwsApiClient.cs
-Processing (40/134): src/Weather.Core/Abstractions/IPointMetadataCache.cs
-Processing (41/134): src/Weather.Core/Abstractions/IRequestCoalescer.cs
-Processing (42/134): src/Weather.Core/Abstractions/IWeatherService.cs
-Processing (43/134): src/Weather.Core/Models/AreaForecast.cs
-Processing (44/134): src/Weather.Core/Models/CachedForecast.cs
-Processing (45/134): src/Weather.Core/Models/CachedPointMetadata.cs
-Processing (46/134): src/Weather.Core/Models/CellExtras.cs
-Processing (47/134): src/Weather.Core/Models/CellWeather.cs
-Processing (48/134): src/Weather.Core/Models/Forecast.cs
-Processing (49/134): src/Weather.Core/Models/ForecastFetchResult.cs
-Processing (50/134): src/Weather.Core/Models/ForecastPeriod.cs
-Processing (51/134): src/Weather.Core/Models/GeoCoordinate.cs
-Processing (52/134): src/Weather.Core/Models/GridNeighborhood.cs
-Processing (53/134): src/Weather.Core/Models/GridPoint.cs
-Processing (54/134): src/Weather.Core/Models/NeighborhoodForecast.cs
-Processing (55/134): src/Weather.Core/Models/Observation.cs
-Processing (56/134): src/Weather.Core/Models/PointMetadata.cs
-Processing (57/134): src/Weather.Core/Models/WeatherAlert.cs
-Processing (58/134): src/Weather.Core/Telemetry/WeatherTelemetry.cs
-Processing (59/134): src/Weather.Core/Weather.Core.csproj
-Processing (60/134): src/Weather.Infrastructure/Caching/DatabaseInitializer.cs
-Processing (61/134): src/Weather.Infrastructure/Caching/SqliteCacheOptions.cs
-Processing (62/134): src/Weather.Infrastructure/Caching/SqliteCellExtrasCache.cs
-Processing (63/134): src/Weather.Infrastructure/Caching/SqliteConnectionFactory.cs
-Processing (64/134): src/Weather.Infrastructure/Caching/SqliteForecastCache.cs
-Processing (65/134): src/Weather.Infrastructure/Caching/SqlitePointMetadataCache.cs
-Processing (66/134): src/Weather.Infrastructure/Caching/TimestampText.cs
-Processing (67/134): src/Weather.Infrastructure/DependencyInjection.cs
-Processing (68/134): src/Weather.Infrastructure/Nws/NwsApiClient.cs
-Processing (69/134): src/Weather.Infrastructure/Nws/NwsClientOptions.cs
-Processing (70/134): src/Weather.Infrastructure/Nws/NwsJsonModels.cs
-Processing (71/134): src/Weather.Infrastructure/Nws/NwsUnits.cs
-Processing (72/134): src/Weather.Infrastructure/Serialization/WeatherJson.cs
-Processing (73/134): src/Weather.Infrastructure/Services/NeighborhoodWarmer.cs
-Processing (74/134): src/Weather.Infrastructure/Services/NeighborhoodWarmingBackgroundService.cs
-Processing (75/134): src/Weather.Infrastructure/Services/RequestCoalescer.cs
-Processing (76/134): src/Weather.Infrastructure/Services/WeatherService.cs
-Processing (77/134): src/Weather.Infrastructure/Weather.Infrastructure.csproj
-Processing (78/134): src/Weather.ServiceDefaults/Extensions.cs
-Processing (79/134): src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj
-Processing (80/134): src/Weather.Web/appsettings.Development.json
-Processing (81/134): src/Weather.Web/appsettings.json
-Processing (82/134): src/Weather.Web/Components/_Imports.razor
-Processing (83/134): src/Weather.Web/Components/App.razor
-Processing (84/134): src/Weather.Web/Components/Layout/MainLayout.razor
-Processing (85/134): src/Weather.Web/Components/Layout/NavMenu.razor
-Processing (86/134): src/Weather.Web/Components/Pages/About.razor
-Processing (87/134): src/Weather.Web/Components/Pages/Error.razor
-Processing (88/134): src/Weather.Web/Components/Pages/Home.razor
-Processing (89/134): src/Weather.Web/Components/Routes.razor
-Processing (90/134): src/Weather.Web/Program.cs
-Processing (91/134): src/Weather.Web/Properties/launchSettings.json
-Processing (92/134): src/Weather.Web/Services/GeolocationService.cs
-Processing (93/134): src/Weather.Web/Services/IGeolocationService.cs
-Processing (94/134): src/Weather.Web/Services/IWeatherApiClient.cs
-Processing (95/134): src/Weather.Web/Services/SkyPalette.cs
-Processing (96/134): src/Weather.Web/Services/WeatherApiClient.cs
-Processing (97/134): src/Weather.Web/Services/WeatherViewModels.cs
-Processing (98/134): src/Weather.Web/Weather.Web.csproj
-Processing (99/134): src/Weather.Web/wwwroot/app.css
-Processing (100/134): src/Weather.Web/wwwroot/js/geolocation.js
-Processing (101/134): tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs
-Processing (102/134): tests/Weather.Api.Tests/ForecastEndpointsTests.cs
-Processing (103/134): tests/Weather.Api.Tests/GlobalUsings.cs
-Processing (104/134): tests/Weather.Api.Tests/Weather.Api.Tests.csproj
-Processing (105/134): tests/Weather.Api.Tests/WeatherApiFactory.cs
-Processing (106/134): tests/Weather.Core.Tests/ForecastFetchResultTests.cs
-Processing (107/134): tests/Weather.Core.Tests/GeoCoordinateTests.cs
-Processing (108/134): tests/Weather.Core.Tests/GeoDistanceTests.cs
-Processing (109/134): tests/Weather.Core.Tests/GlobalUsings.cs
-Processing (110/134): tests/Weather.Core.Tests/GridNeighborhoodTests.cs
-Processing (111/134): tests/Weather.Core.Tests/Weather.Core.Tests.csproj
-Processing (112/134): tests/Weather.Core.Tests/WeatherTelemetryTests.cs
-Processing (113/134): tests/Weather.Infrastructure.Tests/Caching/SqliteCacheHarness.cs
-Processing (114/134): tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs
-Processing (115/134): tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
-Processing (116/134): tests/Weather.Infrastructure.Tests/Caching/SqlitePointMetadataCacheTests.cs
-Processing (117/134): tests/Weather.Infrastructure.Tests/Fakes/MutableTimeProvider.cs
-Processing (118/134): tests/Weather.Infrastructure.Tests/Fakes/NwsPayloads.cs
-Processing (119/134): tests/Weather.Infrastructure.Tests/Fakes/StubHttpMessageHandler.cs
-Processing (120/134): tests/Weather.Infrastructure.Tests/GlobalUsings.cs
-Processing (121/134): tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs
-Processing (122/134): tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
-Processing (123/134): tests/Weather.Infrastructure.Tests/Services/NeighborhoodWarmerTests.cs
-Processing (124/134): tests/Weather.Infrastructure.Tests/Services/RequestCoalescerTests.cs
-Processing (125/134): tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
-Processing (126/134): tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
-Processing (127/134): tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj
-Processing (128/134): tests/Weather.Web.Tests/Fakes/FakeGeolocationService.cs
-Processing (129/134): tests/Weather.Web.Tests/Fakes/FakeWeatherApiClient.cs
-Processing (130/134): tests/Weather.Web.Tests/GlobalUsings.cs
-Processing (131/134): tests/Weather.Web.Tests/HomePageTests.cs
-Processing (132/134): tests/Weather.Web.Tests/SkyPaletteTests.cs
-Processing (133/134): tests/Weather.Web.Tests/Weather.Web.Tests.csproj
-Processing (134/134): weather.slnx
+Found 137 files to export
+Processing (1/137): .containerignore
+Processing (2/137): .editorconfig
+Processing (3/137): .gitattributes
+Processing (4/137): .github/dependabot.yml
+Processing (5/137): .github/workflows/build.yml
+Processing (6/137): .github/workflows/codeql.yml
+Processing (7/137): .github/workflows/containers.yml
+Processing (8/137): .github/workflows/dependency-review.yml
+Processing (9/137): .github/workflows/format.yml
+Processing (10/137): .github/workflows/markdown-lint.yml
+Processing (11/137): .github/workflows/test.yml
+Processing (12/137): .gitignore
+Processing (13/137): ci/containers.sh
+Processing (14/137): Containerfile.api
+Processing (15/137): Containerfile.web
+Processing (16/137): deploy/compose.yaml
+Processing (17/137): deploy/Containerfile.otelcol
+Processing (18/137): deploy/otelcol-config.yaml
+Processing (19/137): Directory.Build.props
+Processing (20/137): Directory.Packages.props
+Processing (21/137): export.ps1
+Processing (22/137): global.json
+Processing (23/137): nuget.config
+Processing (24/137): src/Weather.Api/appsettings.Development.json
+Processing (25/137): src/Weather.Api/appsettings.json
+Processing (26/137): src/Weather.Api/Contracts/AreaResponse.cs
+Processing (27/137): src/Weather.Api/Contracts/ForecastResponse.cs
+Processing (28/137): src/Weather.Api/Contracts/NeighborhoodResponse.cs
+Processing (29/137): src/Weather.Api/Endpoints/WeatherEndpoints.cs
+Processing (30/137): src/Weather.Api/Program.cs
+Processing (31/137): src/Weather.Api/Properties/launchSettings.json
+Processing (32/137): src/Weather.Api/Weather.Api.csproj
+Processing (33/137): src/Weather.AppHost/appsettings.json
+Processing (34/137): src/Weather.AppHost/Program.cs
+Processing (35/137): src/Weather.AppHost/Weather.AppHost.csproj
+Processing (36/137): src/Weather.Core/Abstractions/IAlertCache.cs
+Processing (37/137): src/Weather.Core/Abstractions/ICellExtrasCache.cs
+Processing (38/137): src/Weather.Core/Abstractions/IForecastCache.cs
+Processing (39/137): src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
+Processing (40/137): src/Weather.Core/Abstractions/INwsApiClient.cs
+Processing (41/137): src/Weather.Core/Abstractions/IPointMetadataCache.cs
+Processing (42/137): src/Weather.Core/Abstractions/IRequestCoalescer.cs
+Processing (43/137): src/Weather.Core/Abstractions/IWeatherService.cs
+Processing (44/137): src/Weather.Core/Models/AreaForecast.cs
+Processing (45/137): src/Weather.Core/Models/CachedForecast.cs
+Processing (46/137): src/Weather.Core/Models/CachedPointMetadata.cs
+Processing (47/137): src/Weather.Core/Models/CellExtras.cs
+Processing (48/137): src/Weather.Core/Models/CellWeather.cs
+Processing (49/137): src/Weather.Core/Models/Forecast.cs
+Processing (50/137): src/Weather.Core/Models/ForecastFetchResult.cs
+Processing (51/137): src/Weather.Core/Models/ForecastPeriod.cs
+Processing (52/137): src/Weather.Core/Models/GeoCoordinate.cs
+Processing (53/137): src/Weather.Core/Models/GridNeighborhood.cs
+Processing (54/137): src/Weather.Core/Models/GridPoint.cs
+Processing (55/137): src/Weather.Core/Models/NeighborhoodForecast.cs
+Processing (56/137): src/Weather.Core/Models/Observation.cs
+Processing (57/137): src/Weather.Core/Models/PointMetadata.cs
+Processing (58/137): src/Weather.Core/Models/WeatherAlert.cs
+Processing (59/137): src/Weather.Core/Telemetry/WeatherTelemetry.cs
+Processing (60/137): src/Weather.Core/Weather.Core.csproj
+Processing (61/137): src/Weather.Infrastructure/Caching/DatabaseInitializer.cs
+Processing (62/137): src/Weather.Infrastructure/Caching/SqliteAlertCache.cs
+Processing (63/137): src/Weather.Infrastructure/Caching/SqliteCacheOptions.cs
+Processing (64/137): src/Weather.Infrastructure/Caching/SqliteCellExtrasCache.cs
+Processing (65/137): src/Weather.Infrastructure/Caching/SqliteConnectionFactory.cs
+Processing (66/137): src/Weather.Infrastructure/Caching/SqliteForecastCache.cs
+Processing (67/137): src/Weather.Infrastructure/Caching/SqlitePointMetadataCache.cs
+Processing (68/137): src/Weather.Infrastructure/Caching/TimestampText.cs
+Processing (69/137): src/Weather.Infrastructure/DependencyInjection.cs
+Processing (70/137): src/Weather.Infrastructure/Nws/NwsApiClient.cs
+Processing (71/137): src/Weather.Infrastructure/Nws/NwsClientOptions.cs
+Processing (72/137): src/Weather.Infrastructure/Nws/NwsJsonModels.cs
+Processing (73/137): src/Weather.Infrastructure/Nws/NwsUnits.cs
+Processing (74/137): src/Weather.Infrastructure/Serialization/WeatherJson.cs
+Processing (75/137): src/Weather.Infrastructure/Services/NeighborhoodWarmer.cs
+Processing (76/137): src/Weather.Infrastructure/Services/NeighborhoodWarmingBackgroundService.cs
+Processing (77/137): src/Weather.Infrastructure/Services/RequestCoalescer.cs
+Processing (78/137): src/Weather.Infrastructure/Services/WeatherService.cs
+Processing (79/137): src/Weather.Infrastructure/Weather.Infrastructure.csproj
+Processing (80/137): src/Weather.ServiceDefaults/Extensions.cs
+Processing (81/137): src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj
+Processing (82/137): src/Weather.Web/appsettings.Development.json
+Processing (83/137): src/Weather.Web/appsettings.json
+Processing (84/137): src/Weather.Web/Components/_Imports.razor
+Processing (85/137): src/Weather.Web/Components/App.razor
+Processing (86/137): src/Weather.Web/Components/Layout/MainLayout.razor
+Processing (87/137): src/Weather.Web/Components/Layout/NavMenu.razor
+Processing (88/137): src/Weather.Web/Components/Pages/About.razor
+Processing (89/137): src/Weather.Web/Components/Pages/Error.razor
+Processing (90/137): src/Weather.Web/Components/Pages/Home.razor
+Processing (91/137): src/Weather.Web/Components/Routes.razor
+Processing (92/137): src/Weather.Web/Program.cs
+Processing (93/137): src/Weather.Web/Properties/launchSettings.json
+Processing (94/137): src/Weather.Web/Services/GeolocationService.cs
+Processing (95/137): src/Weather.Web/Services/IGeolocationService.cs
+Processing (96/137): src/Weather.Web/Services/IWeatherApiClient.cs
+Processing (97/137): src/Weather.Web/Services/SkyPalette.cs
+Processing (98/137): src/Weather.Web/Services/WeatherApiClient.cs
+Processing (99/137): src/Weather.Web/Services/WeatherViewModels.cs
+Processing (100/137): src/Weather.Web/Weather.Web.csproj
+Processing (101/137): src/Weather.Web/wwwroot/app.css
+Processing (102/137): src/Weather.Web/wwwroot/js/geolocation.js
+Processing (103/137): tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs
+Processing (104/137): tests/Weather.Api.Tests/ForecastEndpointsTests.cs
+Processing (105/137): tests/Weather.Api.Tests/GlobalUsings.cs
+Processing (106/137): tests/Weather.Api.Tests/Weather.Api.Tests.csproj
+Processing (107/137): tests/Weather.Api.Tests/WeatherApiFactory.cs
+Processing (108/137): tests/Weather.Core.Tests/ForecastFetchResultTests.cs
+Processing (109/137): tests/Weather.Core.Tests/GeoCoordinateTests.cs
+Processing (110/137): tests/Weather.Core.Tests/GeoDistanceTests.cs
+Processing (111/137): tests/Weather.Core.Tests/GlobalUsings.cs
+Processing (112/137): tests/Weather.Core.Tests/GridNeighborhoodTests.cs
+Processing (113/137): tests/Weather.Core.Tests/Weather.Core.Tests.csproj
+Processing (114/137): tests/Weather.Core.Tests/WeatherTelemetryTests.cs
+Processing (115/137): tests/Weather.Infrastructure.Tests/Caching/SqliteAlertCacheTests.cs
+Processing (116/137): tests/Weather.Infrastructure.Tests/Caching/SqliteCacheHarness.cs
+Processing (117/137): tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs
+Processing (118/137): tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
+Processing (119/137): tests/Weather.Infrastructure.Tests/Caching/SqlitePointMetadataCacheTests.cs
+Processing (120/137): tests/Weather.Infrastructure.Tests/Fakes/MutableTimeProvider.cs
+Processing (121/137): tests/Weather.Infrastructure.Tests/Fakes/NwsPayloads.cs
+Processing (122/137): tests/Weather.Infrastructure.Tests/Fakes/StubHttpMessageHandler.cs
+Processing (123/137): tests/Weather.Infrastructure.Tests/GlobalUsings.cs
+Processing (124/137): tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs
+Processing (125/137): tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
+Processing (126/137): tests/Weather.Infrastructure.Tests/Services/NeighborhoodWarmerTests.cs
+Processing (127/137): tests/Weather.Infrastructure.Tests/Services/RequestCoalescerTests.cs
+Processing (128/137): tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
+Processing (129/137): tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+Processing (130/137): tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj
+Processing (131/137): tests/Weather.Web.Tests/Fakes/FakeGeolocationService.cs
+Processing (132/137): tests/Weather.Web.Tests/Fakes/FakeWeatherApiClient.cs
+Processing (133/137): tests/Weather.Web.Tests/GlobalUsings.cs
+Processing (134/137): tests/Weather.Web.Tests/HomePageTests.cs
+Processing (135/137): tests/Weather.Web.Tests/SkyPaletteTests.cs
+Processing (136/137): tests/Weather.Web.Tests/Weather.Web.Tests.csproj
+Processing (137/137): weather.slnx
 
 Export completed!
-Total files exported: 134
-Output file size: 391.61 KB
-2026-06-23-12-57-42
+Total files exported: 137
+Output file size: 409.07 KB
+2026-06-23-13-17-07
 
-Build succeeded in 2.4s
-2026-06-23-12-57-45
-Restore complete (2.1s)
+Build succeeded in 3.0s
+2026-06-23-13-17-11
+Restore complete (3.3s)
 
-Build succeeded in 2.5s
-2026-06-23-12-57-48
-Restore complete (1.4s)
-  Weather.Core net10.0 succeeded (4.9s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-  Weather.ServiceDefaults net10.0 succeeded (6.2s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-  Weather.Infrastructure net10.0 succeeded (2.9s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
-  Weather.Web net10.0 succeeded (4.8s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-  Weather.Core.Tests net10.0 succeeded (12.6s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-  Weather.Infrastructure.Tests net10.0 succeeded (10.2s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
-  Weather.Api net10.0 succeeded (3.0s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
-  Weather.Api.Tests net10.0 succeeded (2.5s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
-  Weather.AppHost net10.0 succeeded (8.5s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
-  Weather.Web.Tests net10.0 succeeded (9.2s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
+Build succeeded in 3.8s
+2026-06-23-13-17-15
+Restore complete (1.7s)
+  Weather.Core net10.0 succeeded (4.2s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (4.4s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Infrastructure net10.0 succeeded (3.1s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+  Weather.Api net10.0 succeeded (3.5s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
+  Weather.Web net10.0 succeeded (6.6s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
+  Weather.Core.Tests net10.0 succeeded (7.6s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Infrastructure.Tests net10.0 succeeded (5.1s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
+  Weather.Api.Tests net10.0 succeeded (2.1s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+  Weather.AppHost net10.0 succeeded (2.8s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+  Weather.Web.Tests net10.0 succeeded (2.6s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
 
-Build succeeded in 30.1s
-2026-06-23-12-58-19
+Build succeeded in 18.1s
+2026-06-23-13-17-34
 Running tests from tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64)
+Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 266ms)
-tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 869ms)
-tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 685ms)
-tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 659ms)
+tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 543ms)
+tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 395ms)
+tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 278ms)
+tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 733ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Debug\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -471,25 +491,25 @@ tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) pa
     - tests\Weather.Api.Tests\bin\Debug\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 266ms)
-  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 659ms)
-  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 869ms)
-  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 685ms)
+  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 395ms)
+  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 733ms)
+  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 278ms)
+  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 543ms)
 
-  total: 147
+  total: 156
   failed: 0
-  succeeded: 147
+  succeeded: 156
   skipped: 0
-  duration: 14s 794ms
-2026-06-23-12-58-42
-Running tests from tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
+  duration: 15s 394ms
+2026-06-23-13-17-55
 Running tests from tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64)
+Running tests from tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 257ms)
-tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 845ms)
-tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 259ms)
-tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 306ms)
+Running tests from tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64)
+tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 411ms)
+tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 885ms)
+tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 701ms)
+tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 249ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Release\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -498,15 +518,15 @@ tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) 
     - tests\Weather.Api.Tests\bin\Release\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 257ms)
-  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 306ms)
-  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 259ms)
-  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 845ms)
+  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 249ms)
+  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 411ms)
+  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 885ms)
+  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 701ms)
 
-  total: 147
+  total: 156
   failed: 0
-  succeeded: 147
+  succeeded: 156
   skipped: 0
-  duration: 13s 799ms
-2026-06-23-12-59-01
+  duration: 14s 879ms
+2026-06-23-13-18-21
 PS D:\DEV\personal\weather>
