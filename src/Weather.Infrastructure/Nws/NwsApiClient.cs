@@ -212,14 +212,78 @@ internal sealed class NwsApiClient(
         }
     }
 
+    public async Task<string?> GetNearestStationIdAsync(GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/stations");
+
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(StationsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(StationsEndpoint, response.StatusCode);
+                }
+
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsStationsResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            // Stations are returned nearest-first.
+            var features = payload?.Features;
+            if (features is null)
+            {
+                return null;
+            }
+
+            foreach (var feature in features)
+            {
+                var id = feature.Properties?.StationIdentifier;
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    return id;
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(StationsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /stations request failed for grid {Grid}.", grid);
+            return null;
+        }
+    }
+
     public async Task<Observation?> GetLatestObservationAsync(
         GridPoint grid, CancellationToken cancellationToken = default)
     {
+        // Two-step convenience path: resolve the nearest station, then observe
+        // by id. Callers that already know the station should skip straight to
+        // the by-id overload to avoid the extra /stations request.
         var stationId = await GetNearestStationIdAsync(grid, cancellationToken).ConfigureAwait(false);
         if (stationId is null)
         {
             return null;
         }
+
+        return await GetLatestObservationAsync(grid, stationId, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, string stationId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(stationId);
 
         var requestUri = $"stations/{Uri.EscapeDataString(stationId)}/observations/latest";
         var timestamp = Stopwatch.GetTimestamp();
@@ -266,7 +330,8 @@ internal sealed class NwsApiClient(
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             RecordFailure(ObservationEndpoint, statusCode: null);
-            logger.LogWarning(ex, "NWS latest-observation request failed for station {Station}.", stationId);
+            logger.LogWarning(ex, "NWS latest-observation request failed for station {Station} (grid {Grid}).",
+                stationId, grid);
             return null;
         }
     }
@@ -330,59 +395,6 @@ internal sealed class NwsApiClient(
             RecordFailure(AlertsEndpoint, statusCode: null);
             logger.LogWarning(ex, "NWS /alerts/active request failed for {Coordinate}.", coordinate);
             return [];
-        }
-    }
-
-    private async Task<string?> GetNearestStationIdAsync(GridPoint grid, CancellationToken cancellationToken)
-    {
-        var requestUri = string.Create(
-            CultureInfo.InvariantCulture,
-            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/stations");
-
-        var timestamp = Stopwatch.GetTimestamp();
-
-        try
-        {
-            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
-            RecordDuration(StationsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                if (response.StatusCode is not HttpStatusCode.NotFound)
-                {
-                    RecordFailure(StationsEndpoint, response.StatusCode);
-                }
-
-                return null;
-            }
-
-            var payload = await response.Content
-                .ReadFromJsonAsync<NwsStationsResponse>(WeatherJson.Options, cancellationToken)
-                .ConfigureAwait(false);
-
-            // Stations are returned nearest-first.
-            var features = payload?.Features;
-            if (features is null)
-            {
-                return null;
-            }
-
-            foreach (var feature in features)
-            {
-                var id = feature.Properties?.StationIdentifier;
-                if (!string.IsNullOrWhiteSpace(id))
-                {
-                    return id;
-                }
-            }
-
-            return null;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
-        {
-            RecordFailure(StationsEndpoint, statusCode: null);
-            logger.LogWarning(ex, "NWS /stations request failed for grid {Grid}.", grid);
-            return null;
         }
     }
 

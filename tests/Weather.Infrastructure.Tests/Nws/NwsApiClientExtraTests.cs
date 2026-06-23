@@ -56,6 +56,47 @@ public sealed class NwsApiClientExtraTests
     }
 
     [Test]
+    public async Task GetNearestStationIdReturnsTheNearestStation()
+    {
+        var client = CreateClient(RoutingHandler());
+
+        var stationId = await client.GetNearestStationIdAsync(SampleGrid);
+
+        // The stations payload lists KPHF first (nearest), then KLFI.
+        stationId.ShouldBe("KPHF");
+    }
+
+    [Test]
+    public async Task GetNearestStationIdReturnsNullWhenNoStations()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, """{ "features": [] }"""));
+        var client = CreateClient(handler);
+
+        (await client.GetNearestStationIdAsync(SampleGrid)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetLatestObservationByIdSkipsTheStationLookup()
+    {
+        var handler = RoutingHandler();
+        var client = CreateClient(handler);
+
+        var observation = await client.GetLatestObservationAsync(SampleGrid, "KPHF");
+
+        observation.ShouldNotBeNull();
+        observation!.StationId.ShouldBe("KPHF");
+        observation.TemperatureF.ShouldBe(88);
+
+        // The by-id overload must hit /observations/latest directly and NEVER
+        // list the cell's stations — that is the whole point of caching the id.
+        handler.Requests.ShouldContain(r =>
+            r.RequestUri!.AbsolutePath.Contains("/observations/latest", StringComparison.Ordinal));
+        handler.Requests.ShouldNotContain(r =>
+            r.RequestUri!.AbsolutePath.EndsWith("/stations", StringComparison.Ordinal));
+    }
+
+    [Test]
     public async Task GetLatestObservationFollowsStationsThenConvertsUnits()
     {
         var client = CreateClient(RoutingHandler());

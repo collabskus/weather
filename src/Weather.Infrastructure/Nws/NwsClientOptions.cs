@@ -36,6 +36,33 @@ public sealed class NwsClientOptions
     /// </summary>
     public TimeSpan AlertsTtl { get; set; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>Per-request timeout applied by the resilience pipeline.</summary>
-    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(15);
+    /// <summary>
+    /// Timeout for a SINGLE upstream attempt. Wired into the resilience
+    /// pipeline's per-attempt timeout (see <c>DependencyInjection</c>). Kept
+    /// modest so one slow/hung NWS response is abandoned quickly and retried
+    /// rather than holding a request open for tens of seconds.
+    /// </summary>
+    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Ceiling on the TOTAL time spent on one logical request across all
+    /// retries. Wired into the resilience pipeline's total-request timeout, it
+    /// is the hard upper bound a caller can ever wait — the backstop that stops
+    /// a retry storm from compounding into a multi-minute hang. Must be greater
+    /// than <see cref="RequestTimeout"/>.
+    /// </summary>
+    public TimeSpan TotalRequestTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Maximum number of RETRIES (i.e. attempts beyond the first) the resilience
+    /// pipeline makes on a transient failure. Two retries (three attempts total)
+    /// is a sensible default for a free public API; raising it risks amplifying
+    /// load during an NWS outage.
+    /// </summary>
+    public int MaxRetryAttempts { get; set; } = 2;
+
+    /// <summary>
+    /// Base delay for the exponential, jittered backoff between retries.
+    /// </summary>
+    public TimeSpan RetryBaseDelay { get; set; } = TimeSpan.FromSeconds(1);
 }

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Weather.Core.Abstractions;
@@ -16,13 +17,24 @@ namespace Weather.Infrastructure.Services;
 /// recorded here because only this layer knows the <em>semantic</em> outcome.
 ///
 /// <para>
-/// <b>Stampede protection.</b> The forecast fetch for a single grid cell is run
-/// through an <see cref="IRequestCoalescer{TKey}"/> keyed by the cell. When a
-/// cell is cold (or has just expired) and many requests arrive at once — the
-/// "refresh-spam from many browsers" case — only the first request calls NWS;
-/// the rest await that one in-flight fetch and share its result. This is what
-/// guarantees that load on NWS is bounded by the number of <em>distinct cold
-/// cells</em>, not by the number of users.
+/// <b>Stampede protection.</b> Every distinct kind of upstream work is run
+/// through an <see cref="IRequestCoalescer{TKey}"/> so that when many requests
+/// arrive at once — the "refresh-spam from many browsers" case — only the first
+/// calls NWS and the rest await and share its result. There are four flights:
+/// point-metadata (keyed by coordinate), daily forecast (keyed by cell), cell
+/// "extras" i.e. hourly + observation (keyed by cell), and active alerts (keyed
+/// by the coordinate's cache key). This guarantees load on NWS is bounded by
+/// the number of <em>distinct cold keys</em>, not by the number of users.
+/// </para>
+///
+/// <para>
+/// <b>Cache-key coarseness.</b> Cache keys are derived from coordinates rounded
+/// to <see cref="CacheKeyDecimals"/> decimal places. Browser GPS readings jitter
+/// by tens of metres between reloads; keying on the raw (4-decimal, ~11 m)
+/// coordinate would make every reload a brand-new key and therefore a guaranteed
+/// miss against <c>/points</c> and <c>/alerts/active</c>. Rounding to ~1.1 km —
+/// comfortably finer than a ~2.5 km NWS grid cell — collapses those jittery
+/// reloads onto a single key so the cache can actually do its job.
 /// </para>
 /// </summary>
 internal sealed class WeatherService(
@@ -33,16 +45,27 @@ internal sealed class WeatherService(
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
     IRequestCoalescer<GridPoint> forecastCoalescer,
+    [FromKeyedServices(ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
+    IRequestCoalescer<GeoCoordinate> metadataCoalescer,
     IRequestCoalescer<string> alertCoalescer,
     WeatherTelemetry telemetry,
     TimeProvider timeProvider,
     IOptions<NwsClientOptions> options,
     ILogger<WeatherService> logger) : IWeatherService
 {
+    /// <summary>DI key for the keyed extras coalescer (a second <c>GridPoint</c> coalescer).</summary>
+    public const string ExtrasCoalescerKey = "extras";
+
     private const string MetadataCacheName = "metadata";
     private const string ForecastCacheName = "forecast";
     private const string ExtrasCacheName = "extras";
     private const string AlertsCacheName = "alerts";
+
+    // Coordinates are rounded to this many decimals before being used as a
+    // cache key. ~1.1 km of resolution: coarse enough that GPS jitter between
+    // page reloads collapses onto one key, fine enough to stay well inside a
+    // single ~2.5 km NWS grid cell. See the class remarks.
+    private const int CacheKeyDecimals = 2;
 
     // Nominal NWS cell size (~2.5 km) used only as a fallback ordering metric
     // when a cell's true polygon centre is not currently known.
@@ -56,7 +79,7 @@ internal sealed class WeatherService(
     public async Task<Forecast?> GetForecastAsync(
         GeoCoordinate coordinate, CancellationToken cancellationToken = default)
     {
-        var coord = coordinate.Rounded();
+        var coord = coordinate.Rounded(CacheKeyDecimals);
         var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
         if (metadata is null)
         {
@@ -76,7 +99,7 @@ internal sealed class WeatherService(
     public async Task<NeighborhoodForecast?> GetNeighborhoodForecastAsync(
         GeoCoordinate coordinate, CancellationToken cancellationToken = default)
     {
-        var coord = coordinate.Rounded();
+        var coord = coordinate.Rounded(CacheKeyDecimals);
         var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
         if (metadata is null)
         {
@@ -112,7 +135,7 @@ internal sealed class WeatherService(
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
 
-        var coord = coordinate.Rounded();
+        var coord = coordinate.Rounded(CacheKeyDecimals);
         var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
         if (metadata is null)
         {
@@ -190,6 +213,23 @@ internal sealed class WeatherService(
         return new CellWeather(grid, center, daily, extras.Hourly, extras.Observation, DistanceMeters: null);
     }
 
+    /// <summary>
+    /// Cache-aside fetch of a cell's "extras" (hourly forecast + latest
+    /// observation + centre), protected by its own single-flight coalescer so a
+    /// burst of concurrent misses for the same cell collapses into ONE set of
+    /// upstream calls. Without this, the daily-forecast coalescer would bound
+    /// <c>/forecast</c> to one call per cell while <c>/forecast/hourly</c>,
+    /// <c>/stations</c> and <c>/observations/latest</c> were still duplicated by
+    /// every concurrent caller (rapid reloads, multiple tabs, circuit
+    /// reconnects).
+    ///
+    /// <para>
+    /// The observation is fetched cheaply: the nearest-station id is part of the
+    /// cached extras, so a routine refresh observes directly by id and only
+    /// re-lists stations (<c>/gridpoints/.../stations</c>) when the id is not
+    /// yet known. That mapping is effectively immutable.
+    /// </para>
+    /// </summary>
     private async Task<CellExtras> ResolveExtrasAsync(
         GridPoint grid, GeoCoordinate? centerHint, CancellationToken cancellationToken)
     {
@@ -198,33 +238,77 @@ internal sealed class WeatherService(
         if (cached is not null && cached.IsFresh(now))
         {
             telemetry.RecordCacheHit(ExtrasCacheName);
-
-            // Backfill the centre if we only just learned it from a fresh daily fetch.
-            if (centerHint is not null && cached.Extras.Center is null)
-            {
-                var upgraded = cached.Extras with { Center = centerHint };
-                await extrasCache
-                    .UpsertAsync(grid, cached with { Extras = upgraded }, cancellationToken)
-                    .ConfigureAwait(false);
-                return upgraded;
-            }
-
-            return cached.Extras;
+            return await BackfillCenterAsync(grid, cached, centerHint, cancellationToken).ConfigureAwait(false);
         }
 
         telemetry.RecordCacheMiss(ExtrasCacheName);
 
-        var hourly = await nwsClient.GetHourlyForecastAsync(grid, cancellationToken).ConfigureAwait(false) ?? [];
-        var observation = await nwsClient.GetLatestObservationAsync(grid, cancellationToken).ConfigureAwait(false);
+        return await extrasCoalescer.RunAsync(
+            grid,
+            async token =>
+            {
+                // Re-check inside the flight: a concurrent leader for this cell
+                // may have just filled the extras cache.
+                var inner = timeProvider.GetUtcNow();
+                var rechecked = await extrasCache.GetAsync(grid, token).ConfigureAwait(false);
+                if (rechecked is not null && rechecked.IsFresh(inner))
+                {
+                    return await BackfillCenterAsync(grid, rechecked, centerHint, token).ConfigureAwait(false);
+                }
 
-        var center = centerHint ?? cached?.Extras.Center;
-        var extras = new CellExtras(hourly, observation, center);
+                var hourly = await nwsClient.GetHourlyForecastAsync(grid, token).ConfigureAwait(false) ?? [];
 
+                // Reuse a previously-resolved station id (even from an expired
+                // entry) so we do NOT re-list stations on every refresh.
+                var knownStationId = rechecked?.Extras.StationId ?? cached?.Extras.StationId;
+
+                string? stationId;
+                Observation? observation;
+                if (!string.IsNullOrWhiteSpace(knownStationId))
+                {
+                    stationId = knownStationId;
+                    observation = await nwsClient
+                        .GetLatestObservationAsync(grid, knownStationId, token)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    stationId = await nwsClient.GetNearestStationIdAsync(grid, token).ConfigureAwait(false);
+                    observation = string.IsNullOrWhiteSpace(stationId)
+                        ? null
+                        : await nwsClient.GetLatestObservationAsync(grid, stationId, token).ConfigureAwait(false);
+                }
+
+                var center = centerHint ?? rechecked?.Extras.Center ?? cached?.Extras.Center;
+                var extras = new CellExtras(hourly, observation, center, stationId);
+
+                await extrasCache
+                    .UpsertAsync(grid, new CachedCellExtras(extras, inner, inner + _options.DefaultForecastTtl), token)
+                    .ConfigureAwait(false);
+
+                return extras;
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// If a fresh daily fetch just revealed the cell's centre and the cached
+    /// extras did not have one yet, persist the upgrade. Returns the (possibly
+    /// upgraded) extras either way.
+    /// </summary>
+    private async Task<CellExtras> BackfillCenterAsync(
+        GridPoint grid, CachedCellExtras cached, GeoCoordinate? centerHint, CancellationToken cancellationToken)
+    {
+        if (centerHint is null || cached.Extras.Center is not null)
+        {
+            return cached.Extras;
+        }
+
+        var upgraded = cached.Extras with { Center = centerHint };
         await extrasCache
-            .UpsertAsync(grid, new CachedCellExtras(extras, now, now + _options.DefaultForecastTtl), cancellationToken)
+            .UpsertAsync(grid, cached with { Extras = upgraded }, cancellationToken)
             .ConfigureAwait(false);
-
-        return extras;
+        return upgraded;
     }
 
     /// <summary>
@@ -251,7 +335,9 @@ internal sealed class WeatherService(
 
         telemetry.RecordCacheMiss(AlertsCacheName);
 
-        var key = coordinate.Rounded().ToCacheKey();
+        // The coordinate is already rounded to the cache-key resolution by the
+        // public entry points, so its cache key IS the coalescing key.
+        var key = coordinate.ToCacheKey();
 
         return await alertCoalescer.RunAsync(
             key,
@@ -299,6 +385,13 @@ internal sealed class WeatherService(
         return Math.Sqrt((dx * dx) + (dy * dy)) * NominalCellMeters;
     }
 
+    /// <summary>
+    /// Cache-aside resolution of a coordinate's grid metadata, protected by the
+    /// single-flight coalescer (keyed by the coordinate) so a burst of
+    /// concurrent misses collapses into one upstream <c>/points</c> call. The
+    /// mapping effectively never changes, so on an upstream failure a stale
+    /// cached mapping is served rather than failing the request.
+    /// </summary>
     private async Task<PointMetadata?> ResolveMetadataAsync(
         GeoCoordinate coordinate, CancellationToken cancellationToken)
     {
@@ -312,24 +405,41 @@ internal sealed class WeatherService(
 
         telemetry.RecordCacheMiss(MetadataCacheName);
 
-        var fetched = await nwsClient.GetPointMetadataAsync(coordinate, cancellationToken).ConfigureAwait(false);
-        if (fetched is null)
-        {
-            // Either NWS is unreachable or the location is genuinely uncovered.
-            // The mapping effectively never changes, so a stale hit is safe.
-            if (cached is not null)
+        return await metadataCoalescer.RunAsync<PointMetadata?>(
+            coordinate,
+            async token =>
             {
-                logger.LogWarning("Serving stale point metadata for {Coordinate}; NWS resolve failed.", coordinate);
-                return cached.Metadata;
-            }
+                // Re-check inside the flight: a concurrent leader for the same
+                // coordinate may have just resolved and cached it.
+                var inner = timeProvider.GetUtcNow();
+                var rechecked = await metadataCache.GetAsync(coordinate, token).ConfigureAwait(false);
+                if (rechecked is not null && rechecked.IsFresh(inner))
+                {
+                    return rechecked.Metadata;
+                }
 
-            return null;
-        }
+                var fetched = await nwsClient.GetPointMetadataAsync(coordinate, token).ConfigureAwait(false);
+                if (fetched is null)
+                {
+                    // Either NWS is unreachable or the location is genuinely
+                    // uncovered. The mapping effectively never changes, so a
+                    // stale hit is safe.
+                    if (rechecked is not null)
+                    {
+                        logger.LogWarning(
+                            "Serving stale point metadata for {Coordinate}; NWS resolve failed.", coordinate);
+                        return rechecked.Metadata;
+                    }
 
-        await metadataCache
-            .UpsertAsync(new CachedPointMetadata(fetched, now, now + _options.PointMetadataTtl), cancellationToken)
-            .ConfigureAwait(false);
-        return fetched;
+                    return null;
+                }
+
+                await metadataCache
+                    .UpsertAsync(new CachedPointMetadata(fetched, inner, inner + _options.PointMetadataTtl), token)
+                    .ConfigureAwait(false);
+                return fetched;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

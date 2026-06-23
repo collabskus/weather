@@ -19,7 +19,8 @@ public sealed class SqliteCellExtrasCacheTests
         Observation: new Observation(
             "KPHF", "Newport News", Now, "Sunny", "icon-obs",
             88, 70, 55, 8, 15, "S", 30.06, 10.0),
-        Center: new GeoCoordinate(37.088, -76.452));
+        Center: new GeoCoordinate(37.088, -76.452),
+        StationId: "KPHF");
 
     [Test]
     public async Task UpsertThenGetRoundTripsEveryField()
@@ -41,6 +42,7 @@ public sealed class SqliteCellExtrasCacheTests
         read.Extras.Observation.WindDirection.ShouldBe("S");
         read.Extras.Center.ShouldNotBeNull();
         read.Extras.Center!.Value.Latitude.ShouldBe(37.088, tolerance: 0.0001);
+        read.Extras.StationId.ShouldBe("KPHF");
     }
 
     [Test]
@@ -67,6 +69,9 @@ public sealed class SqliteCellExtrasCacheTests
         read.ShouldNotBeNull();
         read!.Extras.Observation.ShouldBeNull();
         read.RetrievedAtUtc.ShouldBe(Now.AddMinutes(5));
+
+        // The station id survives an observation-clearing overwrite.
+        read.Extras.StationId.ShouldBe("KPHF");
     }
 
     [Test]

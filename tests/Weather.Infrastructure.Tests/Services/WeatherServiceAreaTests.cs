@@ -14,6 +14,8 @@ public sealed class WeatherServiceAreaTests
     private static readonly GridPoint Grid = new("AKQ", 83, 61);
     private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
 
+    private const string StationId = "KPHF";
+
     private static PointMetadata Meta() =>
         new(Coord, Grid, "forecast-url", "hourly-url", "Bethel Manor", "VA", "America/New_York", "KAKQ");
 
@@ -43,7 +45,7 @@ public sealed class WeatherServiceAreaTests
     };
 
     private static Observation ObservationSample() =>
-        new("KPHF", "Newport News", Now, "Sunny", "icon", 88, 70, 55, 8, 15, "S", 30.06, 10.0);
+        new(StationId, "Newport News", Now, "Sunny", "icon", 88, 70, 55, 8, 15, "S", 30.06, 10.0);
 
     private static WeatherAlert AlertSample() =>
         new("id-1", "Heat Advisory", "Moderate", "Likely", "Expected", "Heat Advisory in effect",
@@ -58,10 +60,13 @@ public sealed class WeatherServiceAreaTests
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
 
-        // A REAL coalescer: its logic is pure and in-process, so the area hot
-        // path runs through it exactly as in production while these tests keep
-        // asserting cache-aside behaviour.
-        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+        // REAL coalescers: their logic is pure and in-process, so the area hot
+        // path runs through them exactly as in production while these tests keep
+        // asserting cache-aside behaviour. Forecast, extras, metadata and alert
+        // flights are independent, matching the production registrations.
+        public IRequestCoalescer<GridPoint> ForecastCoalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<GridPoint> ExtrasCoalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<GeoCoordinate> MetadataCoalescer { get; } = new RequestCoalescer<GeoCoordinate>();
         public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
 
         public WeatherService Service { get; }
@@ -70,7 +75,7 @@ public sealed class WeatherServiceAreaTests
         {
             Service = new WeatherService(
                 MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
-                Coalescer, AlertCoalescer,
+                ForecastCoalescer, ExtrasCoalescer, MetadataCoalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
@@ -90,10 +95,19 @@ public sealed class WeatherServiceAreaTests
             ExtrasCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>())
                 .Returns((CachedCellExtras?)null);
 
-        public void HourlyAndObservationAndAlertsAvailable()
+        // The extras path now resolves the nearest station once and observes by
+        // id, so stub BOTH the station lookup and the by-id observation.
+        public void HourlyAndObservationAvailable()
         {
             Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
-            Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+            Nws.GetNearestStationIdAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(StationId);
+            Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), StationId, Arg.Any<CancellationToken>())
+                .Returns(ObservationSample());
+        }
+
+        public void HourlyAndObservationAndAlertsAvailable()
+        {
+            HourlyAndObservationAvailable();
             Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
                 .Returns(new[] { AlertSample() });
         }
@@ -157,7 +171,7 @@ public sealed class WeatherServiceAreaTests
 
         // Every cell already has fresh extras cached.
         var cached = new CachedCellExtras(
-            new CellExtras(HourlyTwo(), ObservationSample(), CenterFor(Grid)),
+            new CellExtras(HourlyTwo(), ObservationSample(), CenterFor(Grid), StationId),
             Now, Now.AddMinutes(30));
         h.ExtrasCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(cached);
 
@@ -165,8 +179,49 @@ public sealed class WeatherServiceAreaTests
 
         area.ShouldNotBeNull();
         area!.Primary.Hourly.Count.ShouldBe(2);
+
+        // A fresh extras hit means ZERO upstream extras work — no hourly fetch
+        // and no station lookup, no matter how many cells are assembled.
         await h.Nws.DidNotReceive().GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
-        await h.Nws.DidNotReceive().GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
+        await h.Nws.DidNotReceive().GetNearestStationIdAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
+        await h.Nws.DidNotReceive().GetLatestObservationAsync(
+            Arg.Any<GridPoint>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaReusesCachedStationIdAndSkipsStationLookupOnRefresh()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        // Every cell has an EXPIRED extras entry that still remembers its
+        // nearest station. A refresh must reuse that id rather than re-listing
+        // stations, since the cell→station mapping is effectively immutable.
+        var expired = new CachedCellExtras(
+            new CellExtras(HourlyTwo(), ObservationSample(), CenterFor(Grid), StationId),
+            Now.AddMinutes(-60), Now.AddMinutes(-30));
+        h.ExtrasCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(expired);
+
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), StationId, Arg.Any<CancellationToken>())
+            .Returns(ObservationSample());
+        // Deliberately NOT stubbing GetNearestStationIdAsync: it must not be called.
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Observation.ShouldNotBeNull();
+        area.Primary.Observation!.TemperatureF.ShouldBe(88);
+
+        await h.Nws.DidNotReceive().GetNearestStationIdAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
+        await h.Nws.Received().GetLatestObservationAsync(Arg.Any<GridPoint>(), StationId, Arg.Any<CancellationToken>());
+
+        // Refreshed extras were written back (for every assembled cell).
+        await h.ExtrasCache.Received().UpsertAsync(
+            Arg.Any<GridPoint>(), Arg.Any<CachedCellExtras>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -225,8 +280,7 @@ public sealed class WeatherServiceAreaTests
         h.ResolvesMetadata();
         h.AllDailyFetchesSucceed();
         h.ExtrasAlwaysMiss();
-        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
-        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+        h.HourlyAndObservationAvailable();
 
         // A FRESH alert entry already cached for this coordinate.
         var cachedAlerts = new CachedAlerts(new[] { AlertSample() }, Now, Now.AddMinutes(5));
@@ -252,8 +306,7 @@ public sealed class WeatherServiceAreaTests
         h.ResolvesMetadata();
         h.AllDailyFetchesSucceed();
         h.ExtrasAlwaysMiss();
-        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
-        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+        h.HourlyAndObservationAvailable();
 
         h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
             .Returns((CachedAlerts?)null);

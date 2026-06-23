@@ -18700,3 +18700,9041 @@ Claude is AI and can make mistakes. Please double-check responses.
 
 100
 42
+
+/
+Claude finished the response
+
+the good news I guess is the error rate is fairly low 
+but it still bothers me how many requests I see this 
+_display_name
+__chips__
+_time
+_dur_ms
+GET https://api.weather.gov/alerts/active 
+  Jun 23 2026 14:30:10.559  
+5538ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast 
+  Jun 23 2026 14:29:42.185  
+272ms
+GET https://api.weather.gov/alerts/active 
+  Jun 23 2026 14:27:41.560  
+339ms
+GET https://api.weather.gov/stations/KLFI/observations/latest 
+  Jun 23 2026 14:26:24.371  
+187ms
+GET https://api.weather.gov/stations/KLFI/observations/latest 
+  Jun 23 2026 14:26:24.345  
+28.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations 
+  Jun 23 2026 14:26:24.340  
+25.6ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations 
+  Jun 23 2026 14:26:24.323  
+17.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly  
+  Jun 23 2026 14:26:24.295  
+36.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly  
+  Jun 23 2026 14:26:24.295  
+17.1ms
+GET https://api.weather.gov/stations/KLFI/observations/latest 
+  Jun 23 2026 14:26:24.294  
+17.9ms
+GET https://api.weather.gov/stations/KLFI/observations/latest 
+  Jun 23 2026 14:26:24.290  
+19.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations 
+  Jun 23 2026 14:26:24.267  
+17.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations 
+  Jun 23 2026 14:26:24.266  
+22.9ms
+GET https://api.weather.gov/stations/KPHF/observations/latest 
+  Jun 23 2026 14:26:24.250  
+26.2ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations 
+  Jun 23 2026 14:26:24.201  
+36.1ms
+Oh these are distinct requests to different endpoints so that makes sense 
+lets see more data 
+I feel that the caching implementation is still not quite correct
+2:40 PM
+Scrutinizing caching implementation and request patterns
+
+I'm recognizing this is Kushal working on the weather dashboard, and I notice he's shared a GitHub PAT in plaintext—I should flag that this is a security concern and advise against using exposed credentials, even if they're read-only.
+
+Looking at the actual problem: he's got an existing project with a canonical dump.txt file, and he's pasted NWS API request logs showing excessive alerts/active requests that suggest the caching strategy isn't working as intended. So the real issue is that the alerts endpoint is being called way too frequently with massive response times, and I need to dig into the dump.txt to see what the current caching strategy is and why it's failing to prevent these repeated requests. This is almost certainly a Blazor Server issue where OnInitializedAsync runs twice — once during prerendering and again during the interactive phase — causing duplicate fetches. Plus, the endpoint is pulling all active alerts nationwide without any filtering, which is wasteful. He should scope it by location using parameters like ?point=lat,lon or ?zone={zoneId} to reduce payload size and leverage caching.
+
+I'm also noticing a pattern of neighborhood grid fanout requests appearing at multiple timestamps throughout the logs. For each 3×3 grid of cells, the code is hitting /forecast, /forecast/hourly, and /stations endpoints — that's 27 requests per burst just for the grid cells, plus additional station observation calls. These bursts recur roughly every 30 minutes, which suggests either a timer-based refresh or a component lifecycle issue triggering the same neighborhood fetch repeatedly.
+
+But there's a bigger problem: within a single burst at 14:26, I'm seeing duplicate requests for the exact same endpoints firing nearly simultaneously — multiple calls to gridpoints/AKQ/84,62/stations, gridpoints/AKQ/84,62/forecast/hourly, and station observations for KLFI and KPHF all at the same timestamp. This looks like a classic cache stampede where multiple components are requesting the same data before any response comes back, and the IRequestCoalescer that's supposed to prevent this either isn't wired up correctly or isn't being used for these endpoints.
+
+The /stations endpoint is particularly wasteful since the list of observation stations for a grid cell is essentially static and should be cached for days rather than refreshed every 30 minutes.
+
+Then there's the geolocation jitter problem — the browser is making requests to /points/{lat},{lon} with slightly different coordinates (all within about 100 meters of each other), and each tiny variation busts the cache and triggers a fresh lookup. The /points response itself is probably pulling in a lot of data that doesn't need to be refetched so frequently.
+
+The solution is to quantize the coordinates before making the request — rounding to 3-4 decimal places or caching by grid cell instead — since the NWS grid metadata is stable and the same nearby coordinates will always map to the same grid cell. Also, I'm noticing some /points requests are timing out after 10 seconds and then retrying, which is adding to the load. I need to understand the current state of the project by reading the dump.txt file to see what's already implemented, then prioritize fixing the caching and request volume issues that are causing the retry storms. huge dump. Let me search the project knowledge for caching-related code first, then check the dump.txt file size to see if I can read it directly. I should also flag that the GitHub PAT he shared in plaintext should be rotated since the repo is public, though I don't actually need it since I can access the code locally.
+
+Looking at his most recent message, the immediate ask is to diagnose and fix the caching implementation—not rebuild the whole project. Let me focus on understanding the current caching bugs from the logs and code. ll need to read through the current code carefully, identify which files handle the caching logic, and then provide complete rewritten versions with the fixes applied. I'm also noticing several distinct problems in the logs: the alerts/active endpoint is being fetched way too frequently—sometimes 30 calls in just 3 minutes—which suggests either a missing cache, an overly short TTL, or Blazor triggering multiple renders per component. Let me start by examining the project structure and understanding the current implementation before proposing solutions. Let me start by checking the directory structure and file sizes to understand the codebase layout.
+Done
+
+I'll work through this methodically. First, let me read the current code in dump.txt so my fixes match your actual implementation rather than guessing — and one quick security note up front.
+
+Before anything else: you pasted a GitHub PAT in plaintext, and this repo is going public. I don't need it — dump.txt is right here in the project, so I can read your code locally without touching the GitHub API. Please revoke that token at github.com/settings/tokens; even a read-only fine-grained PAT shouldn't live in a chat log.
+
+Let me look at the project structure and the dump.
+Scrutinizing caching implementation correctness
+
+The dump file is fairly large at 412K, so I'll need to read it strategically. Let me start by examining the beginning to understand how it's structured — these export dumps typically have file headers or a listing format. I should also check what's in instructions.md and output.txt since those might contain relevant context. My approach will be to first peek at the dump's structure, then search for caching-specific code.
+Done
+
+412K dump — let me understand its structure first, then zero in on the caching code.
+Scrutinizing critical caching files and their line ranges
+
+I'm looking at the project structure and seeing several cache implementations for different data types—alerts, cell extras like stations and observations, and forecasts. There's even documentation about stampede prevention, which suggests thoughtful handling of cache invalidation.
+
+I've got a good sense of the project structure now. Rather than parsing through the entire 412K dump, I'll use grep to locate the specific file boundaries and extract just the caching-related files I need to examine.
+
+The key files to focus on are the cache implementations (SqliteCacheOptions, SqliteAlertCache, SqliteCellExtrasCache), the service orchestration (WeatherService, RequestCoalescer), the HTTP client configuration (NwsApiClient, NwsClientOptions), the background warming logic (NeighborhoodWarmer, NeighborhoodWarmingBackgroundService), the dependency injection setup, and the frontend components (Home.razor, WeatherApiClient). Let me search for the FILE markers to get the line numbers for each.
+Done
+
+This is a mature, well-structured codebase. Let me map where each file lives in the dump so I can read the caching-critical ones precisely.
+Strategized efficient file reading to diagnose caching bugs
+
+bash
+grep -n "^FILE: " /mnt/project/dump.txt | head -200
+
+Output
+171:FILE: .containerignore
+200:FILE: .editorconfig
+261:FILE: .gitattributes
+286:FILE: .github/dependabot.yml
+321:FILE: .github/workflows/build.yml
+366:FILE: .github/workflows/codeql.yml
+421:FILE: .github/workflows/containers.yml
+505:FILE: .github/workflows/dependency-review.yml
+538:FILE: .github/workflows/format.yml
+573:FILE: .github/workflows/markdown-lint.yml
+612:FILE: .github/workflows/test.yml
+657:FILE: .gitignore
+698:FILE: ci/containers.sh
+973:FILE: Containerfile.api
+1032:FILE: Containerfile.web
+1075:FILE: deploy/compose.yaml
+1212:FILE: deploy/Containerfile.otelcol
+1230:FILE: deploy/otelcol-config.yaml
+1299:FILE: Directory.Build.props
+1358:FILE: Directory.Packages.props
+1433:FILE: export.ps1
+1563:FILE: $($f.Relative)
+1603:FILE: global.json
+1622:FILE: nuget.config
+1643:FILE: src/Weather.Api/appsettings.Development.json
+1661:FILE: src/Weather.Api/appsettings.json
+1695:FILE: src/Weather.Api/Contracts/AreaResponse.cs
+1864:FILE: src/Weather.Api/Contracts/ForecastResponse.cs
+1936:FILE: src/Weather.Api/Contracts/NeighborhoodResponse.cs
+1974:FILE: src/Weather.Api/Endpoints/WeatherEndpoints.cs
+2097:FILE: src/Weather.Api/Program.cs
+2150:FILE: src/Weather.Api/Properties/launchSettings.json
+2171:FILE: src/Weather.Api/Weather.Api.csproj
+2200:FILE: src/Weather.AppHost/appsettings.json
+2218:FILE: src/Weather.AppHost/Program.cs
+2240:FILE: src/Weather.AppHost/Weather.AppHost.csproj
+2277:FILE: src/Weather.Core/Abstractions/IAlertCache.cs
+2313:FILE: src/Weather.Core/Abstractions/ICellExtrasCache.cs
+2347:FILE: src/Weather.Core/Abstractions/IForecastCache.cs
+2367:FILE: src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
+2394:FILE: src/Weather.Core/Abstractions/INwsApiClient.cs
+2453:FILE: src/Weather.Core/Abstractions/IPointMetadataCache.cs
+2473:FILE: src/Weather.Core/Abstractions/IRequestCoalescer.cs
+2530:FILE: src/Weather.Core/Abstractions/IWeatherService.cs
+2581:FILE: src/Weather.Core/Models/AreaForecast.cs
+2604:FILE: src/Weather.Core/Models/CachedForecast.cs
+2624:FILE: src/Weather.Core/Models/CachedPointMetadata.cs
+2643:FILE: src/Weather.Core/Models/CellExtras.cs
+2664:FILE: src/Weather.Core/Models/CellWeather.cs
+2689:FILE: src/Weather.Core/Models/Forecast.cs
+2709:FILE: src/Weather.Core/Models/ForecastFetchResult.cs
+2765:FILE: src/Weather.Core/Models/ForecastPeriod.cs
+2791:FILE: src/Weather.Core/Models/GeoCoordinate.cs
+2874:FILE: src/Weather.Core/Models/GridNeighborhood.cs
+2926:FILE: src/Weather.Core/Models/GridPoint.cs
+2945:FILE: src/Weather.Core/Models/NeighborhoodForecast.cs
+2965:FILE: src/Weather.Core/Models/Observation.cs
+2996:FILE: src/Weather.Core/Models/PointMetadata.cs
+3021:FILE: src/Weather.Core/Models/WeatherAlert.cs
+3051:FILE: src/Weather.Core/Telemetry/WeatherTelemetry.cs
+3171:FILE: src/Weather.Core/Weather.Core.csproj
+3196:FILE: src/Weather.Infrastructure/Caching/DatabaseInitializer.cs
+3303:FILE: src/Weather.Infrastructure/Caching/SqliteAlertCache.cs
+3400:FILE: src/Weather.Infrastructure/Caching/SqliteCacheOptions.cs
+3423:FILE: src/Weather.Infrastructure/Caching/SqliteCellExtrasCache.cs
+3514:FILE: src/Weather.Infrastructure/Caching/SqliteConnectionFactory.cs
+3555:FILE: src/Weather.Infrastructure/Caching/SqliteForecastCache.cs
+3652:FILE: src/Weather.Infrastructure/Caching/SqlitePointMetadataCache.cs
+3785:FILE: src/Weather.Infrastructure/Caching/TimestampText.cs
+3811:FILE: src/Weather.Infrastructure/DependencyInjection.cs
+3919:FILE: src/Weather.Infrastructure/Nws/NwsApiClient.cs
+4430:FILE: src/Weather.Infrastructure/Nws/NwsClientOptions.cs
+4480:FILE: src/Weather.Infrastructure/Nws/NwsJsonModels.cs
+4649:FILE: src/Weather.Infrastructure/Nws/NwsUnits.cs
+4703:FILE: src/Weather.Infrastructure/Serialization/WeatherJson.cs
+4745:FILE: src/Weather.Infrastructure/Services/NeighborhoodWarmer.cs
+4794:FILE: src/Weather.Infrastructure/Services/NeighborhoodWarmingBackgroundService.cs
+4919:FILE: src/Weather.Infrastructure/Services/RequestCoalescer.cs
+5269:FILE: src/Weather.Infrastructure/Services/WeatherService.cs
+5724:FILE: src/Weather.Infrastructure/Weather.Infrastructure.csproj
+5765:FILE: src/Weather.ServiceDefaults/Extensions.cs
+5999:FILE: src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj
+6038:FILE: src/Weather.Web/appsettings.Development.json
+6056:FILE: src/Weather.Web/appsettings.json
+6081:FILE: src/Weather.Web/Components/_Imports.razor
+6102:FILE: src/Weather.Web/Components/App.razor
+6134:FILE: src/Weather.Web/Components/Layout/MainLayout.razor
+6174:FILE: src/Weather.Web/Components/Layout/NavMenu.razor
+6188:FILE: src/Weather.Web/Components/Pages/About.razor
+6235:FILE: src/Weather.Web/Components/Pages/Error.razor
+6280:FILE: src/Weather.Web/Components/Pages/Home.razor
+6864:FILE: src/Weather.Web/Components/Routes.razor
+6888:FILE: src/Weather.Web/Program.cs
+6936:FILE: src/Weather.Web/Properties/launchSettings.json
+6957:FILE: src/Weather.Web/Services/GeolocationService.cs
+7027:FILE: src/Weather.Web/Services/IGeolocationService.cs
+7090:FILE: src/Weather.Web/Services/IWeatherApiClient.cs
+7131:FILE: src/Weather.Web/Services/SkyPalette.cs
+7219:FILE: src/Weather.Web/Services/WeatherApiClient.cs
+7293:FILE: src/Weather.Web/Services/WeatherViewModels.cs
+7405:FILE: src/Weather.Web/Weather.Web.csproj
+7428:FILE: src/Weather.Web/wwwroot/app.css
+8387:FILE: src/Weather.Web/wwwroot/js/geolocation.js
+8460:FILE: tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs
+8562:FILE: tests/Weather.Api.Tests/ForecastEndpointsTests.cs
+8688:FILE: tests/Weather.Api.Tests/GlobalUsings.cs
+8699:FILE: tests/Weather.Api.Tests/Weather.Api.Tests.csproj
+8731:FILE: tests/Weather.Api.Tests/WeatherApiFactory.cs
+8810:FILE: tests/Weather.Core.Tests/ForecastFetchResultTests.cs
+8892:FILE: tests/Weather.Core.Tests/GeoCoordinateTests.cs
+9022:FILE: tests/Weather.Core.Tests/GeoDistanceTests.cs
+9072:FILE: tests/Weather.Core.Tests/GlobalUsings.cs
+9084:FILE: tests/Weather.Core.Tests/GridNeighborhoodTests.cs
+9169:FILE: tests/Weather.Core.Tests/Weather.Core.Tests.csproj
+9215:FILE: tests/Weather.Core.Tests/WeatherTelemetryTests.cs
+9312:FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteAlertCacheTests.cs
+9427:FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteCacheHarness.cs
+9495:FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs
+9588:FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
+9688:FILE: tests/Weather.Infrastructure.Tests/Caching/SqlitePointMetadataCacheTests.cs
+9784:FILE: tests/Weather.Infrastructure.Tests/Fakes/MutableTimeProvider.cs
+9809:FILE: tests/Weather.Infrastructure.Tests/Fakes/NwsPayloads.cs
+10053:FILE: tests/Weather.Infrastructure.Tests/Fakes/StubHttpMessageHandler.cs
+10109:FILE: tests/Weather.Infrastructure.Tests/GlobalUsings.cs
+10122:FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs
+10258:FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
+10476:FILE: tests/Weather.Infrastructure.Tests/Services/NeighborhoodWarmerTests.cs
+10601:FILE: tests/Weather.Infrastructure.Tests/Services/RequestCoalescerTests.cs
+10792:FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
+11074:FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+11309:FILE: tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj
+11341:FILE: tests/Weather.Web.Tests/Fakes/FakeGeolocationService.cs
+11393:FILE: tests/Weather.Web.Tests/Fakes/FakeWeatherApiClient.cs
+11452:FILE: tests/Weather.Web.Tests/GlobalUsings.cs
+11464:FILE: tests/Weather.Web.Tests/HomePageTests.cs
+11656:FILE: tests/Weather.Web.Tests/SkyPaletteTests.cs
+11745:FILE: tests/Weather.Web.Tests/Weather.Web.Tests.csproj
+11777:FILE: weather.slnx
+
+I'm identifying the critical files to examine for the caching issue, starting with the orchestration layer in WeatherService, then moving through the request coalescing logic, HTTP client with its retry behavior, and the cache configuration including TTL settings. I'll use sed to extract those key files in one batch to avoid multiple round-trips and get a clearer picture of the orchestration layer where the bugs likely are.
+Done
+
+Now let me read the caching-critical files. I'll start with the orchestration core: cache TTLs, the HTTP client (where the retry storms originate), and the main weather service.
+Investigating coordinate rounding implementation details
+
+bash
+sed -n '3400,3422p;4430,4479p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Caching/SqliteCacheOptions.cs
+SIZE: 0.54 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+namespace Weather.Infrastructure.Caching;
+
+/// <summary>Configuration for the SQLite cache, bound from the <c>"Cache"</c> section.</summary>
+public sealed class SqliteCacheOptions
+{
+    public const string SectionName = "Cache";
+
+    /// <summary>
+    /// ADO.NET connection string for the SQLite cache database. A plain file
+    /// path works well, e.g. <c>Data Source=weather-cache.db</c>. Tests point
+    /// this at a throwaway temp file.
+    /// </summary>
+    public string ConnectionString { get; set; } = "Data Source=weather-cache.db";
+}
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Nws/NwsClientOptions.cs
+SIZE: 1.9 KB
+MODIFIED: 06/23/2026 13:13:39
+================================================================================
+
+namespace Weather.Infrastructure.Nws;
+
+/// <summary>
+/// Strongly-typed configuration for the NWS client, bound from the
+/// <c>"Nws"</c> configuration section.
+/// </summary>
+public sealed class NwsClientOptions
+{
+    public const string SectionName = "Nws";
+
+    /// <summary>Base address of the public NWS API.</summary>
+    public string BaseUrl { get; set; } = "https://api.weather.gov";
+
+    /// <summary>
+    /// NWS REQUIRES a descriptive User-Agent that identifies the application
+    /// and a contact. Requests without one are rejected. Override this in
+    /// configuration with your own contact details.
+    /// See https://www.weather.gov/documentation/services-web-api.
+    /// </summary>
+    public string UserAgent { get; set; } = "weather-dashboard/1.0 (+https://github.com/collabskus/weather)";
+
+    /// <summary>Fallback TTL for a forecast when NWS sends no usable Cache-Control max-age.</summary>
+    public TimeSpan DefaultForecastTtl { get; set; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>How long a coordinate-&gt;grid mapping is trusted. It effectively never changes.</summary>
+    public TimeSpan PointMetadataTtl { get; set; } = TimeSpan.FromDays(30);
+
+    /// <summary>Clamp so a misconfigured/odd upstream max-age can't pin stale data for too long.</summary>
+    public TimeSpan MaxForecastTtl { get; set; } = TimeSpan.FromHours(6);
+
+    /// <summary>
+    /// How long active alerts for a coordinate are trusted before NWS is asked
+    /// again. Alerts can appear and clear faster than forecasts, so this is
+    /// deliberately short — but long enough that a burst of browser refreshes
+    /// collapses into a single upstream <c>/alerts/active</c> call.
+    /// </summary>
+    public TimeSpan AlertsTtl { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>Per-request timeout applied by the resilience pipeline.</summary>
+    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(15);
+}
+
+
+
+================================================================================
+
+I'm looking at the TTL configuration values: alerts expire after 5 minutes, point metadata after 30 days, forecasts after 30 minutes, and requests timeout at 15 seconds. The alert TTL of 5 minutes aligns with the fetch pattern I'm seeing in the logs, where alerts are being retrieved roughly every 3-5 minutes, though there seems to be something inconsistent about the timing.
+
+There's a burst of about 30 requests in just 3 minutes around 09:22-09:25 that doesn't fit the 5-minute TTL pattern. This could be GPS jitter causing the browser to send slightly different coordinates, each one missing the cache and forcing a fresh fetch. Or it could be a retry storm. The real issue is that the point metadata cache is keyed by exact coordinate strings, so even minor GPS variations create distinct cache keys and cache misses. That's why /points is being over-fetched repeatedly.
+
+I need to examine how WeatherService orchestrates the caching, look at the alert cache implementation, the cell extras cache, and the coalescer logic, then check the NwsApiClient for its retry policy.
+Done
+
+Key TTLs noted: alerts 5 min, point metadata 30 days, forecast 30 min, request timeout 15s. Now the orchestration heart — WeatherService:
+Diagnosed caching gaps and request duplication patterns systematically
+
+bash
+sed -n '5269,5723p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Services/WeatherService.cs
+SIZE: 17.83 KB
+MODIFIED: 06/23/2026 13:12:56
+================================================================================
+
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+
+namespace Weather.Infrastructure.Services;
+
+/// <summary>
+/// The cache-aside orchestrator. It is the only type that knows the freshness
+/// policy: long-TTL point metadata, short-TTL forecasts honouring NWS
+/// Cache-Control, conditional GETs to refresh expiry cheaply, and serving a
+/// stale-but-valid copy when NWS is unreachable. Cache hit/miss telemetry is
+/// recorded here because only this layer knows the <em>semantic</em> outcome.
+///
+/// <para>
+/// <b>Stampede protection.</b> The forecast fetch for a single grid cell is run
+/// through an <see cref="IRequestCoalescer{TKey}"/> keyed by the cell. When a
+/// cell is cold (or has just expired) and many requests arrive at once — the
+/// "refresh-spam from many browsers" case — only the first request calls NWS;
+/// the rest await that one in-flight fetch and share its result. This is what
+/// guarantees that load on NWS is bounded by the number of <em>distinct cold
+/// cells</em>, not by the number of users.
+/// </para>
+/// </summary>
+internal sealed class WeatherService(
+    IPointMetadataCache metadataCache,
+    IForecastCache forecastCache,
+    ICellExtrasCache extrasCache,
+    IAlertCache alertCache,
+    INwsApiClient nwsClient,
+    INeighborhoodWarmer warmer,
+    IRequestCoalescer<GridPoint> forecastCoalescer,
+    IRequestCoalescer<string> alertCoalescer,
+    WeatherTelemetry telemetry,
+    TimeProvider timeProvider,
+    IOptions<NwsClientOptions> options,
+    ILogger<WeatherService> logger) : IWeatherService
+{
+    private const string MetadataCacheName = "metadata";
+    private const string ForecastCacheName = "forecast";
+    private const string ExtrasCacheName = "extras";
+    private const string AlertsCacheName = "alerts";
+
+    // Nominal NWS cell size (~2.5 km) used only as a fallback ordering metric
+    // when a cell's true polygon centre is not currently known.
+    private const double NominalCellMeters = 2500d;
+
+    // Keep the hot-path fan-out polite to NWS even on a cold area request.
+    private const int NeighborFetchConcurrency = 4;
+
+    private readonly NwsClientOptions _options = options.Value;
+
+    public async Task<Forecast?> GetForecastAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var coord = coordinate.Rounded();
+        var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        var (forecast, _) = await GetForecastByGridCoreAsync(metadata.Grid, cancellationToken).ConfigureAwait(false);
+        if (forecast is not null)
+        {
+            // Fire-and-forget: schedule the surrounding cells to be warmed.
+            warmer.RequestWarming(metadata.Grid);
+        }
+
+        return forecast;
+    }
+
+    public async Task<NeighborhoodForecast?> GetNeighborhoodForecastAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var coord = coordinate.Rounded();
+        var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        var (primary, _) = await GetForecastByGridCoreAsync(metadata.Grid, cancellationToken).ConfigureAwait(false);
+        if (primary is null)
+        {
+            return null;
+        }
+
+        warmer.RequestWarming(metadata.Grid);
+
+        // Best-effort: include only neighbours that are ALREADY warm. Never
+        // fetch on the hot path — that is what keeps this endpoint fast.
+        var now = timeProvider.GetUtcNow();
+        var neighbors = new List<Forecast>();
+        foreach (var cell in GridNeighborhood.Surrounding(metadata.Grid))
+        {
+            var cached = await forecastCache.GetAsync(cell, cancellationToken).ConfigureAwait(false);
+            if (cached is not null && cached.IsFresh(now))
+            {
+                neighbors.Add(cached.Forecast);
+            }
+        }
+
+        return new NeighborhoodForecast(coord, primary, neighbors);
+    }
+
+    public async Task<AreaForecast?> GetAreaForecastAsync(
+        GeoCoordinate coordinate, int radius = 1, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
+
+        var coord = coordinate.Rounded();
+        var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        var primary = await AssembleCellAsync(metadata.Grid, cancellationToken).ConfigureAwait(false);
+        if (primary is null)
+        {
+            return null;
+        }
+
+        // Schedule background warming of the daily forecasts for the ring.
+        warmer.RequestWarming(metadata.Grid);
+
+        // Alerts are point-based and apply to the whole area; resolve them
+        // cache-aside (short TTL) so repeated views and browser refreshes do
+        // NOT re-hit /alerts/active every time.
+        var alerts = await ResolveAlertsAsync(coord, cancellationToken).ConfigureAwait(false);
+
+        // Assemble every neighbouring cell, cache-aside, with bounded
+        // concurrency so a cold area can never stampede NWS.
+        var cells = GridNeighborhood.Surrounding(metadata.Grid, radius);
+        var assembled = new ConcurrentBag<CellWeather>();
+
+        await Parallel.ForEachAsync(
+            cells,
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = NeighborFetchConcurrency,
+                CancellationToken = cancellationToken,
+            },
+            async (cell, token) =>
+            {
+                var assembledCell = await AssembleCellAsync(cell, token).ConfigureAwait(false);
+                if (assembledCell is not null)
+                {
+                    assembled.Add(assembledCell);
+                }
+            }).ConfigureAwait(false);
+
+        var neighbors = assembled
+            .OrderBy(c => OrderKeyMeters(coord, metadata.Grid, c))
+            .Select(c => c with { DistanceMeters = DisplayDistanceMeters(coord, c) })
+            .ToList();
+
+        return new AreaForecast(coord, metadata, primary, neighbors, alerts);
+    }
+
+    public async Task<Forecast?> GetForecastByGridAsync(GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        // Public entry point used by the background warmer. Deliberately does
+        // NOT schedule further warming, which would recurse forever.
+        var (forecast, _) = await GetForecastByGridCoreAsync(grid, cancellationToken).ConfigureAwait(false);
+        return forecast;
+    }
+
+    /// <summary>
+    /// Build the full bundle for one cell: the headline daily forecast
+    /// (cache-aside, with conditional GETs) plus the cached "extras" (hourly +
+    /// latest observation + centre). Returns <c>null</c> only when the daily
+    /// forecast itself is unavailable.
+    /// </summary>
+    private async Task<CellWeather?> AssembleCellAsync(GridPoint grid, CancellationToken cancellationToken)
+    {
+        var (daily, centerFromFetch) = await GetForecastByGridCoreAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (daily is null)
+        {
+            return null;
+        }
+
+        var extras = await ResolveExtrasAsync(grid, centerFromFetch, cancellationToken).ConfigureAwait(false);
+        var center = centerFromFetch ?? extras.Center;
+
+        return new CellWeather(grid, center, daily, extras.Hourly, extras.Observation, DistanceMeters: null);
+    }
+
+    private async Task<CellExtras> ResolveExtrasAsync(
+        GridPoint grid, GeoCoordinate? centerHint, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var cached = await extrasCache.GetAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(ExtrasCacheName);
+
+            // Backfill the centre if we only just learned it from a fresh daily fetch.
+            if (centerHint is not null && cached.Extras.Center is null)
+            {
+                var upgraded = cached.Extras with { Center = centerHint };
+                await extrasCache
+                    .UpsertAsync(grid, cached with { Extras = upgraded }, cancellationToken)
+                    .ConfigureAwait(false);
+                return upgraded;
+            }
+
+            return cached.Extras;
+        }
+
+        telemetry.RecordCacheMiss(ExtrasCacheName);
+
+        var hourly = await nwsClient.GetHourlyForecastAsync(grid, cancellationToken).ConfigureAwait(false) ?? [];
+        var observation = await nwsClient.GetLatestObservationAsync(grid, cancellationToken).ConfigureAwait(false);
+
+        var center = centerHint ?? cached?.Extras.Center;
+        var extras = new CellExtras(hourly, observation, center);
+
+        await extrasCache
+            .UpsertAsync(grid, new CachedCellExtras(extras, now, now + _options.DefaultForecastTtl), cancellationToken)
+            .ConfigureAwait(false);
+
+        return extras;
+    }
+
+    /// <summary>
+    /// Cache-aside fetch of active alerts for a coordinate, protected by the
+    /// single-flight coalescer (keyed by the coordinate's cache key) so a burst
+    /// of concurrent misses collapses into one upstream <c>/alerts/active</c>
+    /// call. A fresh cache entry is served straight from SQLite; on miss/expiry
+    /// the result is fetched once and stored with a short TTL. Caching an empty
+    /// list is deliberate and correct: "no active alerts" is a valid answer
+    /// worth remembering for the TTL, and it is what stops repeated views and
+    /// browser refreshes from re-hitting the alerts endpoint every time.
+    /// </summary>
+    private async Task<IReadOnlyList<WeatherAlert>> ResolveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+
+        var cached = await alertCache.GetAsync(coordinate, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(AlertsCacheName);
+            return cached.Alerts;
+        }
+
+        telemetry.RecordCacheMiss(AlertsCacheName);
+
+        var key = coordinate.Rounded().ToCacheKey();
+
+        return await alertCoalescer.RunAsync(
+            key,
+            async token =>
+            {
+                // Re-check the cache inside the flight: a concurrent leader for
+                // the same coordinate may have just filled it.
+                var inner = timeProvider.GetUtcNow();
+                var rechecked = await alertCache.GetAsync(coordinate, token).ConfigureAwait(false);
+                if (rechecked is not null && rechecked.IsFresh(inner))
+                {
+                    return rechecked.Alerts;
+                }
+
+                // The client is best-effort: it returns an empty list both when
+                // there are genuinely no alerts and when NWS is unreachable.
+                // Either way an empty list is a safe thing to cache for the
+                // short TTL; the next refresh after expiry will try again.
+                var fetched = await nwsClient.GetActiveAlertsAsync(coordinate, token).ConfigureAwait(false) ?? [];
+
+                await alertCache
+                    .UpsertAsync(
+                        coordinate,
+                        new CachedAlerts(fetched, inner, inner + _options.AlertsTtl),
+                        token)
+                    .ConfigureAwait(false);
+
+                return fetched;
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static double OrderKeyMeters(GeoCoordinate query, GridPoint origin, CellWeather cell) =>
+        cell.Center is { } center
+            ? query.DistanceMetersTo(center)
+            : GridApproxMeters(origin, cell.Grid);
+
+    private static double? DisplayDistanceMeters(GeoCoordinate query, CellWeather cell) =>
+        cell.Center is { } center ? query.DistanceMetersTo(center) : null;
+
+    private static double GridApproxMeters(GridPoint origin, GridPoint cell)
+    {
+        double dx = cell.GridX - origin.GridX;
+        double dy = cell.GridY - origin.GridY;
+        return Math.Sqrt((dx * dx) + (dy * dy)) * NominalCellMeters;
+    }
+
+    private async Task<PointMetadata?> ResolveMetadataAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var cached = await metadataCache.GetAsync(coordinate, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(MetadataCacheName);
+            return cached.Metadata;
+        }
+
+        telemetry.RecordCacheMiss(MetadataCacheName);
+
+        var fetched = await nwsClient.GetPointMetadataAsync(coordinate, cancellationToken).ConfigureAwait(false);
+        if (fetched is null)
+        {
+            // Either NWS is unreachable or the location is genuinely uncovered.
+            // The mapping effectively never changes, so a stale hit is safe.
+            if (cached is not null)
+            {
+                logger.LogWarning("Serving stale point metadata for {Coordinate}; NWS resolve failed.", coordinate);
+                return cached.Metadata;
+            }
+
+            return null;
+        }
+
+        await metadataCache
+            .UpsertAsync(new CachedPointMetadata(fetched, now, now + _options.PointMetadataTtl), cancellationToken)
+            .ConfigureAwait(false);
+        return fetched;
+    }
+
+    /// <summary>
+    /// Cache-aside fetch of the headline daily forecast for a cell, protected by
+    /// the single-flight coalescer so concurrent misses for the same cell
+    /// collapse into one upstream call. Also returns the cell's approximate
+    /// centre when it came from a fresh fetch (it is not stored in the daily
+    /// cache, so a pure cache hit yields a null centre and the caller falls back
+    /// to the extras-cached centre or a grid estimate).
+    /// </summary>
+    private Task<(Forecast? Forecast, GeoCoordinate? Center)> GetForecastByGridCoreAsync(
+        GridPoint grid, CancellationToken cancellationToken)
+    {
+        // A flag the factory flips when THIS call is the one that actually ran
+        // the fetch (the coalescer "leader"). Everyone else is a follower whose
+        // upstream call was avoided.
+        var ranFactory = false;
+
+        return RunCoalescedAsync();
+
+        async Task<(Forecast?, GeoCoordinate?)> RunCoalescedAsync()
+        {
+            var result = await forecastCoalescer.RunAsync(
+                grid,
+                async flightToken =>
+                {
+                    ranFactory = true;
+                    return await FetchForecastCoreAsync(grid, flightToken).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (ranFactory)
+            {
+                telemetry.RecordCoalesceLeader(ForecastCacheName);
+            }
+            else
+            {
+                telemetry.RecordCoalesceFollower(ForecastCacheName);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// The actual cache-aside body, run by at most one caller per cell at a
+    /// time (the coalescer guarantees this). Re-reads the cache first, so a
+    /// follower that waited for an earlier flight — and then started a fresh one
+    /// — still sees the freshly-filled cache and never calls NWS.
+    /// </summary>
+    private async Task<(Forecast? Forecast, GeoCoordinate? Center)> FetchForecastCoreAsync(
+        GridPoint grid, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var cached = await forecastCache.GetAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(ForecastCacheName);
+            return (cached.Forecast, null);
+        }
+
+        telemetry.RecordCacheMiss(ForecastCacheName);
+
+        var result = await nwsClient
+            .GetForecastAsync(grid, cached?.ETag, cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (result.Outcome)
+        {
+            case NwsFetchOutcome.Success when result.Forecast is not null:
+                var fresh = new CachedForecast(
+                    result.Forecast, result.ETag, now, ComputeExpiry(now, result.MaxAge));
+                await forecastCache.UpsertAsync(fresh, cancellationToken).ConfigureAwait(false);
+                return (result.Forecast, result.Center);
+
+            case NwsFetchOutcome.NotModified when cached is not null:
+                // Cheapest path: payload unchanged, just extend the TTL.
+                var renewed = cached with
+                {
+                    ETag = result.ETag ?? cached.ETag,
+                    RetrievedAtUtc = now,
+                    ExpiresAtUtc = ComputeExpiry(now, result.MaxAge),
+                };
+                await forecastCache.UpsertAsync(renewed, cancellationToken).ConfigureAwait(false);
+                return (cached.Forecast, null);
+
+            case NwsFetchOutcome.Unavailable when cached is not null:
+                logger.LogWarning("Serving stale forecast for grid {Grid}; NWS unavailable.", grid);
+                return (cached.Forecast, null);
+
+            case NwsFetchOutcome.NotFound:
+            case NwsFetchOutcome.Unavailable:
+            case NwsFetchOutcome.NotModified:
+            default:
+                return (null, null);
+        }
+    }
+
+    private DateTimeOffset ComputeExpiry(DateTimeOffset now, TimeSpan? maxAge)
+    {
+        var ttl = maxAge ?? _options.DefaultForecastTtl;
+        if (ttl <= TimeSpan.Zero)
+        {
+            ttl = _options.DefaultForecastTtl;
+        }
+
+        if (ttl > _options.MaxForecastTtl)
+        {
+            ttl = _options.MaxForecastTtl;
+        }
+
+        return now + ttl;
+    }
+}
+
+
+
+================================================================================
+
+I'm noticing the WeatherService methods all apply coordinate rounding before making requests, so GPS jitter might already be handled—though I need to check if the rounding is aggressive enough by looking at what the Rounded() method actually does and examining the API logs to see what coordinates are being sent.
+
+Looking at the actual points requests in the logs, they're varying in the 4th decimal place (which represents ~11 meters), so if Rounded() is only rounding to 4 decimals, that's not enough to collapse the GPS jitter we're seeing. The real insight is that all these slightly different coordinates are mapping to the same grid cell region (AKQ 82-84, 60-62), so the point metadata lookup should be consolidating them anyway.
+
+The actual problem is that each distinct coordinate triggers a cache miss on first encounter, and with GPS jitter producing new coordinates on every refresh, we're making a fresh /points call each time. The solution is to round coordinates more aggressively before the lookup — rounding to 2 or 3 decimals would collapse the jitter while still landing safely within the correct NWS grid cells. Let me check what GeoCoordinate.Rounded() is actually doing.
+
+For the alerts, ResolveAlertsAsync is keyed by the rounded coordinate and cached with a 5-minute TTL, so if rounding is too fine-grained, GPS jitter again creates distinct cache keys and triggers separate alert fetches. That burst of 30 alerts between 09:22-09:25 is suspicious — I need to trace where the polling is coming from in the Blazor page.
+
+Looking at the response times in that burst (ranging from 16ms to 470ms), these are all fast successful responses, so it's not a retry storm from failures. Instead, it looks like many concurrent requests are hitting the cache with slightly different coordinate keys and missing, or something in the Blazor component is triggering rapid successive calls.
+
+The real issue might be that /alerts/active requests with no query parameters are fetching the entire nationwide alert dataset instead of scoping to the user's location. That would explain the massive payloads (5538ms and 5668ms responses) and why the alert isn't actually location-specific. Let me check if GetActiveAlertsAsync is passing a ?point= parameter or just hitting the endpoint bare.
+
+For the neighborhood fanout, GetAreaForecastAsync with radius=1 creates a 3x3 grid of 9 cells, and then AssembleCellAsync processes each one...
+
+Fetching up to 27 requests total (9 cells × daily forecast + hourly + observation). The duplicate requests at the same millisecond suggest the coalescer isn't protecting the extras path — ResolveExtrasAsync bypasses it entirely and calls the NWS client directly for hourly and observation data, so both the background warmer and the hot request can race each other. So the observation fetch is actually a two-step process — first hitting /stations to find the nearest station, then /observations/latest on that station ID. The stations list is stable data but gets refetched without a separate long-lived cache. I need to trace through the actual HTTP client implementation, the coalescing setup, the background warmer, and how the web layer polls this to understand where the real bottlenecks are.
+Done
+
+Excellent — WeatherService is well-built: forecast fetches are coalesced, point metadata has a 30-day TTL, alerts are coalesced with a 5-min TTL. But I already see two gaps: ResolveExtrasAsync (hourly + observation) is not coalesced, and I need to see how coordinates are rounded and how the NWS client actually fetches alerts/observations. Let me read those.
+Scrutinizing caching implementation correctness and request patterns
+
+bash
+sed -n '2791,2873p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Core/Models/GeoCoordinate.cs
+SIZE: 2.86 KB
+MODIFIED: 06/19/2026 13:04:19
+================================================================================
+
+using System.Globalization;
+using System.Text.Json.Serialization;
+
+namespace Weather.Core.Models;
+
+public readonly record struct GeoCoordinate
+{
+    public double Latitude { get; }
+    public double Longitude { get; }
+
+    [JsonConstructor]
+    public GeoCoordinate(double latitude, double longitude)
+    {
+        if (double.IsNaN(latitude) || latitude is < -90 or > 90)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(latitude), latitude, "Latitude must be between -90 and 90 degrees.");
+        }
+
+        if (double.IsNaN(longitude) || longitude is < -180 or > 180)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(longitude), longitude, "Longitude must be between -180 and 180 degrees.");
+        }
+
+        Latitude = latitude;
+        Longitude = longitude;
+    }
+
+    /// <summary>Validation that never throws — handy for guarding API input.</summary>
+    public static bool IsValid(double latitude, double longitude) =>
+        !double.IsNaN(latitude) && latitude is >= -90 and <= 90 &&
+        !double.IsNaN(longitude) && longitude is >= -180 and <= 180;
+
+    /// <summary>
+    /// The NWS API rounds coordinates to four decimal places (~11 m). Rounding
+    /// here means many physically-close users collapse onto a single cached
+    /// point-&gt;grid mapping, sharply reducing calls to <c>/points</c>.
+    /// </summary>
+    public GeoCoordinate Rounded(int decimals = 4) =>
+        new(Math.Round(Latitude, decimals, MidpointRounding.AwayFromZero),
+            Math.Round(Longitude, decimals, MidpointRounding.AwayFromZero));
+
+    /// <summary>Invariant "lat,lon" string in the exact shape NWS expects.</summary>
+    public string ToApiString() =>
+        string.Create(CultureInfo.InvariantCulture, $"{Latitude:0.####},{Longitude:0.####}");
+
+    /// <summary>Stable cache key (identical to the API string).</summary>
+    public string ToCacheKey() => ToApiString();
+
+    /// <summary>
+    /// Great-circle (haversine) distance in metres to another coordinate. Used
+    /// to order neighbouring grid cells by how close they actually are to the
+    /// user, since a user is rarely at the centre of their own cell.
+    /// </summary>
+    public double DistanceMetersTo(GeoCoordinate other)
+    {
+        const double earthRadiusMeters = 6_371_000d;
+        const double degToRad = Math.PI / 180d;
+
+        var lat1 = Latitude * degToRad;
+        var lat2 = other.Latitude * degToRad;
+        var dLat = (other.Latitude - Latitude) * degToRad;
+        var dLon = (other.Longitude - Longitude) * degToRad;
+
+        var sinLat = Math.Sin(dLat / 2);
+        var sinLon = Math.Sin(dLon / 2);
+        var a = (sinLat * sinLat) + (Math.Cos(lat1) * Math.Cos(lat2) * sinLon * sinLon);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return earthRadiusMeters * c;
+    }
+
+    public override string ToString() => ToApiString();
+}
+
+
+
+================================================================================
+
+The Rounded method with 4 decimal places only provides ~11 meter precision, which isn't fine enough to filter out GPS noise. Looking at the actual coordinate samples, they're varying in the fourth decimal place, so that level of rounding won't help collapse the jitter.
+
+The real issue is that this rounding strategy creates a new cache key on nearly every page load since GPS naturally drifts by tens of meters even when stationary. This triggers fresh API calls to both /points and /alerts/active every time. The comment justifies it by saying "NWS rounds to 4 decimals," but that's about what NWS accepts as input, not what makes an effective cache key. Since NWS grid cells are roughly 2.5km and the /points→grid mapping stays constant across ~1km, rounding the cache key to 2 or 3 decimals instead would collapse all this jitter into a single key while still landing in the correct grid cell.
+
+There's an important distinction here: the coordinate sent to NWS can stay relatively precise since NWS handles it fine, but the coordinate used as the cache key needs to be coarse enough to... The architecture is clear: the frontend sends precise coordinates, but the cache key for point metadata needs to be coarsened so coordinate jitter collapses into the same request. Once we have the grid cell, everything downstream—forecasts, hourly data, observations, alerts—keys off the grid or coarse coordinate, so it stays stable. Rounding to 2 decimals instead of the current 4 would fix the over-fetching from jitter in both /points and /alerts/active, and alerts scoped by ?point= would still resolve correctly at ~1km resolution.
+
+That 09:22-09:25 burst of 30 alerts is likely from the page loading or reinitializing multiple times in a short window—whether from a Blazor circuit reconnect, prerender-then-interactive double execution, or a polling timer—each with slightly different coordinates that miss the cache and trigger a fresh fetch. I should check the Home.razor component and geolocation flow to confirm this pattern.
+
+Now I need to examine the NwsApiClient to see if the issue is compounded by how it's registered (scoped vs. singleton), whether it's fetching the stations list on every call, and whether the retry policy is creating a storm of requests.
+Done
+
+Found the biggest one. Rounded() defaults to 4 decimal places (~11 m). Browser GPS jitters by tens of meters even sitting still, so every refresh produces coordinates like 37.0878 vs 37.0877 vs 37.0880 — each a distinct cache key, each a fresh /points miss and a fresh /alerts/active miss. That single fact explains most of what's bothering you. Let me confirm the rest in the NWS client.
+Refactoring station ID storage to eliminate redundant lookups
+
+bash
+sed -n '3919,4429p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Nws/NwsApiClient.cs
+SIZE: 19.13 KB
+MODIFIED: 06/19/2026 08:55:10
+================================================================================
+
+using System.Diagnostics;
+using System.Globalization;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Serialization;
+
+namespace Weather.Infrastructure.Nws;
+
+/// <summary>
+/// Typed <see cref="HttpClient"/> over the NWS API. Owns HTTP concerns,
+/// conditional GETs and telemetry; it performs NO caching (that is the job of
+/// the caches and <c>WeatherService</c>). The <see cref="HttpClient"/> itself —
+/// base address, User-Agent, Accept header and the resilience pipeline — is
+/// configured in <c>DependencyInjection</c>.
+/// </summary>
+internal sealed class NwsApiClient(
+    HttpClient httpClient,
+    WeatherTelemetry telemetry,
+    ILogger<NwsApiClient> logger) : INwsApiClient
+{
+    private const string PointsEndpoint = "points";
+    private const string ForecastEndpoint = "forecast";
+    private const string HourlyEndpoint = "forecast/hourly";
+    private const string StationsEndpoint = "stations";
+    private const string ObservationEndpoint = "observation";
+    private const string AlertsEndpoint = "alerts";
+
+    // Hourly forecasts run ~156 periods; the dashboard only needs the near term,
+    // and capping keeps the cached payload (and the page) reasonable per cell.
+    private const int HourlyPeriodCap = 24;
+
+    public async Task<PointMetadata?> GetPointMetadataAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var requestUri = $"points/{coordinate.ToApiString()}";
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(PointsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation("NWS has no grid coverage for {Coordinate}.", coordinate);
+                }
+
+                return null;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                RecordFailure(PointsEndpoint, response.StatusCode);
+                logger.LogWarning("NWS /points returned {StatusCode} for {Coordinate}.",
+                    (int)response.StatusCode, coordinate);
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsPointResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            var properties = payload?.Properties;
+            if (properties?.GridId is null)
+            {
+                logger.LogWarning("NWS /points payload for {Coordinate} was missing grid metadata.", coordinate);
+                return null;
+            }
+
+            var location = properties.RelativeLocation?.Properties;
+            return new PointMetadata(
+                Query: coordinate,
+                Grid: new GridPoint(properties.GridId, properties.GridX, properties.GridY),
+                ForecastUrl: properties.Forecast ?? string.Empty,
+                ForecastHourlyUrl: properties.ForecastHourly ?? string.Empty,
+                City: location?.City,
+                State: location?.State,
+                TimeZone: properties.TimeZone,
+                RadarStation: properties.RadarStation);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(PointsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /points request failed for {Coordinate}.", coordinate);
+            return null;
+        }
+    }
+
+    public async Task<ForecastFetchResult> GetForecastAsync(
+        GridPoint grid, string? etag = null, CancellationToken cancellationToken = default)
+    {
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/forecast");
+
+        var conditional = !string.IsNullOrEmpty(etag);
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+            if (conditional)
+            {
+                // Use TryAddWithoutValidation so weak ("W/...") and quoted tags
+                // round-trip exactly as NWS sent them.
+                request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+            }
+
+            using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            RecordDuration(ForecastEndpoint, (int)response.StatusCode, timestamp, conditional);
+
+            switch (response.StatusCode)
+            {
+                case HttpStatusCode.NotModified:
+                    return ForecastFetchResult.NotModified(
+                        response.Headers.ETag?.ToString() ?? etag,
+                        response.Headers.CacheControl?.MaxAge);
+
+                case HttpStatusCode.NotFound:
+                    if (logger.IsEnabled(LogLevel.Information))
+                    {
+                        logger.LogInformation("NWS has no forecast for grid {Grid}.", grid);
+                    }
+
+                    return ForecastFetchResult.NotFound;
+
+                case HttpStatusCode.TooManyRequests:
+                    telemetry.RecordThrottled(ForecastEndpoint);
+                    logger.LogWarning("NWS throttled the forecast request for grid {Grid} (HTTP 429).", grid);
+                    return ForecastFetchResult.Unavailable;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                RecordFailure(ForecastEndpoint, response.StatusCode);
+                logger.LogWarning("NWS /forecast returned {StatusCode} for grid {Grid}.",
+                    (int)response.StatusCode, grid);
+                return ForecastFetchResult.Unavailable;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsForecastResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (payload?.Properties is not { } properties)
+            {
+                logger.LogWarning("NWS /forecast payload for grid {Grid} was empty.", grid);
+                return ForecastFetchResult.Unavailable;
+            }
+
+            var periods = MapPeriods(properties.Periods);
+            var forecast = new Forecast(grid, properties.GeneratedAt, properties.UpdateTime, periods);
+            var center = TryComputePolygonCenter(payload.Geometry);
+
+            return ForecastFetchResult.Success(
+                forecast,
+                response.Headers.ETag?.ToString(),
+                response.Headers.CacheControl?.MaxAge,
+                center);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(ForecastEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /forecast request failed for grid {Grid}.", grid);
+            return ForecastFetchResult.Unavailable;
+        }
+    }
+
+    public async Task<IReadOnlyList<ForecastPeriod>> GetHourlyForecastAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/forecast/hourly");
+
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(HourlyEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(HourlyEndpoint, response.StatusCode);
+                }
+
+                return [];
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsForecastResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            var periods = MapPeriods(payload?.Properties?.Periods);
+            return periods.Count > HourlyPeriodCap ? periods.Take(HourlyPeriodCap).ToList() : periods;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(HourlyEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /forecast/hourly request failed for grid {Grid}.", grid);
+            return [];
+        }
+    }
+
+    public async Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var stationId = await GetNearestStationIdAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (stationId is null)
+        {
+            return null;
+        }
+
+        var requestUri = $"stations/{Uri.EscapeDataString(stationId)}/observations/latest";
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(ObservationEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(ObservationEndpoint, response.StatusCode);
+                }
+
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsObservationResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (payload?.Properties is not { } p)
+            {
+                return null;
+            }
+
+            return new Observation(
+                StationId: stationId,
+                StationName: null,
+                Timestamp: p.Timestamp,
+                TextDescription: string.IsNullOrWhiteSpace(p.TextDescription) ? null : p.TextDescription,
+                Icon: p.Icon,
+                TemperatureF: NwsUnits.CelsiusToFahrenheit(p.Temperature?.Value),
+                DewpointF: NwsUnits.CelsiusToFahrenheit(p.Dewpoint?.Value),
+                RelativeHumidity: NwsUnits.RoundToInt(p.RelativeHumidity?.Value),
+                WindSpeedMph: WindToMph(p.WindSpeed),
+                WindGustMph: WindToMph(p.WindGust),
+                WindDirection: NwsUnits.DegreesToCompass(p.WindDirection?.Value),
+                PressureInHg: NwsUnits.PascalsToInHg(p.BarometricPressure?.Value),
+                VisibilityMiles: NwsUnits.MetersToMiles(p.Visibility?.Value));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(ObservationEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS latest-observation request failed for station {Station}.", stationId);
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var requestUri = $"alerts/active?point={coordinate.ToApiString()}";
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(AlertsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                RecordFailure(AlertsEndpoint, response.StatusCode);
+                return [];
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsAlertsResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            var features = payload?.Features;
+            if (features is null || features.Count == 0)
+            {
+                return [];
+            }
+
+            var alerts = new List<WeatherAlert>(features.Count);
+            foreach (var feature in features)
+            {
+                if (feature.Properties is not { } a || string.IsNullOrWhiteSpace(a.Event))
+                {
+                    continue;
+                }
+
+                alerts.Add(new WeatherAlert(
+                    Id: a.Id ?? Guid.NewGuid().ToString("N"),
+                    Event: a.Event,
+                    Severity: a.Severity,
+                    Certainty: a.Certainty,
+                    Urgency: a.Urgency,
+                    Headline: a.Headline,
+                    Description: a.Description,
+                    Instruction: a.Instruction,
+                    AreaDescription: a.AreaDesc,
+                    SenderName: a.SenderName,
+                    Effective: a.Effective,
+                    Onset: a.Onset,
+                    Expires: a.Expires,
+                    Ends: a.Ends));
+            }
+
+            return alerts;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(AlertsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /alerts/active request failed for {Coordinate}.", coordinate);
+            return [];
+        }
+    }
+
+    private async Task<string?> GetNearestStationIdAsync(GridPoint grid, CancellationToken cancellationToken)
+    {
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/stations");
+
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(StationsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(StationsEndpoint, response.StatusCode);
+                }
+
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsStationsResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            // Stations are returned nearest-first.
+            var features = payload?.Features;
+            if (features is null)
+            {
+                return null;
+            }
+
+            foreach (var feature in features)
+            {
+                var id = feature.Properties?.StationIdentifier;
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    return id;
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(StationsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /stations request failed for grid {Grid}.", grid);
+            return null;
+        }
+    }
+
+    private static List<ForecastPeriod> MapPeriods(IReadOnlyList<NwsPeriod>? source)
+    {
+        source ??= [];
+        var periods = new List<ForecastPeriod>(source.Count);
+        foreach (var p in source)
+        {
+            periods.Add(new ForecastPeriod(
+                Number: p.Number,
+                Name: p.Name ?? string.Empty,
+                StartTime: p.StartTime,
+                EndTime: p.EndTime,
+                IsDaytime: p.IsDaytime,
+                Temperature: p.Temperature,
+                TemperatureUnit: p.TemperatureUnit ?? "F",
+                ProbabilityOfPrecipitation: p.ProbabilityOfPrecipitation?.Value is { } pop
+                    ? (int)Math.Round(pop, MidpointRounding.AwayFromZero)
+                    : null,
+                WindSpeed: p.WindSpeed ?? string.Empty,
+                WindDirection: p.WindDirection ?? string.Empty,
+                ShortForecast: p.ShortForecast ?? string.Empty,
+                DetailedForecast: p.DetailedForecast ?? string.Empty,
+                Icon: p.Icon ?? string.Empty));
+        }
+
+        return periods;
+    }
+
+    /// <summary>
+    /// Observation wind speed is usually km/h (<c>wmoUnit:km_h-1</c>) but can be
+    /// m/s; convert based on the reported unit code.
+    /// </summary>
+    private static int? WindToMph(NwsQuantitativeValue? value)
+    {
+        if (value?.Value is not { } v)
+        {
+            return null;
+        }
+
+        var unit = value.UnitCode ?? string.Empty;
+        if (unit.Contains("m_s-1", StringComparison.OrdinalIgnoreCase))
+        {
+            return (int)Math.Round(v * 2.236936d, MidpointRounding.AwayFromZero);
+        }
+
+        return NwsUnits.KmhToMph(v);
+    }
+
+    /// <summary>
+    /// Approximate a polygon's centre by averaging the vertices of its outer
+    /// ring. NWS forecast geometry is GeoJSON <c>[[[lon,lat], ...]]</c>.
+    /// </summary>
+    private static GeoCoordinate? TryComputePolygonCenter(NwsGeometry? geometry)
+    {
+        if (geometry?.Coordinates is not { ValueKind: JsonValueKind.Array } coords)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (coords.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            var ring = coords[0];
+            if (ring.ValueKind != JsonValueKind.Array || ring.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            double sumLat = 0;
+            double sumLon = 0;
+            var count = 0;
+
+            foreach (var point in ring.EnumerateArray())
+            {
+                if (point.ValueKind != JsonValueKind.Array || point.GetArrayLength() < 2)
+                {
+                    continue;
+                }
+
+                var lon = point[0].GetDouble();
+                var lat = point[1].GetDouble();
+                sumLon += lon;
+                sumLat += lat;
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return null;
+            }
+
+            var avgLat = sumLat / count;
+            var avgLon = sumLon / count;
+            return GeoCoordinate.IsValid(avgLat, avgLon) ? new GeoCoordinate(avgLat, avgLon) : null;
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private void RecordDuration(string endpoint, int statusCode, long startTimestamp, bool conditional) =>
+        telemetry.RecordNwsRequest(
+            endpoint,
+            statusCode,
+            Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds,
+            conditional);
+
+    private void RecordFailure(string endpoint, HttpStatusCode? statusCode) =>
+        telemetry.RecordError(endpoint, statusCode is null ? 0 : (int)statusCode);
+}
+
+
+
+================================================================================
+
+The NWS client is actually performing well—GetActiveAlertsAsync does use point-based scoping so it's not pulling nationwide data, which explains why the response times are just slow NWS endpoints rather than massive payloads. Then GetLatestObservationAsync chains a call to GetNearestStationIdAsync first.
+
+The real issue is that stations data gets refetched every 30 minutes as part of the extras flow, even though it's stable for months. And there are two critical bugs: coordinate rounding at 4 decimals creates GPS jitter artifacts that generate new cache keys on every refresh, causing redundant /points and /alerts/active calls—rounding to 2 decimals would collapse this into one key per grid cell. Second, the extras resolution isn't coalesced, so concurrent requests for hourly data, observations, and stations all hit the NWS client independently instead of being batched.
+
+Looking at the logs more carefully, the duplicates appear within milliseconds of each other—multiple stations and hourly forecast calls at the exact same timestamp. The background warmer only fetches daily forecasts, not extras, so these duplicates must be coming from concurrent hot-path requests hitting the same cold cell simultaneously. the issue is a Blazor double-execution problem where the page initializes twice (prerender plus interactive mode, or geolocation callbacks firing repeatedly), each triggering a full area request. Since the daily forecast is coalesced but the hourly forecasts and station observations aren't, concurrent requests duplicate exactly those un-coalesced calls—explaining why I see /forecast mostly once per cell but /forecast/hourly and /stations appearing twice.
+
+I need to tackle this with two fixes: coalesce the extras (hourly + observation) per cell to prevent duplicate fetches, and stop the frontend from issuing concurrent area requests by fixing the watchPosition and double-initialization logic in the Blazor component and geolocation script.
+
+There's also a third issue where the stations list gets refetched every 30 minutes even though it's essentially static—the station ID for a grid cell rarely changes, so I should cache it separately with a much longer TTL (days) rather than re-resolving it on every observation miss.
+
+The cleanest approach is to add a stationId field to the CellExtras model and cache it alongside the observation data, so when refreshing observations I can reuse the cached station ID instead of making another /stations call.
+
+Now I'm looking at a separate issue: the retry storm on /points and other endpoints. The logs show multiple attempts over 40 seconds with timeouts ranging from 10s down to 374ms, which suggests Polly is retrying aggressively whenever NWS is slow. With a 15-second request timeout, each retry waits the full duration, hammering the service exactly when it's already struggling. I need to examine the resilience pipeline configuration to understand the retry policy.
+
+I'm planning to review the CellExtras model, the SQLite cache implementation, the cache interface, the dependency injection setup where Polly is configured, the neighborhood warmer background service, the request coalescer, and then move to the frontend code to see how the web client calls these endpoints.
+Done
+
+The NWS client is actually solid — alerts are scoped with ?point= (the logs just strip query strings), so that's not a nationwide-payload problem. But I've confirmed the real issues. Let me read the extras model, the cell-extras cache, the warmer, the coalescer, and the DI/resilience wiring.
+Scrutinizing HTTP client resilience handler defaults
+
+bash
+sed -n '2313,2346p;2643,2663p;3423,3513p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Core/Abstractions/ICellExtrasCache.cs
+SIZE: 0.89 KB
+MODIFIED: 06/19/2026 08:53:20
+================================================================================
+
+using Weather.Core.Models;
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>
+/// Cache of the per-cell "extras" (hourly forecast + latest observation +
+/// cell centre) that the area view follows links to fetch. Kept separate from
+/// <see cref="IForecastCache"/> so the headline daily forecast retains its own
+/// conditional-GET / stale-on-error policy untouched.
+/// </summary>
+public interface ICellExtrasCache
+{
+    Task<CachedCellExtras?> GetAsync(GridPoint grid, CancellationToken cancellationToken = default);
+
+    Task UpsertAsync(GridPoint grid, CachedCellExtras entry, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Cell extras as stored in the cache, with TTL bookkeeping.</summary>
+public sealed record CachedCellExtras(
+    CellExtras Extras,
+    DateTimeOffset RetrievedAtUtc,
+    DateTimeOffset ExpiresAtUtc)
+{
+    public bool IsFresh(DateTimeOffset now) => ExpiresAtUtc > now;
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/CellExtras.cs
+SIZE: 0.49 KB
+MODIFIED: 06/19/2026 08:52:56
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// The extra, link-followed data for a single grid cell that is cached
+/// alongside (but separately from) the headline daily forecast: the hourly
+/// forecast, the latest station observation, and the cell's approximate centre
+/// (used to rank neighbours by distance). Serialised as one JSON blob per cell.
+/// </summary>
+public sealed record CellExtras(
+    IReadOnlyList<ForecastPeriod> Hourly,
+    Observation? Observation,
+    GeoCoordinate? Center);
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Caching/SqliteCellExtrasCache.cs
+SIZE: 3.06 KB
+MODIFIED: 06/19/2026 08:55:36
+================================================================================
+
+using System.Text.Json;
+using Dapper;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Infrastructure.Serialization;
+
+namespace Weather.Infrastructure.Caching;
+
+/// <summary>
+/// SQLite-backed store of per-cell "extras" (hourly forecast + latest
+/// observation + cell centre), keyed by grid cell. The whole bundle is one
+/// JSON column; TTL bookkeeping lives in dedicated columns. Kept separate from
+/// <see cref="SqliteForecastCache"/> so the headline daily forecast keeps its
+/// own conditional-GET / TTL policy untouched.
+/// </summary>
+internal sealed class SqliteCellExtrasCache(ISqliteConnectionFactory connectionFactory) : ICellExtrasCache
+{
+    private const string SelectSql =
+        """
+        SELECT Payload, RetrievedAtUtc, ExpiresAtUtc
+        FROM CellExtras
+        WHERE GridId = @GridId AND GridX = @GridX AND GridY = @GridY;
+        """;
+
+    private const string UpsertSql =
+        """
+        INSERT INTO CellExtras
+            (GridId, GridX, GridY, Payload, RetrievedAtUtc, ExpiresAtUtc)
+        VALUES
+            (@GridId, @GridX, @GridY, @Payload, @RetrievedAtUtc, @ExpiresAtUtc)
+        ON CONFLICT(GridId, GridX, GridY) DO UPDATE SET
+            Payload        = excluded.Payload,
+            RetrievedAtUtc = excluded.RetrievedAtUtc,
+            ExpiresAtUtc   = excluded.ExpiresAtUtc;
+        """;
+
+    public async Task<CachedCellExtras?> GetAsync(GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        var row = await connection.QuerySingleOrDefaultAsync<ExtrasRow>(
+            new CommandDefinition(SelectSql, new { grid.GridId, grid.GridX, grid.GridY },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        var extras = JsonSerializer.Deserialize<CellExtras>(row.Payload, WeatherJson.Options);
+        if (extras is null)
+        {
+            return null;
+        }
+
+        return new CachedCellExtras(
+            extras,
+            TimestampText.Parse(row.RetrievedAtUtc),
+            TimestampText.Parse(row.ExpiresAtUtc));
+    }
+
+    public async Task UpsertAsync(GridPoint grid, CachedCellExtras entry, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        var payload = JsonSerializer.Serialize(entry.Extras, WeatherJson.Options);
+
+        await connection.ExecuteAsync(new CommandDefinition(UpsertSql, new
+        {
+            grid.GridId,
+            grid.GridX,
+            grid.GridY,
+            Payload = payload,
+            RetrievedAtUtc = TimestampText.ToText(entry.RetrievedAtUtc),
+            ExpiresAtUtc = TimestampText.ToText(entry.ExpiresAtUtc),
+        }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private sealed record ExtrasRow(string Payload, string RetrievedAtUtc, string ExpiresAtUtc);
+}
+
+
+
+================================================================================
+
+I see that CellExtras currently holds hourly data, observations, and center info without storing the station ID, which means every refresh has to look up the station again via /stations. I'm going to add StationId to CellExtras so observation refreshes can skip that extra lookup. Next I need to review the dependency injection setup, the warmer logic, and the coalescer to understand the remaining infrastructure pieces.
+Done
+
+Now the dependency injection (resilience pipeline + coalescer lifetimes), the neighborhood warmer, and the coalescer itself:
+Pinpointing duplicate requests plaguing caching implementation
+
+bash
+sed -n '3811,3918p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/DependencyInjection.cs
+SIZE: 4.73 KB
+MODIFIED: 06/23/2026 13:13:49
+================================================================================
+
+using System.Threading.RateLimiting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Caching;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Services;
+
+namespace Weather.Infrastructure;
+
+/// <summary>
+/// The single composition root for the infrastructure layer. One call wires up
+/// configuration, the SQLite caches, the resilient NWS HTTP client, the
+/// orchestrating weather service and the background neighbourhood warmer.
+/// </summary>
+public static class DependencyInjection
+{
+    public static IServiceCollection AddWeatherInfrastructure(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        services.Configure<NwsClientOptions>(configuration.GetSection(NwsClientOptions.SectionName));
+        services.Configure<SqliteCacheOptions>(configuration.GetSection(SqliteCacheOptions.SectionName));
+
+        // Clock — the BCL abstraction. Tests substitute a controllable one.
+        services.TryAddSingleton(TimeProvider.System);
+
+        // Custom metrics + traces (the meter/source names are registered with
+        // OpenTelemetry in the API host).
+        services.TryAddSingleton<WeatherTelemetry>();
+
+        // SQLite caches are stateless and thread-safe → singletons.
+        services.TryAddSingleton<ISqliteConnectionFactory, SqliteConnectionFactory>();
+        services.TryAddSingleton<IForecastCache, SqliteForecastCache>();
+        services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
+        services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
+        services.TryAddSingleton<IAlertCache, SqliteAlertCache>();
+        services.AddHostedService<DatabaseInitializer>();
+
+        // Single-flight coalescer for forecast fetches. MUST be a singleton:
+        // its whole job is to collapse concurrent misses ACROSS requests into
+        // one upstream call, which only works if every request shares the same
+        // in-flight dictionary. A scoped registration would give each request
+        // its own dictionary and reintroduce the stampede.
+        services.TryAddSingleton<IRequestCoalescer<GridPoint>, RequestCoalescer<GridPoint>>();
+
+        // Single-flight coalescer for alert fetches, keyed by the rounded
+        // coordinate's cache key (a string). Same rationale as the forecast
+        // coalescer: when an alert entry is cold/expired and many browsers
+        // refresh at once, only the first request calls /alerts/active; the
+        // rest await it. Singleton so the in-flight dictionary is shared.
+        services.TryAddSingleton<IRequestCoalescer<string>, RequestCoalescer<string>>();
+
+        // Resilient, identified NWS client. The standard resilience handler
+        // wraps Polly v8 (retry w/ jitter, circuit breaker, timeout) and emits
+        // its own OpenTelemetry signals.
+        services.AddHttpClient<INwsApiClient, NwsApiClient>(static (serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<NwsClientOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+
+            // The resilience pipeline owns timeouts; disable HttpClient's own.
+            client.Timeout = Timeout.InfiniteTimeSpan;
+
+            // NWS rejects requests with no identifying User-Agent.
+            if (!client.DefaultRequestHeaders.UserAgent.TryParseAdd(options.UserAgent))
+            {
+                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", options.UserAgent);
+            }
+
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/geo+json");
+        }).AddStandardResilienceHandler();
+
+        // Request-scoped orchestration.
+        services.TryAddScoped<IWeatherService, WeatherService>();
+
+        // Background neighbourhood warming with a shared, global rate limit.
+        services.TryAddSingleton<INeighborhoodWarmer, NeighborhoodWarmer>();
+        services.TryAddSingleton<RateLimiter>(static _ => new TokenBucketRateLimiter(
+            new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 20,
+                TokensPerPeriod = 10,
+                ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+                AutoReplenishment = true,
+                QueueLimit = 64,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            }));
+        services.AddHostedService<NeighborhoodWarmingBackgroundService>();
+
+        return services;
+    }
+}
+
+
+
+================================================================================
+
+Looking at the dependency injection setup, WeatherService is registered as scoped while the coalescers are singletons, which means they're properly shared across requests. The HTTP client is configured with the standard resilience handler that includes a 30-second total timeout and up to 3 retries by default.
+
+The retry pattern in the logs makes sense now — each attempt has a 10-second per-attempt timeout, so when the NWS /points endpoint is slow (which can happen on cold-cache lookups), the handler retries multiple times within that 30-second window. The timestamps show attempts starting around 13:51:09 and continuing through 13:51:25, with each retry spaced by the exponential backoff delays, ultimately succeeding after several attempts. s total, but the 30s cap kicks in. The real problem is that RequestTimeout = 15s is configured in NwsClientOptions but never actually wired into the resilience handler — the pipeline uses hardcoded defaults instead. So I need to explicitly configure the resilience handler to respect the RequestTimeout setting and reduce the per-attempt timeout to something reasonable like 10s to prevent the retry storm.
+
+The retry storm itself is amplified by the cache-busting issue, though. If I fix the coordinate rounding bug, the number of /points lookups drops dramatically, which means even with occasional retries, the absolute volume stays manageable. But I should still tame the retry policy because retrying a slow endpoint doesn't help — it just adds unnecessary load. I'll reduce retries to 2, add jitter to the backoff, and make sure the total timeout is short enough that we don't hammer the endpoint. I'm second-guessing the timeouts now. The /points endpoint legitimately takes 1-10 seconds sometimes, and looking at the successful response times—ranging from 508ms up to 1454ms—I need to be more generous with the attempt timeout. Setting it too low at 5 seconds would kill legitimate requests, so I'll bump the attempt timeout back up to 10 seconds, keep retries at 2, and set the total request timeout to around 30 seconds to avoid excessive hammering. I'll wire RequestTimeout as the AttemptTimeout with a default of 10s for faster failover, set MaxRetryAttempts to 2 with exponential backoff starting at 1s, and configure TotalRequestTimeout to default at 30s—ensuring it always exceeds the per-attempt timeout as required by the .NET handler. The circuit breaker settings confirm those 10-second attempt timeouts I'm seeing in the logs. The neighborhood warmer uses a token bucket limiter capping background warming at around 10 cells per second, which is reasonable, though that rate limit only applies to the warmer itself and not the hot-path area fetch operations.
+
+Now I need to trace through the warmer, background service, and coalescer logic to get the full picture, then check the frontend behavior.
+
+For Bug 2 about extras not being coalesced, I'm realizing the issue: I can't just reuse the existing IRequestCoalescer<GridPoint> because it's already handling daily forecasts. If I share it for extras too, both requests would collide on the same GridPoint key and either block each other or return the wrong result type. I need a separate coalescer instance for extras, but that creates a registration problem since both would be the same interface type.
+
+I'm weighing a few approaches: wrapping GridPoint in a marker type to distinguish them, using keyed services to register multiple instances of the same interface, or changing the extras coalescer to key by a string instead. The string approach would be simpler—something like prefixing keys with "forecast:" or "extras:"—but the forecast coalescer is already typed to GridPoint, so that's awkward. The cleanest solution is probably a keyed singleton registration for the extras coalescer, or creating a dedicated interface type to keep things explicit and avoid collisions. ) and grid extras (returns CellExtras) should be safe since their keys never overlap, but mixing different result types in one coalescer feels semantically messy. The cleaner approach is to register a dedicated keyed singleton coalescer specifically for extras using .NET 8's keyed DI, keeping the concerns properly separated and making the intent explicit.
+
+For the WeatherService with primary constructor injection, I can use the [FromKeyedServices("extras")] attribute on the constructor parameter to pull the keyed coalescer — that's fully supported in .NET 8+. Now I need to double-check whether reusing the forecast coalescer for extras could cause a deadlock if AssembleCellAsync calls into it.
+
+Looking at the execution flow: GetForecastByGridCoreAsync acquires and releases the forecast coalescer flight before ResolveExtrasAsync even starts, so they're sequential, not nested. Even if two concurrent calls to AssembleCellAsync happen on the same grid, one would be in the forecast step while the other is in the extras step — but they're fundamentally different operations with different results, so they absolutely need separate coalescers to avoid mixing up the cached data.
+
+Now I need to check the coalescer API and see how the warmer integrates with it.
+Done
+
+Critical DI findings: WeatherService is scoped (fine), coalescers are singletons (correct), but two things jump out:
+
+    AddStandardResilienceHandler() runs with pure defaults — that means a 10s per-attempt timeout and 3 retries. That is exactly the retry storm in your logs (/points going 10s → 9998ms → 9293ms → 3956ms → success). Worse, your RequestTimeout = 15s option is dead config — it's never wired into the pipeline.
+    The extras path needs its own coalescer.
+
+Let me confirm the coalescer's API and read the warmer, then I'll look at the frontend to explain the request bursts.
+Architecting separate coalescer instance for keyed extras
+
+bash
+sed -n '4745,4918p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Services/NeighborhoodWarmer.cs
+SIZE: 1.38 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+
+namespace Weather.Infrastructure.Services;
+
+/// <summary>
+/// A bounded, in-process work queue (singleton). Request handlers drop the
+/// user's origin cell in via <see cref="RequestWarming"/>; the background
+/// service reads it and fans out to the surrounding cells. The queue is
+/// bounded and drops the oldest entry under pressure, so a traffic spike can
+/// never grow memory without limit or block the request path.
+/// </summary>
+internal sealed class NeighborhoodWarmer : INeighborhoodWarmer
+{
+    private readonly Channel<GridPoint> _channel;
+    private readonly ILogger<NeighborhoodWarmer> _logger;
+
+    public NeighborhoodWarmer(ILogger<NeighborhoodWarmer> logger)
+    {
+        _logger = logger;
+        _channel = Channel.CreateBounded<GridPoint>(new BoundedChannelOptions(capacity: 256)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = true,
+            SingleWriter = false,
+        });
+    }
+
+    public ChannelReader<GridPoint> Reader => _channel.Reader;
+
+    public void RequestWarming(GridPoint origin)
+    {
+        if (!_channel.Writer.TryWrite(origin) && _logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug("Neighbourhood warm queue closed; dropped origin {Origin}.", origin);
+        }
+    }
+}
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Services/NeighborhoodWarmingBackgroundService.cs
+SIZE: 4.15 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Collections.Concurrent;
+using System.Threading.RateLimiting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Core.Telemetry;
+
+namespace Weather.Infrastructure.Services;
+
+/// <summary>
+/// Consumes origin cells from the <see cref="INeighborhoodWarmer"/> queue and
+/// warms the surrounding grid cells in the background, off the request path.
+/// Three guards keep upstream load sane:
+/// <list type="bullet">
+///   <item>a global <see cref="RateLimiter"/> paces all outbound warming,</item>
+///   <item>an in-flight set deduplicates concurrent work for the same cell,</item>
+///   <item>cells that are already fresh are skipped before any network call.</item>
+/// </list>
+/// Each cell is fetched in its own DI scope so the scoped
+/// <see cref="IWeatherService"/> never becomes a captive dependency.
+/// </summary>
+internal sealed class NeighborhoodWarmingBackgroundService(
+    INeighborhoodWarmer warmer,
+    IServiceScopeFactory scopeFactory,
+    IForecastCache forecastCache,
+    RateLimiter rateLimiter,
+    WeatherTelemetry telemetry,
+    TimeProvider timeProvider,
+    ILogger<NeighborhoodWarmingBackgroundService> logger) : BackgroundService
+{
+    private readonly ConcurrentDictionary<GridPoint, byte> _inFlight = new();
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        logger.LogInformation("Neighbourhood warming service started.");
+
+        try
+        {
+            await foreach (var origin in warmer.Reader.ReadAllAsync(stoppingToken).ConfigureAwait(false))
+            {
+                try
+                {
+                    await WarmNeighboursAsync(origin, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to warm the neighbourhood around {Origin}.", origin);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Normal shutdown.
+        }
+
+        logger.LogInformation("Neighbourhood warming service stopping.");
+    }
+
+    private async Task WarmNeighboursAsync(GridPoint origin, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+
+        foreach (var cell in GridNeighborhood.Surrounding(origin))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Deduplicate: if this cell is already being warmed, skip it.
+            if (!_inFlight.TryAdd(cell, 0))
+            {
+                continue;
+            }
+
+            try
+            {
+                // Skip cells that are already fresh — no network needed.
+                var cached = await forecastCache.GetAsync(cell, cancellationToken).ConfigureAwait(false);
+                if (cached is not null && cached.IsFresh(now))
+                {
+                    continue;
+                }
+
+                using var lease = await rateLimiter.AcquireAsync(1, cancellationToken).ConfigureAwait(false);
+                if (!lease.IsAcquired)
+                {
+                    if (logger.IsEnabled(LogLevel.Debug))
+                    {
+                        logger.LogDebug("Rate limiter rejected warming for {Cell}; skipping.", cell);
+                    }
+
+                    continue;
+                }
+
+                using var scope = scopeFactory.CreateScope();
+                var weatherService = scope.ServiceProvider.GetRequiredService<IWeatherService>();
+                var forecast = await weatherService
+                    .GetForecastByGridAsync(cell, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (forecast is not null)
+                {
+                    telemetry.RecordNeighborWarmed(cell.GridId);
+                }
+            }
+            finally
+            {
+                _inFlight.TryRemove(cell, out _);
+            }
+        }
+    }
+}
+
+
+
+================================================================================
+
+The warmer only handles daily forecasts and behaves properly with deduping and rate limiting, so the duplicate hourly forecasts and station/observation requests in the logs are actually coming from concurrent area requests hitting ResolveExtrasAsync for the same cell without coalescing.
+
+These concurrent area requests originate from the frontend making the same request twice due to double-rendering or watchPosition firing multiple times. Now I need to examine the RequestCoalescer to understand how it works, then trace through the frontend code to confirm this pattern.
+Done
+
+The warmer only warms the daily forecast and is well-behaved (dedupes, skips-fresh, rate-limited). So the duplicate /forecast/hourly and /stations calls in your logs come from the hot path — two concurrent area requests each running the un-coalesced extras fetch. That points at the frontend issuing the request twice. Let me confirm the coalescer API, then read the Blazor page and geolocation JS.
+Examined coalescer API and traced frontend request patterns
+
+The coalescer is excellent and confirms a separate keyed instance will work for extras. Now the frontend — this is where the request bursts originate. Let me read the Blazor page and the geolocation flow.
+Reconciling geolocation caching behavior across page reloads
+
+bash
+sed -n '6280,6863p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Web/Components/Pages/Home.razor
+SIZE: 23.7 KB
+MODIFIED: 06/19/2026 13:51:06
+================================================================================
+
+@page "/"
+@using System.Globalization
+@using Weather.Web.Services
+@inject IGeolocationService Geolocation
+@inject IWeatherApiClient WeatherApi
+
+<PageTitle>Weather</PageTitle>
+
+@{
+    // Shared manual-entry block, reused by every "we couldn't place you" state.
+    RenderFragment manualEntry = @<div class="locate" data-testid="manual-entry">
+        <div class="locate__row">
+            <label class="field">
+                <span class="field__label">Latitude</span>
+                <input class="field__input" inputmode="decimal" autocomplete="off"
+                       placeholder="37.0879" @bind="_manualLat" @bind:event="oninput" />
+            </label>
+            <label class="field">
+                <span class="field__label">Longitude</span>
+                <input class="field__input" inputmode="decimal" autocomplete="off"
+                       placeholder="-76.4505" @bind="_manualLon" @bind:event="oninput" />
+            </label>
+        </div>
+        <div class="locate__actions">
+            <button type="button" class="button" @onclick="SubmitManualAsync">Get forecast</button>
+            <button type="button" class="button button--ghost" @onclick="UseSampleAsync">
+                Use sample (Newport News, VA)
+            </button>
+        </div>
+        @if (_manualError is not null)
+        {
+            <p class="field__error" role="alert">@_manualError</p>
+        }
+    </div>;
+}
+
+@if (_state is LoadState.Initializing or LoadState.RequestingLocation)
+{
+    <section class="panel" data-testid="state-locating">
+        <h1 class="panel__title">Finding your location</h1>
+        <p class="panel__body">
+            Your browser is asking whether to share where you are. Allow it for a local
+            forecast, or enter coordinates yourself below. Your coordinates are used to find both
+            your forecast tile and the neighbouring tiles around you.
+        </p>
+        <span class="pulse"><span class="pulse__dot" aria-hidden="true"></span>Waiting for the browser</span>
+        @manualEntry
+    </section>
+}
+else if (_state == LoadState.Loading)
+{
+    <section class="panel" data-testid="state-loading">
+        <h1 class="panel__title">Loading the forecast</h1>
+        <p class="panel__body">Fetching your tile, every neighbouring tile, and the latest conditions.</p>
+        <span class="pulse"><span class="pulse__dot" aria-hidden="true"></span>Reading the sky</span>
+    </section>
+}
+else if (_state == LoadState.LocationDenied)
+{
+    <section class="panel" data-testid="state-denied">
+        <h1 class="panel__title">Location is off</h1>
+        <p class="panel__body">
+            You chose not to share your location, which is completely fine. Enter a latitude
+            and longitude to get a forecast, or use the sample location.
+        </p>
+        @manualEntry
+    </section>
+}
+else if (_state == LoadState.LocationUnavailable)
+{
+    <section class="panel" data-testid="state-unavailable">
+        <h1 class="panel__title">Couldn't pin down where you are</h1>
+        <p class="panel__body">
+            The browser couldn't determine your position — no signal, no hardware, or the
+            request timed out. Enter coordinates to continue, or use the sample location.
+        </p>
+        @manualEntry
+    </section>
+}
+else if (_state == LoadState.NotCovered)
+{
+    <section class="panel" data-testid="state-not-covered">
+        <h1 class="panel__title">No coverage for that spot</h1>
+        <p class="panel__body">
+            The National Weather Service covers the United States and its territories. The
+            coordinate <span class="coords">@CoordLabel</span> falls outside that. Try a point
+            inside the U.S., or use the sample location.
+        </p>
+        @manualEntry
+    </section>
+}
+else if (_state == LoadState.Error)
+{
+    <section class="panel" data-testid="state-error">
+        <h1 class="panel__title">The forecast didn't load</h1>
+        <p class="panel__body">
+            The service didn't respond. This is usually temporary — try again in a moment.
+        </p>
+        <div class="panel__actions">
+            <button type="button" class="button" @onclick="RetryAsync">Try again</button>
+            <button type="button" class="button button--ghost" @onclick="UseSampleAsync">
+                Use sample location
+            </button>
+        </div>
+        @if (_errorDetail is not null)
+        {
+            <details class="error-detail">
+                <summary>Technical detail</summary>
+                @_errorDetail
+            </details>
+        }
+    </section>
+}
+else if (_state == LoadState.Loaded && _area is not null)
+{
+    var area = _area;
+    var primary = area.Primary;
+    var hero = primary.Periods[0];
+    var theme = SkyPalette.ForPeriod(hero.IsDaytime, hero.ShortForecast);
+    var heroStyle = $"--sky-from:{theme.From};--sky-to:{theme.To};--sky-fg:{theme.Foreground};--sky-accent:{theme.Accent};";
+
+    <div data-testid="forecast">
+
+        @if (area.Alerts.Count > 0)
+        {
+            <section class="alerts" data-testid="alerts">
+                @foreach (var alert in area.Alerts)
+                {
+                    <details class="alert @AlertClass(alert.Severity)">
+                        <summary class="alert__summary">
+                            <span class="alert__event">@alert.Event</span>
+                            @if (!string.IsNullOrWhiteSpace(alert.Severity))
+                            {
+                                <span class="alert__sev">@alert.Severity</span>
+                            }
+                        </summary>
+                        @if (!string.IsNullOrWhiteSpace(alert.Headline))
+                        {
+                            <p class="alert__headline">@alert.Headline</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(alert.AreaDescription))
+                        {
+                            <p class="alert__area">@alert.AreaDescription</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(alert.Description))
+                        {
+                            <p class="alert__text">@alert.Description</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(alert.Instruction))
+                        {
+                            <p class="alert__text"><strong>What to do:</strong> @alert.Instruction</p>
+                        }
+                        <p class="alert__meta">@AlertWindow(alert)</p>
+                    </details>
+                }
+            </section>
+        }
+
+        <section class="sky" style="@heroStyle" data-testid="hero">
+            <div class="sky__inner">
+                <div class="sky__eyebrow">
+                    <span>@LocationLabel(area)</span>
+                    <span class="sky__state">@theme.Label</span>
+                </div>
+                <div class="sky__headline">
+                    <h1 class="sky__name">@hero.Name</h1>
+                    <p class="sky__short">@hero.ShortForecast</p>
+                </div>
+                <div class="sky__readout">
+                    <div class="sky__temp" data-testid="hero-temp">@TempStr(hero.Temperature)<span class="sky__unit">°@hero.TemperatureUnit</span></div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(hero.DetailedForecast))
+                {
+                    <p class="sky__detail">@hero.DetailedForecast</p>
+                }
+                <div class="sky__meta">
+                    <div class="sky__meta-item">
+                        <span class="sky__meta-label">Precip</span>
+                        <span class="sky__meta-value">@FormatPrecip(hero.ProbabilityOfPrecipitation)</span>
+                    </div>
+                    <div class="sky__meta-item">
+                        <span class="sky__meta-label">Wind</span>
+                        <span class="sky__meta-value">@FormatWind(hero)</span>
+                    </div>
+                    <div class="sky__meta-item">
+                        <span class="sky__meta-label">Grid</span>
+                        <span class="sky__meta-value">@primary.GridId @primary.GridX,@primary.GridY</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @if (primary.Observation is { } obs && HasObservation(obs))
+        {
+            <section class="obs" data-testid="observation">
+                <div class="obs__head">
+                    <h2 class="obs__title">Right now</h2>
+                    <span class="obs__sub">@ObsStationLabel(obs)</span>
+                </div>
+                <div class="obs__grid">
+                    @if (obs.TemperatureF is { } t)
+                    {
+                        <div class="obs__item"><span class="obs__label">Temp</span><span class="obs__value">@t°F</span></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(obs.TextDescription))
+                    {
+                        <div class="obs__item"><span class="obs__label">Sky</span><span class="obs__value">@obs.TextDescription</span></div>
+                    }
+                    @if (obs.RelativeHumidity is { } h)
+                    {
+                        <div class="obs__item"><span class="obs__label">Humidity</span><span class="obs__value">@h%</span></div>
+                    }
+                    @if (obs.DewpointF is { } d)
+                    {
+                        <div class="obs__item"><span class="obs__label">Dew point</span><span class="obs__value">@d°F</span></div>
+                    }
+                    @if (obs.WindSpeedMph is not null)
+                    {
+                        <div class="obs__item"><span class="obs__label">Wind</span><span class="obs__value">@ObsWind(obs)</span></div>
+                    }
+                    @if (obs.PressureInHg is { } p)
+                    {
+                        <div class="obs__item"><span class="obs__label">Pressure</span><span class="obs__value">@p.ToString("0.00", CultureInfo.InvariantCulture) inHg</span></div>
+                    }
+                    @if (obs.VisibilityMiles is { } v)
+                    {
+                        <div class="obs__item"><span class="obs__label">Visibility</span><span class="obs__value">@v.ToString("0.#", CultureInfo.InvariantCulture) mi</span></div>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (primary.Hourly.Count > 0)
+        {
+            <section class="hourly" data-testid="hourly">
+                <div class="forecast__head">
+                    <h2 class="forecast__title">Next hours</h2>
+                    <p class="forecast__sub">@primary.Hourly.Count periods</p>
+                </div>
+                <div class="hourly__strip">
+                    @foreach (var h in primary.Hourly)
+                    {
+                        var hTheme = SkyPalette.ForPeriod(h.IsDaytime, h.ShortForecast);
+                        <div class="hourly__cell" title="@h.ShortForecast">
+                            <span class="hourly__time">@TimeLabel(h.StartTime)</span>
+                            <span class="hourly__chip" style="--chip:@hTheme.From"></span>
+                            <span class="hourly__temp">@TempStr(h.Temperature)°</span>
+                            <span class="hourly__pop">@FormatPrecip(h.ProbabilityOfPrecipitation)</span>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
+        <section class="forecast">
+            <div class="forecast__head">
+                <h2 class="forecast__title">Your tile — full forecast</h2>
+                <p class="forecast__sub">@primary.Periods.Count periods</p>
+            </div>
+            <div class="forecast__grid">
+                @foreach (var period in primary.Periods)
+                {
+                    @PeriodCard(period)
+                }
+            </div>
+        </section>
+
+        @if (area.Neighbors.Count > 0)
+        {
+            <section class="neighbors" data-testid="neighbors">
+                <div class="forecast__head">
+                    <h2 class="forecast__title">Neighbouring tiles</h2>
+                    <p class="forecast__sub">@area.Neighbors.Count tiles · nearest first</p>
+                </div>
+                <p class="notice">
+                    You're rarely at the centre of your tile, so the tiles below are ordered by how
+                    close each one is to you. Every tile carries the same full data — open one to see
+                    its hourly forecast and latest conditions.
+                </p>
+
+                @foreach (var cell in area.Neighbors)
+                {
+                    var cellHero = cell.Periods.Count > 0 ? cell.Periods[0] : null;
+                    var cellTheme = cellHero is null
+                        ? SkyPalette.ForPeriod(true, null)
+                        : SkyPalette.ForPeriod(cellHero.IsDaytime, cellHero.ShortForecast);
+
+                    <details class="tile" data-testid="neighbor-tile">
+                        <summary class="tile__summary">
+                            <span class="tile__chip" style="--chip:@cellTheme.From" aria-hidden="true"></span>
+                            <span class="tile__id">@cell.GridId @cell.GridX,@cell.GridY</span>
+                            @if (cellHero is not null)
+                            {
+                                <span class="tile__now">@TempStr(cellHero.Temperature)° · @cellHero.ShortForecast</span>
+                            }
+                            <span class="tile__dist">@DistanceLabel(cell.DistanceMeters)</span>
+                        </summary>
+
+                        <div class="tile__body">
+                            @if (cell.Observation is { } cobs && HasObservation(cobs))
+                            {
+                                <p class="tile__obs">
+                                    <strong>Now:</strong>
+                                    @if (cobs.TemperatureF is { } ct) { @($"{ct}°F") }
+                                    @if (!string.IsNullOrWhiteSpace(cobs.TextDescription)) { @($" · {cobs.TextDescription}") }
+                                    @if (cobs.WindSpeedMph is not null) { @($" · wind {ObsWind(cobs)}") }
+                                    @if (cobs.RelativeHumidity is { } chum) { @($" · {chum}% RH") }
+                                </p>
+                            }
+
+                            <div class="forecast__grid">
+                                @foreach (var period in cell.Periods)
+                                {
+                                    @PeriodCard(period)
+                                }
+                            </div>
+
+                            @if (cell.Hourly.Count > 0)
+                            {
+                                <div class="hourly__strip tile__hourly">
+                                    @foreach (var h in cell.Hourly)
+                                    {
+                                        var hTheme = SkyPalette.ForPeriod(h.IsDaytime, h.ShortForecast);
+                                        <div class="hourly__cell" title="@h.ShortForecast">
+                                            <span class="hourly__time">@TimeLabel(h.StartTime)</span>
+                                            <span class="hourly__chip" style="--chip:@hTheme.From"></span>
+                                            <span class="hourly__temp">@TempStr(h.Temperature)°</span>
+                                            <span class="hourly__pop">@FormatPrecip(h.ProbabilityOfPrecipitation)</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </details>
+                }
+            </section>
+        }
+
+        <p class="notice">
+            Forecasts and conditions are cached for a short window and reused, so repeat views stay
+            quick and the National Weather Service isn't polled more than it needs to be.
+        </p>
+    </div>
+}
+
+@code {
+    private enum LoadState
+    {
+        Initializing,
+        RequestingLocation,
+        LocationDenied,
+        LocationUnavailable,
+        Loading,
+        Loaded,
+        NotCovered,
+        Error,
+    }
+
+    // Newport News, VA — the worked example from the project brief.
+    private const double SampleLatitude = 37.0879;
+    private const double SampleLongitude = -76.4505;
+
+    private LoadState _state = LoadState.Initializing;
+    private AreaDto? _area;
+    private string? _errorDetail;
+
+    private double? _latitude;
+    private double? _longitude;
+
+    private string _manualLat = string.Empty;
+    private string _manualLon = string.Empty;
+    private string? _manualError;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Geolocation needs JS interop, which is only available once the
+        // component is interactive — i.e. after the first render.
+        if (firstRender)
+        {
+            await BeginGeolocationAsync();
+        }
+    }
+
+    private async Task BeginGeolocationAsync()
+    {
+        _state = LoadState.RequestingLocation;
+        StateHasChanged();
+
+        var result = await Geolocation.GetCurrentPositionAsync();
+
+        if (result.Success)
+        {
+            await LoadAreaAsync(result.Latitude, result.Longitude);
+            return;
+        }
+
+        // Denial gets its own copy; everything else (unavailable, timeout,
+        // unsupported, JS fault) lands on the same "couldn't pin you" path.
+        _state = result.Error == GeolocationError.PermissionDenied
+            ? LoadState.LocationDenied
+            : LoadState.LocationUnavailable;
+        StateHasChanged();
+    }
+
+    private async Task LoadAreaAsync(double latitude, double longitude)
+    {
+        _latitude = latitude;
+        _longitude = longitude;
+        _state = LoadState.Loading;
+        StateHasChanged();
+
+        try
+        {
+            var area = await WeatherApi.GetAreaAsync(latitude, longitude);
+
+            if (area is null || area.Primary.Periods.Count == 0)
+            {
+                _state = LoadState.NotCovered;
+            }
+            else
+            {
+                _area = area;
+                _errorDetail = null;
+                _state = LoadState.Loaded;
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorDetail = ex.Message;
+            _state = LoadState.Error;
+        }
+        catch (TaskCanceledException)
+        {
+            _errorDetail = "The request timed out.";
+            _state = LoadState.Error;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task SubmitManualAsync()
+    {
+        _manualError = null;
+
+        if (!TryParseCoordinate(_manualLat, out var latitude) ||
+            !TryParseCoordinate(_manualLon, out var longitude))
+        {
+            _manualError = "Enter numbers, e.g. 37.0879 and -76.4505.";
+            return;
+        }
+
+        if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
+        {
+            _manualError = "Latitude is between -90 and 90; longitude between -180 and 180.";
+            return;
+        }
+
+        await LoadAreaAsync(latitude, longitude);
+    }
+
+    private Task UseSampleAsync() => LoadAreaAsync(SampleLatitude, SampleLongitude);
+
+    private async Task RetryAsync()
+    {
+        if (_latitude is { } latitude && _longitude is { } longitude)
+        {
+            await LoadAreaAsync(latitude, longitude);
+        }
+        else
+        {
+            await BeginGeolocationAsync();
+        }
+    }
+
+    private static bool TryParseCoordinate(string value, out double result) =>
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+
+    private static string LocationLabel(AreaDto area)
+    {
+        if (!string.IsNullOrWhiteSpace(area.City) && !string.IsNullOrWhiteSpace(area.State))
+        {
+            return $"{area.City}, {area.State}";
+        }
+
+        return $"NWS {area.Primary.GridId} · {area.Primary.GridX},{area.Primary.GridY}";
+    }
+
+    private string CoordLabel => _latitude is { } latitude && _longitude is { } longitude
+        ? string.Create(CultureInfo.InvariantCulture, $"{latitude:0.####}, {longitude:0.####}")
+        : string.Empty;
+
+    private RenderFragment PeriodCard(ForecastPeriodDto period)
+    {
+        var theme = SkyPalette.ForPeriod(period.IsDaytime, period.ShortForecast);
+        return @<article class="card">
+        <div class="card__name">
+            <span class="card__chip" style="--chip:@theme.From" title="@theme.Label"></span>
+            @period.Name
+        </div>
+        <div class="card__temp">@TempStr(period.Temperature)<span class="card__temp-unit">°@period.TemperatureUnit</span></div>
+        <p class="card__short">@period.ShortForecast</p>
+        <div class="card__rows">
+            <div class="card__row"><span class="card__row-label">Precip</span><span class="card__row-value">@FormatPrecip(period.ProbabilityOfPrecipitation)</span></div>
+            <div class="card__row"><span class="card__row-label">Wind</span><span class="card__row-value">@FormatWind(period)</span></div>
+        </div>
+    </article>;
+    }
+
+    private static string TempStr(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    private static string FormatPrecip(int? probability) =>
+        probability is { } value ? $"{value.ToString(CultureInfo.InvariantCulture)}%" : "—";
+
+    private static string FormatWind(ForecastPeriodDto period)
+    {
+        var direction = string.IsNullOrWhiteSpace(period.WindDirection) ? string.Empty : period.WindDirection + " ";
+        var speed = string.IsNullOrWhiteSpace(period.WindSpeed) ? "—" : period.WindSpeed;
+        return $"{direction}{speed}".Trim();
+    }
+
+    private static bool HasObservation(ObservationDto o) =>
+        o.TemperatureF is not null || !string.IsNullOrWhiteSpace(o.TextDescription) ||
+        o.RelativeHumidity is not null || o.WindSpeedMph is not null;
+
+    private static string ObsStationLabel(ObservationDto o)
+    {
+        var station = !string.IsNullOrWhiteSpace(o.StationName) ? o.StationName
+            : !string.IsNullOrWhiteSpace(o.StationId) ? o.StationId : "nearest station";
+        return o.Timestamp is { } ts
+            ? $"{station} · {ts.ToString("h:mm tt", CultureInfo.InvariantCulture)}"
+            : station!;
+    }
+
+    private static string ObsWind(ObservationDto o)
+    {
+        var dir = string.IsNullOrWhiteSpace(o.WindDirection) ? string.Empty : o.WindDirection + " ";
+        var speed = o.WindSpeedMph is { } s ? $"{s.ToString(CultureInfo.InvariantCulture)} mph" : "calm";
+        var gust = o.WindGustMph is { } g ? $" (gust {g.ToString(CultureInfo.InvariantCulture)})" : string.Empty;
+        return $"{dir}{speed}{gust}".Trim();
+    }
+
+    private static string TimeLabel(DateTimeOffset time) =>
+        time.ToString("h tt", CultureInfo.InvariantCulture);
+
+    private static string DistanceLabel(double? meters)
+    {
+        if (meters is not { } m)
+        {
+            return "nearby";
+        }
+
+        var km = m / 1000d;
+        return km < 10
+            ? string.Create(CultureInfo.InvariantCulture, $"{km:0.0} km")
+            : string.Create(CultureInfo.InvariantCulture, $"{km:0} km");
+    }
+
+    private static string AlertClass(string? severity) => severity switch
+    {
+        "Extreme" => "alert--extreme",
+        "Severe" => "alert--severe",
+        "Moderate" => "alert--moderate",
+        _ => "alert--minor",
+    };
+
+    private static string AlertWindow(AlertDto alert)
+    {
+        var start = alert.Onset ?? alert.Effective;
+        var end = alert.Ends ?? alert.Expires;
+        var startText = start is { } s ? s.ToString("MMM d, h:mm tt", CultureInfo.InvariantCulture) : "now";
+        var endText = end is { } e ? e.ToString("MMM d, h:mm tt", CultureInfo.InvariantCulture) : "until further notice";
+        var sender = string.IsNullOrWhiteSpace(alert.SenderName) ? string.Empty : $" · {alert.SenderName}";
+        return $"{startText} → {endText}{sender}";
+    }
+}
+
+
+
+================================================================================
+
+Looking at the Home.razor component, I can see the data flow: when the page first renders, it triggers geolocation, and once the user's position is obtained, it makes a single API call to fetch weather data for that area. There's no polling or automatic refresh mechanism built in here.
+
+The duplicate requests happening within milliseconds of each other suggest something else is at play. With Blazor Server's interactive rendering, OnAfterRenderAsync with the firstRender guard should only execute once per circuit, so prerender double-execution isn't the culprit. However, if the SignalR connection reconnects, a new circuit could form and re-trigger the flow. But that wouldn't explain the simultaneous duplicates for the same cell. Since Parallel.ForEachAsync processes each distinct cell only once within a single area request, the only way the same cell gets fetched twice at the exact same moment is if there are two concurrent area requests happening in parallel.
+
+Looking at the log timestamps more carefully, I notice the /points endpoint being called multiple times for identical coordinates — like 37.0878,-76.4508 appearing twice just 430ms apart, and other coordinates showing 4-5 calls within short windows. This pattern suggests the metadata resolver isn't coalesced. Since ResolveMetadataAsync has no coalescing mechanism, when two requests arrive concurrently for the same rounded coordinate and the metadata cache is empty, both will independently call /points, creating a metadata stampede.
+
+The real question is what triggers those concurrent area requests in the first place. It could be the user opening the page in multiple tabs or refreshing rapidly — each load triggers a full area request, and if they happen close enough together (within 1-2 seconds), the metadata and extras calls overlap. Another possibility is Blazor reconnection: when the Server circuit drops and reconnects, OnAfterRenderAsync(firstRender:true) fires again, re-triggering geolocation and area loading. Or the geolocation JavaScript might be using watchPosition for continuous tracking instead of getCurrentPosition for a single snapshot. Looking at the 14:26:24 burst in detail, I'm seeing the full 3×3 grid fan-out with forecast and station data, but there are clear duplicates at identical millisecond timestamps — like the same gridpoint's station request firing 3 times within a single millisecond, or forecast/hourly requests duplicated. This points to overlapping page loads hitting the same gridpoints simultaneously rather than just refresh-spam from a single browser. irmed. The fix involves coalescing metadata resolution so concurrent requests for the same rounded coordinate collapse into one, which pairs with the rounding fix from earlier to prevent the metadata stampede. I also need to coalesce the extras resolution keyed by GridPoint to eliminate duplicate fetches for hourly forecasts, stations, and observations.
+
+Beyond that, I should cache the station ID per grid so observation refreshes don't re-fetch the stations endpoint, tame the resilience pipeline with fewer retries and jittered backoff, and adjust the coordinate rounding from 4 decimals down to 2 for better cache key sharing.
+
+On the frontend side, I'm considering whether to add a re-entrancy guard in LoadAreaAsync to prevent two rapid triggers from both firing, possibly with debouncing, though the page behavior might already handle this naturally.
+
+Actually, there's a critical Blazor Server detail I need to reconsider with OnAfterRenderAsync. When prerendering is enabled (the default), the component renders twice—once statically on the server during prerender, then again when the interactive circuit connects. OnInitializedAsync runs in both passes, but OnAfterRenderAsync(firstRender:true) only fires after the DOM is live in the interactive pass, so geolocation and the fetch correctly execute just once. They've handled the double-fetch problem correctly by placing the fetch in OnAfterRenderAsync. The duplicate requests are more likely from concurrent loads across multiple tabs or refreshes than from double-rendering, given the firstRender guard is in place. I should add a re-entrancy guard to prevent overlapping requests from the same circuit.
+
+Now I need to examine the geolocation module, the GeolocationService, the WeatherApiClient, and the WeatherEndpoints to understand the full request flow and rule out any watchPosition calls that might be causing extra fetches.
+Done
+
+Now I understand the frontend flow: OnAfterRenderAsync(firstRender) correctly fires geolocation once per circuit (avoiding the classic prerender double-fetch), and there's no polling loop. So the duplicate same-millisecond requests come from two concurrent area requests (rapid refresh / multiple tabs / circuit reconnect): the forecast coalescer collapses the daily /forecast calls, but /forecast/hourly, /stations, and /observations/latest get duplicated because neither extras nor metadata resolution is coalesced. Let me confirm the geolocation JS and the API layer.
+Refining cache-key rounding strategy for improved performance
+
+bash
+sed -n '8387,8459p;6957,7026p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Web/Services/GeolocationService.cs
+SIZE: 2.15 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using Microsoft.JSInterop;
+
+namespace Weather.Web.Services;
+
+/// <summary>
+/// Bridges to <c>wwwroot/js/geolocation.js</c>, whose <c>getCurrentPosition</c>
+/// resolves a plain object in every case (success or failure) and never
+/// rejects. This keeps the C# side branch-only: no exception handling for the
+/// ordinary "user said no" path. JS-bridge faults (circuit disconnected, script
+/// missing) are still caught and surfaced as <see cref="GeolocationError.Unknown"/>.
+/// </summary>
+internal sealed class GeolocationService(IJSRuntime jsRuntime) : IGeolocationService
+{
+    public async ValueTask<GeolocationResult> GetCurrentPositionAsync(
+        CancellationToken cancellationToken = default)
+    {
+        GeoJsResult raw;
+        try
+        {
+            raw = await jsRuntime
+                .InvokeAsync<GeoJsResult>("weatherGeo.getCurrentPosition", cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (JSException)
+        {
+            return GeolocationResult.Failed(GeolocationError.Unknown);
+        }
+        catch (JSDisconnectedException)
+        {
+            return GeolocationResult.Failed(GeolocationError.Unknown);
+        }
+        catch (OperationCanceledException)
+        {
+            return GeolocationResult.Failed(GeolocationError.Unknown);
+        }
+
+        if (raw.Success && raw.Latitude is { } latitude && raw.Longitude is { } longitude)
+        {
+            return new GeolocationResult(true, latitude, longitude, raw.Accuracy, GeolocationError.None);
+        }
+
+        var error = raw.ErrorCode switch
+        {
+            "PermissionDenied" => GeolocationError.PermissionDenied,
+            "PositionUnavailable" => GeolocationError.PositionUnavailable,
+            "Timeout" => GeolocationError.Timeout,
+            "NotSupported" => GeolocationError.NotSupported,
+            _ => GeolocationError.Unknown,
+        };
+
+        return GeolocationResult.Failed(error);
+    }
+
+    /// <summary>Shape of the object resolved by the JS helper.</summary>
+    private sealed record GeoJsResult(
+        bool Success,
+        double? Latitude,
+        double? Longitude,
+        double? Accuracy,
+        string? ErrorCode);
+}
+
+
+
+================================================================================
+FILE: src/Weather.Web/wwwroot/js/geolocation.js
+SIZE: 2.4 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+// Browser geolocation bridge for the Blazor dashboard.
+//
+// Design rule: this promise ALWAYS resolves — it never rejects. Every outcome
+// (granted, denied, unavailable, timed out, unsupported) comes back as a plain
+// object the C# side can branch on. That keeps "the user said no" on the normal
+// path instead of the exception path.
+//
+// Resolved shape:
+//   { success, latitude, longitude, accuracy, errorCode }
+// where errorCode is one of:
+//   "PermissionDenied" | "PositionUnavailable" | "Timeout" | "NotSupported" | null
+window.weatherGeo = {
+    getCurrentPosition: function () {
+        return new Promise(function (resolve) {
+            if (!navigator || !("geolocation" in navigator)) {
+                resolve({
+                    success: false,
+                    latitude: null,
+                    longitude: null,
+                    accuracy: null,
+                    errorCode: "NotSupported"
+                });
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                function (position) {
+                    resolve({
+                        success: true,
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        errorCode: null
+                    });
+                },
+                function (error) {
+                    // 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+                    var code = "PositionUnavailable";
+                    if (error && typeof error.code === "number") {
+                        if (error.code === 1) {
+                            code = "PermissionDenied";
+                        } else if (error.code === 3) {
+                            code = "Timeout";
+                        } else {
+                            code = "PositionUnavailable";
+                        }
+                    }
+                    resolve({
+                        success: false,
+                        latitude: null,
+                        longitude: null,
+                        accuracy: null,
+                        errorCode: code
+                    });
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 10000,
+                    maximumAge: 300000
+                }
+            );
+        });
+    }
+};
+
+
+
+================================================================================
+
+The geolocation implementation uses a one-time getCurrentPosition call rather than continuous watching, with a 5-minute cache window that allows the browser to reuse recent positions. This caching explains the position jitter across page reloads—each load triggers a fresh geolocation request that might return a slightly different cached or newly-acquired position.
+
+Now I need to trace through the API endpoints, web client, and related tests to understand the full request chain and identify what else might need updating when I implement the coalescer and adjust the CellExtras structure. I'm realizing that changing the default decimals parameter would break existing tests that expect 4-decimal precision, so instead I should keep the signature as-is and have WeatherService explicitly call a coarser rounding method—either by passing a different decimals value or introducing a dedicated method like ToCellKey() for cache quantization.
+
+The cleaner solution is to leave the NWS semantic (4 decimals) untouched and instead change where WeatherService rounds for caching. Since both the metadata and alert caches are keyed by coordinate, I'll add a constant for cache-specific precision and update those rounding calls to use coarser precision. ety: rounding to 2 decimals could occasionally push a user near a cell boundary into a neighboring grid cell, but that's acceptable since the app shows the whole neighborhood anyway. I'm leaning toward 3 decimals (110m) as a safer middle ground—it still collapses the typical GPS jitter I'm seeing while being more conservative than 2 decimals.
+
+Looking at the actual jitter in the data, the latitude varies by about 44m and longitude by about 53m, which corresponds to roughly 0.0004-0.0006 degrees of variation. Rounding to 3 decimals would collapse most of this noise—values like 37.0876 through 37.0880 would all round to 37.088, effectively eliminating the jitter while keeping the precision reasonable.
+
+However, 2 decimals (37.09, -76.45) is even more aggressive and collapses all the observed jitter into a single key with plenty of margin to spare. Since the goal is minimizing duplicate requests, 2 decimals is clearly the better choice and still maintains acceptable geographic precision.
+
+I'm leaning toward changing the default of Rounded() to 2 decimals rather than calling Rounded(2) explicitly in WeatherService. The method exists specifically to collapse physically-close users onto a single cached point, which is fundamentally a caching concern—4 decimals was just too fine-grained for that purpose. Changing the default better reflects the documented intent, though I should verify how this affects ToApiString behavior and check the existing tests.
+
+For CellExtras.cs, I need to add StationId to the record. This cascades through SqliteCellExtrasCache (which serializes to JSON, so adding a field is mostly backward compatible), WeatherService (which constructs CellExtras), and the test files. The tricky part is figuring out how to fetch the observation once I have the station ID.
+
+I'm thinking about the cleanest API design: promote the private GetNearestStationIdAsync method to the public interface, add a new GetLatestObservationAsync overload that takes a known station ID directly, and keep the existing combined flow for cases where we don't have the station ID cached yet.
+
+Actually, I'm reconsidering—there's a simpler approach that avoids major interface changes. I can cache the station ID inside CellExtras and reuse it when the cached data is stale but the station ID is still valid, passing it to skip the /stations lookup. Since NwsApiClient already has the private method for resolving stations, I'll refactor the public GetLatestObservationAsync to optionally accept a station ID parameter.
+
+If a known station ID is provided, it skips the resolve step entirely. The method returns an Observation that includes the StationId, so WeatherService can extract and cache that ID back into CellExtras for the next call.
+
+I'm realizing that storing StationId separately in CellExtras makes sense even though Observation also has it — this way the station ID persists in the cache even when there's no recent observation data. So the change is straightforward: add StationId to CellExtras, add an optional knownStationId parameter to GetLatestObservationAsync, and have the client skip the stations endpoint when that parameter is provided.
+
+Now I need to update several files across the codebase — CellExtras.cs, the API client interfaces and implementations, WeatherService.cs, and a bunch of test files including FakeNwsApiClient, various infrastructure tests, and the cache/service tests that construct these objects. It's a fair amount of surface area to touch, but the changes are all consistent.
+
+Actually, let me reconsider the scope. The stations refetch issue isn't that expensive — those calls typically run in 17-100ms and only happen on cache misses every 30 minutes per cell. The real performance problems are the coordinate rounding causing unnecessary /points and /alerts churn, and the extras stampede creating duplicate concurrent fetches. Those two fixes give much better returns with less code churn. So I'll prioritize Bugs 1, 2, and 4 in this pass, and also improve the TTL handling for stations and other data so they don't refetch as aggressively.
+
+But the user did flag the stations calls specifically ("84,62/stations" in the logs), and they want best practices with stable data. Looking at the logs, stations get hammered because they're fetched with every extras refresh, but the result never actually changes — so we're re-resolving the same data repeatedly. The cleanest fix without changing the INwsApiClient signature is to implement separate freshness tiers within the extras cache itself.
+
+Actually, I'm settling on a final scope: coarsen the cache-key rounding to kill /points and /alerts churn, then add request coalescing for extras to eliminate duplicate concurrent calls. I'll also coalesce metadata lookups, tame the resilience pipeline with explicit retry counts and jitter, and cache the nearest station ID so observation refreshes skip the /stations call entirely.
+
+The station caching will touch CellExtras and GetLatestObservationAsync, which means updating several test files, but I'm checking the blast radius now to see if it's manageable before committing to that change. Now I'm going to review the relevant code sections—the weather endpoints, the web client implementation, the interface definition, and the fake API client used in tests—so I can make the necessary changes.
+Done
+
+Confirmed: geolocation is one-shot getCurrentPosition (no watchPosition loop), with maximumAge: 300000. So no continuous polling — the churn is reload jitter + concurrent overlapping loads. I now have a complete picture of the root causes. Let me read the API layer and the tests I'll need to update, so everything still compiles and passes.
+Weighing options for maintaining test compatibility
+
+The API layer is a clean pass-through. Now let me read the tests that my changes will touch, so I can update them and keep the suite green. The changes I'm committing to: coarser cache-key rounding, a coalescer for the extras path, a coalescer for metadata resolution, a tamed resilience pipeline, and caching the nearest-station id so observation refreshes skip /stations.
+Reconciling record construction with optional positional parameters
+
+bash
+sed -n '8892,9021p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Core.Tests/GeoCoordinateTests.cs
+SIZE: 3.68 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Globalization;
+
+namespace Weather.Core.Tests;
+
+public sealed class GeoCoordinateTests
+{
+    [Test]
+    public void ConstructorAcceptsValidCoordinates()
+    {
+        var coordinate = new GeoCoordinate(37.0879, -76.4505);
+
+        coordinate.Latitude.ShouldBe(37.0879);
+        coordinate.Longitude.ShouldBe(-76.4505);
+    }
+
+    [Test]
+    [Arguments(0d, 0d)]
+    [Arguments(90d, 180d)]
+    [Arguments(-90d, -180d)]
+    public void ConstructorAcceptsBoundaryValues(double latitude, double longitude)
+    {
+        var coordinate = new GeoCoordinate(latitude, longitude);
+
+        coordinate.Latitude.ShouldBe(latitude);
+        coordinate.Longitude.ShouldBe(longitude);
+    }
+
+    [Test]
+    [Arguments(90.0001d, 0d)]
+    [Arguments(-90.0001d, 0d)]
+    public void ConstructorRejectsOutOfRangeLatitude(double latitude, double longitude) =>
+        Should.Throw<ArgumentOutOfRangeException>(() => new GeoCoordinate(latitude, longitude));
+
+    [Test]
+    [Arguments(0d, 180.0001d)]
+    [Arguments(0d, -180.0001d)]
+    public void ConstructorRejectsOutOfRangeLongitude(double latitude, double longitude) =>
+        Should.Throw<ArgumentOutOfRangeException>(() => new GeoCoordinate(latitude, longitude));
+
+    [Test]
+    public void ConstructorRejectsNaN()
+    {
+        Should.Throw<ArgumentOutOfRangeException>(() => new GeoCoordinate(double.NaN, 0));
+        Should.Throw<ArgumentOutOfRangeException>(() => new GeoCoordinate(0, double.NaN));
+    }
+
+    [Test]
+    [Arguments(37.0879d, -76.4505d, true)]
+    [Arguments(0d, 0d, true)]
+    [Arguments(90d, 180d, true)]
+    [Arguments(90.5d, 0d, false)]
+    [Arguments(0d, 200d, false)]
+    public void IsValidMatchesConstructorAcceptance(double latitude, double longitude, bool expected) =>
+        GeoCoordinate.IsValid(latitude, longitude).ShouldBe(expected);
+
+    [Test]
+    public void IsValidRejectsNaN()
+    {
+        GeoCoordinate.IsValid(double.NaN, 0).ShouldBeFalse();
+        GeoCoordinate.IsValid(0, double.NaN).ShouldBeFalse();
+    }
+
+    [Test]
+    public void RoundedReducesPrecisionToFourDecimals()
+    {
+        var coordinate = new GeoCoordinate(37.08789999, -76.45051234);
+
+        var rounded = coordinate.Rounded();
+
+        rounded.Latitude.ShouldBe(37.0879);
+        rounded.Longitude.ShouldBe(-76.4505);
+    }
+
+    [Test]
+    public void RoundedCollapsesNearbyCoordinatesToTheSameValue()
+    {
+        // Two points ~5 m apart round to the same 4-dp coordinate, which is what
+        // lets nearby users share one cached /points lookup.
+        var a = new GeoCoordinate(37.08791, -76.45049).Rounded();
+        var b = new GeoCoordinate(37.08793, -76.45051).Rounded();
+
+        a.ShouldBe(b);
+        a.ToCacheKey().ShouldBe(b.ToCacheKey());
+    }
+
+    [Test]
+    public void ToApiStringUsesInvariantDecimalPoint()
+    {
+        var coordinate = new GeoCoordinate(37.0879, -76.4505);
+
+        coordinate.ToApiString().ShouldBe("37.0879,-76.4505");
+    }
+
+    [Test]
+    public void ToApiStringTrimsTrailingZerosToFourPlaces()
+    {
+        var coordinate = new GeoCoordinate(37.5, -76);
+
+        coordinate.ToApiString().ShouldBe("37.5,-76");
+    }
+
+    [Test]
+    public void ToApiStringIsCultureIndependent()
+    {
+        // Guard against a comma decimal separator leaking in under a non-US culture.
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            new GeoCoordinate(37.0879, -76.4505).ToApiString().ShouldBe("37.0879,-76.4505");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Test]
+    public void ToCacheKeyEqualsApiString() =>
+        new GeoCoordinate(12.3456, -65.4321).ToCacheKey().ShouldBe("12.3456,-65.4321");
+}
+
+
+
+================================================================================
+
+I'm realizing that changing the default precision for Rounded() would break existing tests that expect 4 decimals, so I need to either keep the default at 4 and explicitly call Rounded(2) in WeatherService, or update the tests to match a new default.
+
+Looking at how the caches work — both the metadata cache and alert cache key off the coordinate object that WeatherService passes to them. Since WeatherService already rounds coordinates before calling GetAsync or UpsertAsync, as long as I'm consistent about rounding to 2 decimals in the entry methods, the cache keys will align properly regardless of what precision the Rounded() method defaults to. Tracing through the flow: GetForecastAsync and GetAreaForecastAsync both pass the already-rounded coord to ResolveMetadataAsync and ResolveAlertsAsync. Since coord is already at 2 decimal places, when ResolveAlertsAsync calls Rounded() with the default 4 decimal places, it stays at 2dp, so the alert cache key and NWS call both use the same coordinate value consistently.
+
+For Option A, I'll add a constant for the cache key precision and update the three Rounded() calls to use it explicitly. In ResolveAlertsAsync, I can simplify to just ToCacheKey() since the coordinate is already coarsened by the caller, though keeping it explicit with the rounding call is safer for clarity.
+
+The other methods like GetForecastByGridAsync and the neighborhood path don't interact with coordinate keys, so they're unaffected. I'm also thinking through the precision trade-off: 2 decimal places gives roughly 1.11 km latitude and 0.88 km longitude at 37°N, which is well within NWS grid cell boundaries (~2.5 km), so even in the worst case near a boundary, we'd be at most 0.5-0.7 km off—close enough that fetching the neighborhood handles any adjacent cell issues. I'll document this reasoning clearly in the code.
+
+For both forecasts and alerts, 2dp is safe since the grid mapping is what matters, not the exact coordinate, and alert polygons are much larger than the rounding error anyway. I should make this configurable by adding a CacheKeyDecimals setting to the WeatherService.
+
+Actually, I'll keep it as a constant with a detailed comment explaining the tradeoff — that's simpler and still clear for the sandbox. Now I need to check the other tests that will be affected: the cache tests since CellExtras now includes StationId, the NWS client tests for the signature changes, the stub handlers and payloads, and the WeatherService tests that construct the service with coalescers.
+
+The constructor change is the big one — adding the two new coalescer parameters means every test that instantiates WeatherService needs to pass them. Let me scan through all the affected test files to see how they're currently constructing the service and what I'll need to update.
+Done
+
+Rounded()'s default of 4 is pinned by two tests, so I'll keep the method as-is and apply the coarser precision in WeatherService where the cache-key policy belongs — zero blast radius on GeoCoordinate. Now the tests that my service/model/client changes will touch:
+Scrutinizing caching implementation correctness and request patterns
+
+bash
+sed -n '9495,9587p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs
+SIZE: 3.23 KB
+MODIFIED: 06/19/2026 13:42:16
+================================================================================
+
+using Weather.Core.Abstractions;
+using Weather.Infrastructure.Caching;
+
+namespace Weather.Infrastructure.Tests.Caching;
+
+public sealed class SqliteCellExtrasCacheTests
+{
+    private static readonly GridPoint Grid = new("AKQ", 83, 61);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    private static CellExtras SampleExtras() => new(
+        Hourly: new[]
+        {
+            new ForecastPeriod(1, string.Empty, Now, Now.AddHours(1), true, 90, "F", 2,
+                "6 mph", "S", "Sunny", string.Empty, "icon-1"),
+            new ForecastPeriod(2, string.Empty, Now.AddHours(1), Now.AddHours(2), true, 89, "F", 2,
+                "7 mph", "S", "Sunny", string.Empty, "icon-2"),
+        },
+        Observation: new Observation(
+            "KPHF", "Newport News", Now, "Sunny", "icon-obs",
+            88, 70, 55, 8, 15, "S", 30.06, 10.0),
+        Center: new GeoCoordinate(37.088, -76.452));
+
+    [Test]
+    public async Task UpsertThenGetRoundTripsEveryField()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteCellExtrasCache(harness.Factory);
+        var entry = new CachedCellExtras(SampleExtras(), Now, Now.AddMinutes(30));
+
+        await cache.UpsertAsync(Grid, entry);
+        var read = await cache.GetAsync(Grid);
+
+        read.ShouldNotBeNull();
+        read!.RetrievedAtUtc.ShouldBe(Now);
+        read.ExpiresAtUtc.ShouldBe(Now.AddMinutes(30));
+        read.Extras.Hourly.Count.ShouldBe(2);
+        read.Extras.Hourly[0].Temperature.ShouldBe(90);
+        read.Extras.Observation.ShouldNotBeNull();
+        read.Extras.Observation!.TemperatureF.ShouldBe(88);
+        read.Extras.Observation.WindDirection.ShouldBe("S");
+        read.Extras.Center.ShouldNotBeNull();
+        read.Extras.Center!.Value.Latitude.ShouldBe(37.088, tolerance: 0.0001);
+    }
+
+    [Test]
+    public async Task GetReturnsNullWhenAbsent()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteCellExtrasCache(harness.Factory);
+
+        (await cache.GetAsync(Grid)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task UpsertOverwritesTheExistingEntry()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteCellExtrasCache(harness.Factory);
+
+        await cache.UpsertAsync(Grid, new CachedCellExtras(SampleExtras(), Now, Now.AddMinutes(30)));
+
+        var updated = SampleExtras() with { Observation = null };
+        await cache.UpsertAsync(Grid, new CachedCellExtras(updated, Now.AddMinutes(5), Now.AddMinutes(35)));
+
+        var read = await cache.GetAsync(Grid);
+        read.ShouldNotBeNull();
+        read!.Extras.Observation.ShouldBeNull();
+        read.RetrievedAtUtc.ShouldBe(Now.AddMinutes(5));
+    }
+
+    [Test]
+    public async Task FreshnessTracksTheExpiryInstant()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteCellExtrasCache(harness.Factory);
+        await cache.UpsertAsync(Grid, new CachedCellExtras(SampleExtras(), Now, Now.AddMinutes(30)));
+
+        var read = await cache.GetAsync(Grid);
+
+        read!.IsFresh(Now.AddMinutes(10)).ShouldBeTrue();
+        read.IsFresh(Now.AddMinutes(31)).ShouldBeFalse();
+    }
+}
+
+
+
+================================================================================
+
+I'm checking whether adding a new positional parameter with a default value to the record would break the existing named-argument construction — and it turns out that's fine, since record parameters with defaults work without requiring the caller to specify them.
+
+Now I need to look at how the tests construct WeatherService since I'm adding two new parameters there, and I should also check the INwsApiClient implementations to see what changes are needed for the GetLatestObservationAsync signature.
+Done
+
+CellExtras gains StationId as a trailing optional param, so existing named-arg construction keeps compiling. Now the most impactful test surface — WeatherService's constructor (I'm adding two coalescer parameters). Let me see how the tests build it:
+Scrutinizing caching implementation correctness and request patterns
+
+bash
+sed -n '11074,11308p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+SIZE: 10.05 KB
+MODIFIED: 06/23/2026 13:14:35
+================================================================================
+
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Weather.Core.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Services;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Services;
+
+public sealed class WeatherServiceTests
+{
+    private static readonly GeoCoordinate Coord = new(37.0879, -76.4505);
+    private static readonly GridPoint Grid = new("AKQ", 83, 61);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    private static PointMetadata Meta() =>
+        new(Coord, Grid, "forecast-url", "hourly-url", "Bethel Manor", "VA", "America/New_York", "KAKQ");
+
+    private static Forecast ForecastFor(GridPoint grid) =>
+        new(grid, Now, Now, new[]
+        {
+            new ForecastPeriod(1, "This Afternoon", Now, Now.AddHours(4), true, 90, "F", 3,
+                "5 mph", "S", "Sunny", "Detailed.", "icon"),
+        });
+
+    private static CachedForecast FreshForecast(GridPoint grid) =>
+        new(ForecastFor(grid), "\"e\"", Now, Now.AddHours(1));
+
+    private static CachedForecast StaleForecast(GridPoint grid) =>
+        new(ForecastFor(grid), "\"e\"", Now.AddHours(-2), Now.AddHours(-1));
+
+    private static CachedPointMetadata FreshMeta() => new(Meta(), Now, Now.AddDays(30));
+
+    private static CachedPointMetadata StaleMeta() => new(Meta(), Now.AddDays(-60), Now.AddDays(-30));
+
+    private sealed class Harness
+    {
+        public IPointMetadataCache MetadataCache { get; } = Substitute.For<IPointMetadataCache>();
+        public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
+        public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
+        public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
+        public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
+        public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
+        public WeatherService Service { get; }
+        // A REAL coalescer: its logic is pure and in-process, so the area hot
+        // path runs through it exactly as in production while these tests keep
+        // asserting cache-aside behaviour.
+        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
+
+        public Harness()
+        {
+            Service = new WeatherService(
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                Coalescer, AlertCoalescer,
+                new WeatherTelemetry(), new MutableTimeProvider(Now),
+                Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
+        }
+    }
+
+    [Test]
+    public async Task GetForecastOnFullMissFetchesStoresAndSchedulesWarming()
+    {
+        var h = new Harness();
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(Meta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        result!.Grid.ShouldBe(Grid);
+        await h.MetadataCache.Received(1).UpsertAsync(Arg.Any<CachedPointMetadata>(), Arg.Any<CancellationToken>());
+        await h.ForecastCache.Received(1).UpsertAsync(Arg.Any<CachedForecast>(), Arg.Any<CancellationToken>());
+        h.Warmer.Received(1).RequestWarming(Grid);
+    }
+
+    [Test]
+    public async Task GetForecastWithFreshMetadataDoesNotCallPoints()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(FreshForecast(Grid));
+
+        await h.Service.GetForecastAsync(Coord);
+
+        await h.Nws.DidNotReceive().GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastWithFreshForecastDoesNotCallForecast()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(FreshForecast(Grid));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        await h.Nws.DidNotReceive().GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastStaleThenNotModifiedRenewsTtlAndReturnsCached()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(StaleForecast(Grid));
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.NotModified("\"e2\"", TimeSpan.FromMinutes(20)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        result!.Periods[0].ShortForecast.ShouldBe("Sunny");
+        await h.ForecastCache.Received(1).UpsertAsync(
+            Arg.Is<CachedForecast>(c =>
+                c.ETag == "\"e2\"" &&
+                c.RetrievedAtUtc == Now &&
+                c.ExpiresAtUtc == Now.AddMinutes(20)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastStaleThenUnavailableServesStaleWithoutUpsert()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(StaleForecast(Grid));
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Unavailable);
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        result!.Grid.ShouldBe(Grid);
+        await h.ForecastCache.DidNotReceive().UpsertAsync(Arg.Any<CachedForecast>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastNotFoundWithoutCacheReturnsNull()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.NotFound);
+
+        (await h.Service.GetForecastAsync(Coord)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastWithUnresolvableMetadataAndNoCacheReturnsNull()
+    {
+        var h = new Harness();
+        // metadata cache empty + NWS resolve returns null
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((PointMetadata?)null);
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldBeNull();
+        await h.Nws.DidNotReceive().GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastWithUnresolvableMetadataButStaleCacheServesStaleMetadata()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(StaleMeta());
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((PointMetadata?)null);
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        await h.Nws.Received(1).GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetNeighborhoodReturnsOnlyAlreadyFreshNeighbors()
+    {
+        var h = new Harness();
+        var neighborA = new GridPoint("AKQ", 82, 61);
+        var neighborB = new GridPoint("AKQ", 84, 61);
+
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(FreshForecast(Grid));
+        h.ForecastCache.GetAsync(neighborA, Arg.Any<CancellationToken>()).Returns(FreshForecast(neighborA));
+        h.ForecastCache.GetAsync(neighborB, Arg.Any<CancellationToken>()).Returns(FreshForecast(neighborB));
+        // every other surrounding cell returns null (the NSubstitute default)
+
+        var result = await h.Service.GetNeighborhoodForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        result!.Primary.Grid.ShouldBe(Grid);
+        result.Neighbors.Count.ShouldBe(2);
+        result.Neighbors.Select(n => n.Grid).ShouldBe(new[] { neighborA, neighborB }, ignoreOrder: true);
+        h.Warmer.Received(1).RequestWarming(Grid);
+    }
+
+    [Test]
+    public async Task GetNeighborhoodWithoutMetadataReturnsNull()
+    {
+        var h = new Harness();
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((PointMetadata?)null);
+
+        (await h.Service.GetNeighborhoodForecastAsync(Coord)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastByGridDoesNotScheduleWarming()
+    {
+        var h = new Harness();
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        var result = await h.Service.GetForecastByGridAsync(Grid);
+
+        result.ShouldNotBeNull();
+        h.Warmer.DidNotReceive().RequestWarming(Arg.Any<GridPoint>());
+    }
+}
+
+
+
+================================================================================
+
+Looking at the test harness, I can see how the WeatherService is being instantiated with all its dependencies, and I'm realizing that when I add the new extrasCoalescer parameter, I'll need to include it in this constructor call along with the other coalescer.
+
+I'm thinking through where these new coalescers should go in the parameter order. Since they're coalescers like the existing forecastCoalescer and alertCoalescer, it makes sense to group them together in that section of the constructor. I'll insert the extrasCoalescer and metadataCoalescer right after the existing coalescers, keeping all the cache and client parameters at the front and the configuration/logging parameters at the end.
+
+For the test harness specifically, I'll need to instantiate these new coalescer types directly rather than relying on keyed dependency injection, since the tests construct the service manually.
+
+Now I'm reconsidering whether I actually need a separate metadata coalescer at all. The coarse rounding from Fix 1 already solves most of the metadata stampede problem by making jittered coordinates share cache keys. The only remaining edge case is when many requests hit the same coarse key while it's genuinely cold. Adding a metadata coalescer would be the complete solution, but it adds another constructor parameter and more test setup. I'm wondering if I could reuse the existing alert string-coalescer for metadata instead, since both would use coordinate strings as keys.
+
+But that won't work — if I use the same key string for both metadata and alert requests, they'd collide in the same coalescer dictionary and one would incorrectly receive the other's result. I could prefix the keys to avoid collisions, but that feels fragile. The cleaner approach is to have a dedicated IRequestCoalescer<GeoCoordinate> for metadata, since different coalescer instances maintain separate dictionaries and coordinate keys won't collide with grid or string keys. So I'll go ahead and add the metadata coalescer with the two new constructor parameters.
+
+Now I'm weighing whether to actually include it — the user's emphasis on best practices and covering everything tips the scale, especially since the logs show /points being fetched multiple times for the same coordinates. Adding the metadata coalescer is the right call even if it means updating both test harnesses. Let me think through how this interacts with the stale-serve logic in ResolveMetadata.
+
+I'll wrap the fetch portion in a coalescer keyed by coordinate and re-check the cache inside the flight, mirroring the alert pattern so concurrent requests collapse to a single /points call. Now I need to review the other test harness and the NWS client tests — I'm not promoting GetNearestStationId after all, just adding an optional knownStationId parameter to GetLatestObservationAsync.
+Done
+
+I can see the test harness pattern (real coalescers, substituted caches). I'm adding two constructor params (an extras coalescer and a metadata coalescer), so I'll update each harness. Let me read the area-service tests and the NWS client tests — the latter because GetLatestObservationAsync gains an optional knownStationId.
+Scrutinizing caching implementation correctness and request patterns
+
+bash
+sed -n '10792,11073p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
+SIZE: 11.55 KB
+MODIFIED: 06/23/2026 13:14:24
+================================================================================
+
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Weather.Core.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Services;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Services;
+
+public sealed class WeatherServiceAreaTests
+{
+    private static readonly GeoCoordinate Coord = new(37.0879, -76.4505);
+    private static readonly GridPoint Grid = new("AKQ", 83, 61);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    private static PointMetadata Meta() =>
+        new(Coord, Grid, "forecast-url", "hourly-url", "Bethel Manor", "VA", "America/New_York", "KAKQ");
+
+    private static Forecast ForecastFor(GridPoint grid) =>
+        new(grid, Now, Now, new[]
+        {
+            new ForecastPeriod(1, "This Afternoon", Now, Now.AddHours(4), true, 90, "F", 3,
+                "5 mph", "S", "Sunny", "Detailed.", "icon"),
+            new ForecastPeriod(2, "Tonight", Now.AddHours(4), Now.AddHours(16), false, 74, "F", null,
+                "12 mph", "S", "Mostly Clear", "Detailed.", "icon"),
+        });
+
+    // A deterministic, distinct centre per cell so distance ordering is testable:
+    // cells further from the origin in grid space map to centres further from Coord.
+    private static GeoCoordinate CenterFor(GridPoint grid) =>
+        new(37.0 + (grid.GridY * 0.01), -76.0 - (grid.GridX * 0.01));
+
+    // Return the concrete array type (CA1859): the method is private and every
+    // caller is fine with ForecastPeriod[], which still satisfies the
+    // IReadOnlyList<ForecastPeriod> parameters it is passed to.
+    private static ForecastPeriod[] HourlyTwo() => new[]
+    {
+        new ForecastPeriod(1, string.Empty, Now, Now.AddHours(1), true, 90, "F", 2,
+            "6 mph", "S", "Sunny", string.Empty, "icon"),
+        new ForecastPeriod(2, string.Empty, Now.AddHours(1), Now.AddHours(2), true, 89, "F", 2,
+            "7 mph", "S", "Sunny", string.Empty, "icon"),
+    };
+
+    private static Observation ObservationSample() =>
+        new("KPHF", "Newport News", Now, "Sunny", "icon", 88, 70, 55, 8, 15, "S", 30.06, 10.0);
+
+    private static WeatherAlert AlertSample() =>
+        new("id-1", "Heat Advisory", "Moderate", "Likely", "Expected", "Heat Advisory in effect",
+            "Hot.", "Drink fluids.", "Hampton", "NWS Wakefield VA", Now, Now, Now.AddHours(6), Now.AddHours(6));
+
+    private sealed class Harness
+    {
+        public IPointMetadataCache MetadataCache { get; } = Substitute.For<IPointMetadataCache>();
+        public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
+        public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
+        public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
+        public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
+        public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
+
+        // A REAL coalescer: its logic is pure and in-process, so the area hot
+        // path runs through it exactly as in production while these tests keep
+        // asserting cache-aside behaviour.
+        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
+
+        public WeatherService Service { get; }
+
+        public Harness()
+        {
+            Service = new WeatherService(
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                Coalescer, AlertCoalescer,
+                new WeatherTelemetry(), new MutableTimeProvider(Now),
+                Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
+        }
+
+        public void ResolvesMetadata() =>
+            Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(Meta());
+
+        public void AllDailyFetchesSucceed() =>
+            Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                .Returns(ci =>
+                {
+                    var grid = ci.Arg<GridPoint>();
+                    return ForecastFetchResult.Success(ForecastFor(grid), "\"e\"", TimeSpan.FromMinutes(30), CenterFor(grid));
+                });
+
+        public void ExtrasAlwaysMiss() =>
+            ExtrasCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>())
+                .Returns((CachedCellExtras?)null);
+
+        public void HourlyAndObservationAndAlertsAvailable()
+        {
+            Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+            Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+            Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+                .Returns(new[] { AlertSample() });
+        }
+    }
+
+    [Test]
+    public async Task GetAreaAssemblesPrimaryAllNeighboursHourlyObservationAndAlerts()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Grid.ShouldBe(Grid);
+        area.Primary.Daily.Periods.Count.ShouldBe(2);
+        area.Primary.Hourly.Count.ShouldBe(2);
+        area.Primary.Observation.ShouldNotBeNull();
+        area.Primary.Observation!.TemperatureF.ShouldBe(88);
+
+        // The 3x3 ring around the origin has eight neighbours.
+        area.Neighbors.Count.ShouldBe(8);
+        area.Alerts.Count.ShouldBe(1);
+        area.Alerts[0].Event.ShouldBe("Heat Advisory");
+
+        h.Warmer.Received(1).RequestWarming(Grid);
+    }
+
+    [Test]
+    public async Task GetAreaOrdersNeighboursByDistanceFromTheUser()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        var distances = area!.Neighbors
+            .Where(n => n.DistanceMeters is not null)
+            .Select(n => n.DistanceMeters!.Value)
+            .ToList();
+
+        distances.Count.ShouldBe(8);
+        distances.ShouldBe(distances.OrderBy(d => d).ToList());
+    }
+
+    [Test]
+    public async Task GetAreaServesExtrasFromCacheWithoutRefetchingHourly()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        // Every cell already has fresh extras cached.
+        var cached = new CachedCellExtras(
+            new CellExtras(HourlyTwo(), ObservationSample(), CenterFor(Grid)),
+            Now, Now.AddMinutes(30));
+        h.ExtrasCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(cached);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Hourly.Count.ShouldBe(2);
+        await h.Nws.DidNotReceive().GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
+        await h.Nws.DidNotReceive().GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaReturnsNullWhenLocationUncovered()
+    {
+        var h = new Harness();
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((PointMetadata?)null);
+
+        (await h.Service.GetAreaForecastAsync(Coord)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetAreaWithRadiusTwoReturnsTwentyFourNeighbours()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        var area = await h.Service.GetAreaForecastAsync(Coord, radius: 2);
+
+        area.ShouldNotBeNull();
+        area!.Neighbors.Count.ShouldBe(24);
+    }
+
+    [Test]
+    public async Task GetAreaOnAlertCacheMissFetchesOnceAndStores()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        // Alert cache is cold for this coordinate.
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((CachedAlerts?)null);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(1);
+
+        // Fetched exactly once and the result was written back to the cache.
+        await h.Nws.Received(1).GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+        await h.AlertCache.Received(1).UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaServesAlertsFromCacheWithoutHittingNws()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+
+        // A FRESH alert entry already cached for this coordinate.
+        var cachedAlerts = new CachedAlerts(new[] { AlertSample() }, Now, Now.AddMinutes(5));
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(cachedAlerts);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(1);
+        area.Alerts[0].Event.ShouldBe("Heat Advisory");
+
+        // The whole point of the fix: a fresh cache entry means ZERO calls to
+        // the /alerts/active endpoint, no matter how many times the page loads.
+        await h.Nws.DidNotReceive().GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+        await h.AlertCache.DidNotReceive().UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaCachesEmptyAlertResultToAvoidRefetching()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((CachedAlerts?)null);
+        // No active alerts (and/or NWS best-effort empty).
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(0);
+
+        // "No alerts" is itself cached, so the next view will not re-hit NWS.
+        await h.AlertCache.Received(1).UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+}
+
+
+
+================================================================================
+
+I'm realizing that if I add an optional knownStationId parameter to the GetLatestObservationAsync method signature, the existing NSubstitute test setups that use Arg.Any<GridPoint>() and Arg.Any<CancellationToken>() will break because they won't match the new signature anymore.
+
+Instead of forcing all those test updates across multiple test files, I could handle station-id caching entirely within NwsApiClient itself using a small in-memory cache that maps grid points to station IDs, keeping the public method signature unchanged.
+
+But wait—NwsApiClient is registered as transient by default when using AddHttpClient, so each resolution creates a new instance and the cache wouldn't persist across calls. That won't work.
+
+Another approach: add a separate overload GetLatestObservationAsync(string stationId, CancellationToken) to the interface instead of changing the existing one. The existing setups for the GridPoint overload would keep matching, so less test churn overall. But the fake implementation would need to handle both methods, and tests verifying the "skip stations" path would need new setups anyway.
+
+Actually, I think the cleaner move is to defer the station-id caching fix entirely. The extras coalescer already eliminates the duplicate concurrent /stations calls that happen in the same millisecond—that's the part that really bothers the user. The remaining calls (one per cell per extras refresh, every 30 minutes) are cheap and infrequent after coalescing. Instead, I could add a separate, longer TTL specifically for extras so they refresh less often than the 30-minute daily forecast cycle.
+
+But the user did specifically call out that /stations request, and this is a learning sandbox where they want things done right. Re-fetching an immutable station list on every refresh is genuinely wasteful, and the proper fix is to cache the station ID. Let me think through the actual churn honestly. If I add a knownStationId parameter, the test updates are mostly mechanical—updating the setup and assertions in WeatherServiceAreaTests to pass the extra argument, while WeatherServiceTests doesn't even call that method directly, so the impact is contained.
+
+The real issue I'm hitting is the method signature itself. If I make it (GridPoint grid, string? knownStationId = null, CancellationToken ct = default), then existing calls like GetLatestObservationAsync(grid, ct) will bind the cancellation token to the wrong parameter. I need to think through how to structure this without breaking the call sites. CancellationToken should go last by convention, so overloading makes more sense—keep the original 2-arg signature and add a 3-arg overload with the station ID in the middle. This way existing callers stay unaffected, but now I'm realizing the test setup only mocks the 2-arg path, so when WeatherService calls the 3-arg overload with a cached station ID, those area tests won't have the right stub in place. The overload approach keeps things minimal—existing tests and setups stay intact, the fake just gains one method, and I only need to add new tests for the station ID skipping logic. No changes needed to NwsApiClientTests since they use the existing 2-arg version. Let me think through whether there's an even simpler way to frame this...
+
+actually, no—when ResolveExtrasAsync has stale cached extras with a known StationId, it still needs to fetch a fresh observation, and the only way to do that without re-resolving stations is through the by-station method, so the overload is necessary.
+
+For the implementation: on a cache hit, return as-is with the StationId intact. On a miss or stale entry, check if we have a previously cached StationId—if so, use the 3-arg overload to skip the station resolution step; otherwise fall back to the 2-arg overload. Then store the extras with the StationId from the observation if available, or keep the cached one if the observation came back null.
+
+The tricky part is that when the 2-arg overload returns null (no recent observation for that station), we lose the resolved station id. I could have ResolveExtrasAsync handle the station resolution itself by calling a dedicated method on the interface, cache that id, then fetch the observation by id. This way the WeatherService owns all the station-id caching logic cleanly, though it means adding a new method to the interface.
+
+The real question is whether to keep the existing single-argument overload for backward compatibility or remove it entirely—keeping it creates redundancy, but removing it breaks existing code.
+
+So the cleanest approach is to promote the private station-lookup method to the interface, add a by-station overload for the observation fetch, and keep the original overload as a convenience wrapper that chains the two calls together. I'll also add StationId to CellExtras and update the cache resolution logic to check freshness before deciding whether to refetch. The test suite will break because GetNearestStationIdAsync isn't stubbed, so it returns null and skips the observation entirely, causing assertions like Observation.ShouldNotBeNull() to fail. I need to update the test setup to stub this new dependency and ensure the station ID resolves properly.
+
+For the "serves extras from cache" test, the mock assertion needs to shift from checking that the 2-argument GetLatestObservationAsync wasn't called to verifying that GetNearestStationIdAsync wasn't invoked instead, since the production code now uses the station ID lookup path.
+
+I'm also wondering if I should remove the 2-argument overload entirely from the interface—if production doesn't use it anymore, keeping it around is just dead code. But that would require updating all the test setups and fakes that reference it. Let me make a decisive call here: I'll remove the 2-arg overload, replace the flow with GetNearestStationIdAsync plus the by-id version, and update the tests and fakes to match the new shape.
+
+So my plan is to promote GetNearestStationIdAsync to the interface, add the by-id GetLatestObservationAsync overload, remove the old 2-arg version entirely since production won't use it, add CellExtras.StationId, update WeatherService.ResolveExtrasAsync, and then fix up all the affected test harnesses and fakes—the WeatherServiceAreaTests, FakeNwsApiClient, NwsApiClientTests, and add a StationId round-trip test.
+
+Now I need to review the remaining test files to understand what else needs updating: NwsApiClientTests, NwsApiClientExtraTests, NwsPayloads, StubHttpMessageHandler, and the FakeNwsApiClient in Api.Tests, plus the ForecastEndpointsTests and WeatherApiFactory to make sure the API integration tests still work with these changes.
+Done
+
+The area tests stub GetLatestObservationAsync(GridPoint, ct) directly, so I'll need to update them when I refactor the station-resolution flow. Let me read the NWS client tests and the API test fakes to complete the picture before I write anything.
+Architected API client refactoring to eliminate redundant requests and improve caching
+
+bash
+sed -n '10122,10475p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs
+SIZE: 5.02 KB
+MODIFIED: 06/19/2026 12:35:38
+================================================================================
+
+using System.Net;
+using Microsoft.Extensions.Logging.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Nws;
+
+public sealed class NwsApiClientExtraTests
+{
+    private static readonly GeoCoordinate SampleCoordinate = new(37.0879, -76.4505);
+    private static readonly GridPoint SampleGrid = new("AKQ", 83, 61);
+
+    private static NwsApiClient CreateClient(StubHttpMessageHandler handler)
+    {
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api.weather.gov/") };
+        return new NwsApiClient(httpClient, new WeatherTelemetry(), NullLogger<NwsApiClient>.Instance);
+    }
+
+    /// <summary>Route each NWS path to its canned payload (handles the two-step observation flow).</summary>
+    private static StubHttpMessageHandler RoutingHandler() => new(request =>
+    {
+        var path = request.RequestUri!.AbsolutePath;
+        var body = path switch
+        {
+            _ when path.EndsWith("/forecast/hourly", StringComparison.Ordinal) => NwsPayloads.Hourly,
+            _ when path.EndsWith("/stations", StringComparison.Ordinal) => NwsPayloads.Stations,
+            _ when path.Contains("/observations/latest", StringComparison.Ordinal) => NwsPayloads.Observation,
+            _ when path.StartsWith("/alerts/active", StringComparison.Ordinal) => NwsPayloads.Alerts,
+            _ when path.EndsWith("/forecast", StringComparison.Ordinal) => NwsPayloads.ForecastWithGeometry,
+            _ => NwsPayloads.Points,
+        };
+
+        return StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, body);
+    });
+
+    [Test]
+    public async Task GetHourlyForecastParsesPeriods()
+    {
+        var client = CreateClient(RoutingHandler());
+
+        var hourly = await client.GetHourlyForecastAsync(SampleGrid);
+
+        hourly.Count.ShouldBe(2);
+        hourly[0].Temperature.ShouldBe(90);
+        hourly[1].Temperature.ShouldBe(89);
+    }
+
+    [Test]
+    public async Task GetHourlyForecastReturnsEmptyOn404()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = CreateClient(handler);
+
+        (await client.GetHourlyForecastAsync(SampleGrid)).ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task GetLatestObservationFollowsStationsThenConvertsUnits()
+    {
+        var client = CreateClient(RoutingHandler());
+
+        var observation = await client.GetLatestObservationAsync(SampleGrid);
+
+        observation.ShouldNotBeNull();
+        observation!.StationId.ShouldBe("KPHF");
+        observation.TemperatureF.ShouldBe(88);    // 31.1 degC
+        observation.DewpointF.ShouldBe(70);       // 21.0 degC
+        observation.RelativeHumidity.ShouldBe(55);
+        observation.WindDirection.ShouldBe("S");  // 180 degrees
+        observation.WindSpeedMph.ShouldBe(8);     // 13 km/h
+        observation.WindGustMph.ShouldBe(15);     // 24.1 km/h
+        observation.PressureInHg!.Value.ShouldBe(30.06, tolerance: 0.05);  // 101800 Pa
+        observation.VisibilityMiles!.Value.ShouldBe(10.0, tolerance: 0.1); // 16093 m
+    }
+
+    [Test]
+    public async Task GetLatestObservationReturnsNullWhenNoStations()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+            request.RequestUri!.AbsolutePath.EndsWith("/stations", StringComparison.Ordinal)
+                ? StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, """{ "features": [] }""")
+                : StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Observation));
+        var client = CreateClient(handler);
+
+        (await client.GetLatestObservationAsync(SampleGrid)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetActiveAlertsParsesAnAdvisory()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Alerts));
+        var client = CreateClient(handler);
+
+        var alerts = await client.GetActiveAlertsAsync(SampleCoordinate);
+
+        alerts.Count.ShouldBe(1);
+        alerts[0].Event.ShouldBe("Heat Advisory");
+        alerts[0].Severity.ShouldBe("Moderate");
+        alerts[0].Instruction.ShouldBe("Drink plenty of fluids.");
+    }
+
+    [Test]
+    public async Task GetActiveAlertsReturnsEmptyWhenNone()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.NoAlerts));
+        var client = CreateClient(handler);
+
+        (await client.GetActiveAlertsAsync(SampleCoordinate)).ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task GetForecastComputesCellCentreFromGeometry()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.ForecastWithGeometry));
+        var client = CreateClient(handler);
+
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        result.Center.ShouldNotBeNull();
+        result.Center!.Value.Latitude.ShouldBe(37.088, tolerance: 0.001);
+        result.Center.Value.Longitude.ShouldBe(-76.452, tolerance: 0.001);
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
+SIZE: 7.82 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Net;
+using System.Net.Http.Headers;
+using Microsoft.Extensions.Logging.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Nws;
+
+public sealed class NwsApiClientTests
+{
+    private static readonly GeoCoordinate SampleCoordinate = new(37.0879, -76.4505);
+    private static readonly GridPoint SampleGrid = new("AKQ", 83, 61);
+
+    private static NwsApiClient CreateClient(StubHttpMessageHandler handler, WeatherTelemetry telemetry)
+    {
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://api.weather.gov/"),
+        };
+        return new NwsApiClient(httpClient, telemetry, NullLogger<NwsApiClient>.Instance);
+    }
+
+    [Test]
+    public async Task GetPointMetadataParsesGridAndLocation()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var metadata = await client.GetPointMetadataAsync(SampleCoordinate);
+
+        metadata.ShouldNotBeNull();
+        metadata!.Grid.ShouldBe(SampleGrid);
+        metadata.City.ShouldBe("Bethel Manor");
+        metadata.State.ShouldBe("VA");
+        metadata.TimeZone.ShouldBe("America/New_York");
+        metadata.RadarStation.ShouldBe("KAKQ");
+        metadata.ForecastUrl.ShouldBe("https://api.weather.gov/gridpoints/AKQ/83,61/forecast");
+    }
+
+    [Test]
+    public async Task GetPointMetadataRequestsTheRoundedCoordinatePath()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        await client.GetPointMetadataAsync(SampleCoordinate);
+
+        handler.LastRequest.ShouldNotBeNull();
+        handler.LastRequest!.RequestUri!.AbsolutePath.ShouldBe("/points/37.0879,-76.4505");
+    }
+
+    [Test]
+    public async Task GetPointMetadataReturnsNullWhenUncovered()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var metadata = await client.GetPointMetadataAsync(SampleCoordinate);
+
+        metadata.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetPointMetadataReturnsNullOnServerError()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetPointMetadataAsync(SampleCoordinate)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastSuccessMapsPeriodsEtagAndMaxage()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast);
+            response.Headers.ETag = new EntityTagHeaderValue("\"abc123\"");
+            response.Headers.CacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(45) };
+            return response;
+        });
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.Success);
+        result.ETag.ShouldBe("\"abc123\"");
+        result.MaxAge.ShouldBe(TimeSpan.FromMinutes(45));
+
+        result.Forecast.ShouldNotBeNull();
+        var forecast = result.Forecast!;
+        forecast.Grid.ShouldBe(SampleGrid);
+        forecast.Periods.Count.ShouldBe(2);
+
+        var first = forecast.Periods[0];
+        first.Name.ShouldBe("This Afternoon");
+        first.Temperature.ShouldBe(90);
+        first.TemperatureUnit.ShouldBe("F");
+        first.IsDaytime.ShouldBeTrue();
+        first.ProbabilityOfPrecipitation.ShouldBe(3);
+        first.ShortForecast.ShouldBe("Sunny");
+
+        // A null POP value must map to null, not zero.
+        forecast.Periods[1].ProbabilityOfPrecipitation.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastRequestsTheGridForecastPath()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        await client.GetForecastAsync(SampleGrid);
+
+        handler.LastRequest!.RequestUri!.AbsolutePath.ShouldBe("/gridpoints/AKQ/83,61/forecast");
+    }
+
+    [Test]
+    public async Task GetForecastSendsConditionalHeaderAndMaps304()
+    {
+        const string etag = "\"abc123\"";
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.NotModified);
+            response.Headers.ETag = new EntityTagHeaderValue(etag);
+            response.Headers.CacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(20) };
+            return response;
+        });
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var result = await client.GetForecastAsync(SampleGrid, etag);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotModified);
+        result.ETag.ShouldBe(etag);
+        result.MaxAge.ShouldBe(TimeSpan.FromMinutes(20));
+
+        handler.LastRequest!.Headers.TryGetValues("If-None-Match", out var values).ShouldBeTrue();
+        values!.ShouldContain(etag);
+    }
+
+    [Test]
+    public async Task GetForecastWithoutEtagSendsNoConditionalHeader()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        await client.GetForecastAsync(SampleGrid);
+
+        handler.LastRequest!.Headers.Contains("If-None-Match").ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task GetForecastMaps404ToNotFound()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+    }
+
+    [Test]
+    public async Task GetForecastMaps429ToUnavailable()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.Unavailable);
+    }
+
+    [Test]
+    public async Task GetForecastMaps500ToUnavailable()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.Unavailable);
+    }
+
+    [Test]
+    public async Task GetForecastMapsTransportFailureToUnavailable()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))
+        {
+            ThrowOnSend = new HttpRequestException("connection reset"),
+        };
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.Unavailable);
+    }
+}
+
+
+
+================================================================================
+
+Looking at the test cases in NwsApiClientExtraTests, I see there are two methods that both call the 2-argument version of GetLatestObservationAsync — one that verifies the observation gets converted and checks the station ID, and another that expects null when there are no stations available. The thinking seems to be cut off mid-sentence about removing the 2-arg overload.
+
+The decision here is to keep the 2-argument GetLatestObservationAsync(GridPoint, ct) overload as a convenience method that handles the resolve-then-observe flow, so those existing tests pass without modification. At the same time, I'll add the new GetNearestStationIdAsync method and a by-id overload of GetLatestObservationAsync for the WeatherService to use directly. This means adding two new tests — one verifying that GetNearestStationIdAsync returns the nearest station, and another confirming the by-id overload skips the /stations call. The WeatherService will use the new by-id path, and the test harness for WeatherServiceAreaTests needs to be updated to stub both GetNearestStationIdAsync returning "KPHF" and the by-id GetLatestObservationAsync call, while removing or replacing the old grid-based observation stub.
+
+I'm second-guessing whether it's clean to have a public interface method that production code never calls — the 2-arg overload would only be tested directly by NwsApiClientExtraTests. But it's a legitimate convenience method and not dead code, so keeping it is acceptable. Actually, I'm reconsidering whether I should avoid adding GetNearestStationIdAsync to the interface altogether and instead keep the station-id reuse logic internal.
+
+Let me think through a cleaner approach: add a by-id overload that takes a known station ID, add a separate method to resolve the nearest station ID, and keep the original convenience method that does both steps.
+
+For the implementation, I'll make the private station resolution method public, create the parameterized observation method, and have the convenience overload call both in sequence. I also need to add StationId to CellExtras and update WeatherService to cache and reuse it when available.
+
+For tests, I'm adding two new cases to verify the station lookup works independently and that the by-id path skips the stations endpoint entirely. I'll need to check how the stub handler tracks requests to properly assert that the /stations path wasn't called, then update the harness for WeatherServiceAreaTests.
+
+HourlyAndObservationAndAlertsAvailable to stub the nearest station lookup and use the by-id observation fetch instead. For the cache test, I'm switching the assertion from checking the 2-arg observation method to verifying that the nearest station and hourly forecast methods weren't called, since those are what would trigger on a cache miss.
+
+I also need to add StationId to the SampleExtras in the SQLite cache tests and verify it round-trips correctly, implement the two new interface methods in the fake NWS API client, and confirm the existing area test still works with the fresh cache scenario where no calls are made.
+Done
+
+The NWS client tests call GetLatestObservationAsync(grid) directly, so I'll keep that 2-arg overload as a convenience (refactored to use the new pieces) and add GetNearestStationIdAsync + a by-station-id overload for WeatherService to use — that keeps these tests passing unchanged. Let me read the stub handler, the API-test fake, and the Stations payload to finalize the test updates.
+Unraveling HttpClient resilience handler configuration implications
+
+bash
+sed -n '10053,10108p;8460,8561p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs
+SIZE: 3.73 KB
+MODIFIED: 06/19/2026 08:58:42
+================================================================================
+
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+
+namespace Weather.Api.Tests.Fakes;
+
+/// <summary>
+/// A deterministic <see cref="INwsApiClient"/> for end-to-end API tests. It lets
+/// the real weather service, SQLite caches and endpoints run unchanged while
+/// removing the network: any normal coordinate resolves to grid AKQ/83,61 with a
+/// sunny forecast, hourly periods and a current observation; the ocean sentinel
+/// (0, 0) reports no coverage.
+/// </summary>
+internal sealed class FakeNwsApiClient : INwsApiClient
+{
+    private static readonly GeoCoordinate CellCenter = new(37.0900, -76.4500);
+
+    public Task<PointMetadata?> GetPointMetadataAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        // (0, 0) — open ocean — stands in for "outside NWS coverage".
+        if (Math.Abs(coordinate.Latitude) < 0.001 && Math.Abs(coordinate.Longitude) < 0.001)
+        {
+            return Task.FromResult<PointMetadata?>(null);
+        }
+
+        var metadata = new PointMetadata(
+            Query: coordinate,
+            Grid: new GridPoint("AKQ", 83, 61),
+            ForecastUrl: "https://api.weather.gov/gridpoints/AKQ/83,61/forecast",
+            ForecastHourlyUrl: "https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly",
+            City: "Bethel Manor",
+            State: "VA",
+            TimeZone: "America/New_York",
+            RadarStation: "KAKQ");
+
+        return Task.FromResult<PointMetadata?>(metadata);
+    }
+
+    public Task<ForecastFetchResult> GetForecastAsync(
+        GridPoint grid, string? etag = null, CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var forecast = new Forecast(grid, now, now, new[]
+        {
+            new ForecastPeriod(1, "This Afternoon", now, now.AddHours(4), true, 90, "F", 3,
+                "5 to 12 mph", "S", "Sunny", "Sunny, with a high near 90.", "icon-day"),
+            new ForecastPeriod(2, "Tonight", now.AddHours(4), now.AddHours(16), false, 74, "F", null,
+                "12 mph", "S", "Mostly Clear", "Mostly clear, with a low around 74.", "icon-night"),
+        });
+
+        return Task.FromResult(ForecastFetchResult.Success(forecast, "\"e\"", TimeSpan.FromMinutes(30), CellCenter));
+    }
+
+    public Task<IReadOnlyList<ForecastPeriod>> GetHourlyForecastAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        IReadOnlyList<ForecastPeriod> hourly = new[]
+        {
+            new ForecastPeriod(1, string.Empty, now, now.AddHours(1), true, 90, "F", 2,
+                "6 mph", "S", "Sunny", string.Empty, "icon-hour-1"),
+            new ForecastPeriod(2, string.Empty, now.AddHours(1), now.AddHours(2), true, 89, "F", 2,
+                "7 mph", "S", "Sunny", string.Empty, "icon-hour-2"),
+        };
+
+        return Task.FromResult(hourly);
+    }
+
+    public Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var observation = new Observation(
+            StationId: "KPHF",
+            StationName: "Newport News",
+            Timestamp: DateTimeOffset.UtcNow,
+            TextDescription: "Sunny",
+            Icon: "icon-obs",
+            TemperatureF: 88,
+            DewpointF: 70,
+            RelativeHumidity: 55,
+            WindSpeedMph: 8,
+            WindGustMph: 14,
+            WindDirection: "S",
+            PressureInHg: 30.05,
+            VisibilityMiles: 10.0);
+
+        return Task.FromResult<Observation?>(observation);
+    }
+
+    public Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WeatherAlert>>([]);
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Fakes/StubHttpMessageHandler.cs
+SIZE: 1.63 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Net;
+
+namespace Weather.Infrastructure.Tests.Fakes;
+
+/// <summary>
+/// A test <see cref="HttpMessageHandler"/> whose response is produced by a
+/// caller-supplied delegate. It records every request (including headers) so
+/// tests can assert that, for example, a conditional <c>If-None-Match</c> was
+/// sent. Set <see cref="ThrowOnSend"/> to simulate a transport failure.
+/// </summary>
+internal sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+    : HttpMessageHandler
+{
+    private readonly List<HttpRequestMessage> _requests = [];
+
+    public IReadOnlyList<HttpRequestMessage> Requests => _requests;
+
+    public HttpRequestMessage? LastRequest => _requests.Count > 0 ? _requests[^1] : null;
+
+    public Exception? ThrowOnSend { get; set; }
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        _requests.Add(request);
+
+        if (ThrowOnSend is not null)
+        {
+            return Task.FromException<HttpResponseMessage>(ThrowOnSend);
+        }
+
+        var response = responder(request);
+        return Task.FromResult(response);
+    }
+
+    /// <summary>Build a JSON (application/geo+json, as NWS uses) response.</summary>
+    public static HttpResponseMessage GeoJson(HttpStatusCode statusCode, string body)
+    {
+        var response = new HttpResponseMessage(statusCode)
+        {
+            Content = new StringContent(body),
+        };
+        response.Content.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue("application/geo+json");
+        return response;
+    }
+}
+
+
+
+================================================================================
+
+I can use the StubHttpMessageHandler to verify that the /stations endpoint wasn't called when using the by-id observation method. For the FakeNwsApiClient, I need to implement the two new methods—GetNearestStationIdAsync returning "KPHF" and the by-id GetLatestObservationAsync returning the same observation object.
+
+I've confirmed that "KPHF" is already in the test payloads since the existing test validates that station ID through the stations-then-observation flow, so I can reuse that for the new test. Now I need to check whether the Web project's WeatherApiClient and Program.cs require any changes for the resilience fix, since the resilience handler is configured in the Infrastructure layer that both projects reference. The Web calls the API over HTTP, so each concurrent request from the Web (like two browser tabs) triggers separate API calls, but the coalescer singletons in the API process collapse those concurrent requests down to a single NWS call. The key question is whether the Web is a separate process or in-process with the API—either way, the coalescers should be working correctly to prevent the stampede on the metadata endpoints. Let me quickly review the Web program, WeatherApiClient, and the resilience configuration on that client connection.
+Done
+
+The stub records all requests (so I can assert /stations is skipped), and the API-test fake implements INwsApiClient (so it needs the two new methods). Let me do a final check on the Web→API client and both Program.cs files to be sure the resilience fix lands in the right place, then I'll write all the changes.
+Pinpointing caching implementation flaws in request patterns
+
+bash
+sed -n '6888,6935p;7219,7292p;2097,2149p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Api/Program.cs
+SIZE: 1.34 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+using Weather.Api.Endpoints;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure;
+using Weather.ServiceDefaults;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Aspire service defaults: OpenTelemetry, health checks, service discovery,
+// resilient HttpClient defaults.
+builder.AddServiceDefaults();
+
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi();
+
+// NWS client, SQLite caches, weather orchestration, background warmer.
+builder.Services.AddWeatherInfrastructure(builder.Configuration);
+
+// Register the application's custom meter and trace source with OpenTelemetry.
+// Kept here (not in ServiceDefaults) so ServiceDefaults stays app-agnostic.
+builder.Services.ConfigureOpenTelemetryMeterProvider(metrics =>
+    metrics.AddMeter(WeatherTelemetry.MeterName));
+builder.Services.ConfigureOpenTelemetryTracerProvider(tracing =>
+    tracing.AddSource(WeatherTelemetry.ActivitySourceName));
+
+var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
+if (app.Environment.IsDevelopment())
+{
+    // OpenAPI document at /openapi/v1.json in Development.
+    app.MapOpenApi();
+}
+
+app.MapDefaultEndpoints();
+app.MapWeatherEndpoints();
+
+app.Run();
+
+// Exposed so Weather.Api.Tests can drive the app with WebApplicationFactory<Program>.
+public partial class Program;
+
+
+
+================================================================================
+FILE: src/Weather.Web/Program.cs
+SIZE: 1.22 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using Weather.ServiceDefaults;
+using Weather.Web.Components;
+using Weather.Web.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// Browser geolocation is reached through an interface so the dashboard can be
+// unit-tested without a real browser (see Weather.Web.Tests).
+builder.Services.AddScoped<IGeolocationService, GeolocationService>();
+
+// Typed client to the backend. Under Aspire the "https+http://api" scheme is
+// resolved by service discovery (added in ServiceDefaults). To run the Web app
+// standalone, set WeatherApi:BaseUrl (or the services__api__https__0 env var).
+var apiBaseUrl = builder.Configuration["WeatherApi:BaseUrl"] ?? "https+http://api";
+builder.Services.AddHttpClient<IWeatherApiClient, WeatherApiClient>(client =>
+    client.BaseAddress = new Uri(apiBaseUrl));
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapDefaultEndpoints();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+app.Run();
+
+
+
+================================================================================
+FILE: src/Weather.Web/Services/WeatherApiClient.cs
+SIZE: 2.62 KB
+MODIFIED: 06/19/2026 08:59:14
+================================================================================
+
+using System.Globalization;
+using System.Net;
+using System.Net.Http.Json;
+
+namespace Weather.Web.Services;
+
+/// <summary>
+/// Typed <see cref="HttpClient"/> wrapper for the Weather API. The base address
+/// is configured in <c>Program.cs</c> (resolved by Aspire service discovery, or
+/// from <c>WeatherApi:BaseUrl</c> when running standalone). A 404 is mapped to
+/// <c>null</c> rather than an exception, because "no NWS coverage here" is an
+/// expected, user-facing outcome — not a fault.
+/// </summary>
+public sealed class WeatherApiClient(HttpClient httpClient) : IWeatherApiClient
+{
+    public async Task<ForecastDto?> GetForecastAsync(
+        double latitude, double longitude, CancellationToken cancellationToken = default)
+    {
+        var requestUri = BuildUri("/api/forecast", latitude, longitude);
+        return await GetOrNullAsync<ForecastDto>(requestUri, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<NeighborhoodDto?> GetNeighborhoodAsync(
+        double latitude, double longitude, CancellationToken cancellationToken = default)
+    {
+        var requestUri = BuildUri("/api/forecast/neighborhood", latitude, longitude);
+        return await GetOrNullAsync<NeighborhoodDto>(requestUri, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<AreaDto?> GetAreaAsync(
+        double latitude, double longitude, CancellationToken cancellationToken = default)
+    {
+        var requestUri = BuildUri("/api/forecast/area", latitude, longitude);
+        return await GetOrNullAsync<AreaDto>(requestUri, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<T?> GetOrNullAsync<T>(string requestUri, CancellationToken cancellationToken)
+        where T : class
+    {
+        using var response = await httpClient
+            .GetAsync(requestUri, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content
+            .ReadFromJsonAsync<T>(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static string BuildUri(string path, double latitude, double longitude)
+    {
+        // Format invariantly so the decimal separator is always '.', regardless
+        // of the server's culture. Latitude/longitude ranges never trip
+        // scientific notation, so the default round-trippable form is safe.
+        var lat = latitude.ToString(CultureInfo.InvariantCulture);
+        var lon = longitude.ToString(CultureInfo.InvariantCulture);
+        return $"{path}?latitude={lat}&longitude={lon}";
+    }
+}
+
+
+
+================================================================================
+
+So the Web→API client gets the standard resilience handler through AddServiceDefaults() from Aspire, which means both the NWS client and the Web→API client end up with retry logic applied automatically—that's where the retry storm could originate.
+Done
+
+One more critical file — Aspire's ServiceDefaults often adds a resilience handler to all HttpClients by default, which would stack on top of the NWS client's explicit one (retries-of-retries). Let me verify.
+Architected comprehensive caching and resilience fixes
+
+bash
+sed -n '5765,5998p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.ServiceDefaults/Extensions.cs
+SIZE: 8.49 KB
+MODIFIED: 06/19/2026 09:07:06
+================================================================================
+
+using System.Globalization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+
+namespace Weather.ServiceDefaults;
+
+/// <summary>
+/// The canonical .NET Aspire "service defaults". Every service in the solution
+/// calls <see cref="AddServiceDefaults"/> to get consistent OpenTelemetry,
+/// health checks, service discovery and resilient HTTP out of the box. This
+/// project is deliberately app-agnostic — app-specific meters and trace sources
+/// are registered by the host (see <c>Weather.Api/Program.cs</c>).
+///
+/// Telemetry export is vendor-neutral OTLP and resolves in priority order:
+///   1. If <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is set (Aspire injects it during
+///      local orchestration; the container compose points it at the OpenTelemetry
+///      Collector), export there. This is the path that fans out to both the
+///      Aspire dashboard and Uptrace via the collector.
+///   2. Otherwise, unless explicitly disabled (<c>Uptrace:Enabled=false</c>),
+///      export straight to Uptrace over OTLP/gRPC using a DSN. This is what makes
+///      a bare <c>dotnet run</c> (no collector) light up in Uptrace out of the box.
+///   3. Otherwise, register no exporter (used by the integration tests, which set
+///      <c>Uptrace:Enabled=false</c> so nothing touches the network).
+/// No Uptrace SDK or NuGet package is referenced; this is plain OTLP, so the same
+/// wiring works for any OTLP-compatible backend by changing configuration alone.
+/// </summary>
+public static class Extensions
+{
+    private const string HealthEndpointPath = "/health";
+    private const string AlivenessEndpointPath = "/alive";
+
+    // Uptrace's public demo DSN, used only as the last-resort default so the app
+    // exports somewhere sensible with zero configuration. Override it with the
+    // UPTRACE_DSN environment variable or the "Uptrace:Dsn" configuration key.
+    private const string DefaultUptraceDsn = "https://DEvhsB46kbZQ5yVRxz9mdZ@api.uptrace.dev?grpc=4317";
+
+    public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        builder.ConfigureOpenTelemetry();
+        builder.AddDefaultHealthChecks();
+
+        builder.Services.AddServiceDiscovery();
+
+        builder.Services.ConfigureHttpClientDefaults(http =>
+        {
+            // Turn on resilience by default for every outbound HttpClient...
+            http.AddStandardResilienceHandler();
+
+            // ...and let service discovery resolve logical service names.
+            http.AddServiceDiscovery();
+        });
+
+        return builder;
+    }
+
+    public static TBuilder ConfigureOpenTelemetry<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        builder.Logging.AddOpenTelemetry(logging =>
+        {
+            logging.IncludeFormattedMessage = true;
+            logging.IncludeScopes = true;
+        });
+
+        builder.Services.AddOpenTelemetry()
+            .WithMetrics(metrics =>
+            {
+                metrics.AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddRuntimeInstrumentation();
+            })
+            .WithTracing(tracing =>
+            {
+                tracing.AddSource(builder.Environment.ApplicationName)
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation();
+            });
+
+        builder.AddOpenTelemetryExporters();
+
+        return builder;
+    }
+
+    private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        // (1) An explicit OTLP endpoint always wins. Aspire injects this during
+        // local orchestration; the container compose sets it to the collector.
+        var endpointConfigured =
+            !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+
+        if (endpointConfigured)
+        {
+            builder.Services.AddOpenTelemetry().UseOtlpExporter();
+            return builder;
+        }
+
+        // (3) Allow a hard opt-out (the integration tests set this) so nothing
+        // is exported and no network connection is attempted.
+        var uptraceEnabled = builder.Configuration.GetValue("Uptrace:Enabled", true);
+        if (!uptraceEnabled)
+        {
+            return builder;
+        }
+
+        // (2) Fall back to shipping directly to Uptrace over OTLP.
+        var dsn = builder.Configuration["Uptrace:Dsn"];
+        if (string.IsNullOrWhiteSpace(dsn))
+        {
+            dsn = Environment.GetEnvironmentVariable("UPTRACE_DSN");
+        }
+
+        if (string.IsNullOrWhiteSpace(dsn))
+        {
+            dsn = DefaultUptraceDsn;
+        }
+
+        if (string.IsNullOrWhiteSpace(dsn))
+        {
+            return builder;
+        }
+
+        ConfigureOtlpEnvironmentForUptrace(dsn);
+        builder.Services.AddOpenTelemetry().UseOtlpExporter();
+        return builder;
+    }
+
+    /// <summary>
+    /// Translate an Uptrace DSN into the standard <c>OTEL_EXPORTER_OTLP_*</c>
+    /// environment variables that <see cref="OtlpExporterExtensions"/> reads.
+    /// Only sets a variable if the operator has not already set it, so explicit
+    /// configuration is never overridden. Uptrace authenticates via the
+    /// <c>uptrace-dsn</c> header and recommends gzip + delta metric temporality.
+    /// </summary>
+    private static void ConfigureOtlpEnvironmentForUptrace(string dsn)
+    {
+        var endpoint = BuildOtlpEndpointFromDsn(dsn);
+
+        SetIfUnset("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint);
+        SetIfUnset("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc");
+        SetIfUnset("OTEL_EXPORTER_OTLP_HEADERS", $"uptrace-dsn={dsn}");
+        SetIfUnset("OTEL_EXPORTER_OTLP_COMPRESSION", "gzip");
+        SetIfUnset("OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE", "delta");
+
+        static void SetIfUnset(string key, string value)
+        {
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+            {
+                Environment.SetEnvironmentVariable(key, value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Derive the OTLP/gRPC endpoint from a DSN such as
+    /// <c>https://TOKEN@api.uptrace.dev?grpc=4317</c>. Falls back to the public
+    /// Uptrace gRPC endpoint if the DSN cannot be parsed.
+    /// </summary>
+    private static string BuildOtlpEndpointFromDsn(string dsn)
+    {
+        const int defaultGrpcPort = 4317;
+
+        if (!Uri.TryCreate(dsn, UriKind.Absolute, out var uri))
+        {
+            return $"https://api.uptrace.dev:{defaultGrpcPort}";
+        }
+
+        var port = defaultGrpcPort;
+        var query = uri.Query.TrimStart('?');
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (parts.Length == 2 &&
+                parts[0].Equals("grpc", StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            {
+                port = parsed;
+                break;
+            }
+        }
+
+        var scheme = string.IsNullOrEmpty(uri.Scheme) ? "https" : uri.Scheme;
+        return $"{scheme}://{uri.Host}:{port}";
+    }
+
+    public static TBuilder AddDefaultHealthChecks<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        builder.Services.AddHealthChecks()
+            // A self-check tagged "live" backs the liveness endpoint.
+            .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Maps <c>/health</c> (are we ready?) and <c>/alive</c> (are we running?).
+    /// These are intended for the development/orchestration environment; lock
+    /// them down before exposing them publicly.
+    /// </summary>
+    public static WebApplication MapDefaultEndpoints(this WebApplication app)
+    {
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapHealthChecks(HealthEndpointPath);
+
+            app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
+            {
+                Predicate = registration => registration.Tags.Contains("live"),
+            });
+        }
+
+        return app;
+    }
+}
+
+
+
+================================================================================
+
+I'm seeing a real compounding bug where ServiceDefaults.AddServiceDefaults() configures HTTP client defaults with resilience and service discovery that apply globally to every HttpClient, while DependencyInjection.AddWeatherInfrastructure() is also setting up an HttpClient for the weather service, likely creating conflicting configurations.
+
+The NWS HttpClient ends up with two standard resilience handlers stacked on top of each other — one from the global configuration and one explicit — which causes retries to multiply: the outer retry pipeline (3 attempts) combined with the inner one (3 attempts) results in up to ~16 total attempts for a single logical request. Each attempt has its own 10-second timeout, and nested timeouts compound, creating the exact retry storm visible in the logs where /points gets hammered 4-5+ times over 30-40 seconds.
+
+This is a known .NET pitfall where calling AddStandardResilienceHandler() twice results in two handlers instead of one. The fix is to avoid double-adding: either remove the explicit handler from the NWS client and rely on the global one (though that makes NWS-specific timeout customization trickier), or configure the global defaults differently to avoid applying to all clients.
+
+The cleanest approach is to keep the global resilience for general clients but configure NWS-specific options through the standard options configuration rather than stacking another handler — this way the global handler applies NWS-specific settings only to that named client without creating a second pipeline. Configuring resilience options per client... When adding the handler via ConfigureHttpClientDefaults, I can use services.Configure<HttpStandardResilienceOptions>(clientName, ...) to tune options per client. I need to respect the constraint validations though: TotalRequestTimeout must exceed AttemptTimeout, CircuitBreaker.SamplingDuration must be at least twice AttemptTimeout, and AttemptTimeout itself needs to stay between 10ms and 1 day—so with a 10s attempt timeout, I'd need at least 20s sampling duration and over 10s total timeout.
+
+The real issue is that if I leave both AddStandardResilienceHandler calls in place, the handler gets registered twice. Since ServiceDefaults already adds it globally, I should remove the explicit call from the NWS client registration and just tune it via Configure instead. But there's a complication: the Infrastructure.Tests project constructs NwsApiClient directly without going through DI or ServiceDefaults, so those tests won't have the handler at all.
+
+The Infrastructure project itself probably doesn't depend on ServiceDefaults directly—it shouldn't need to know about it. But in the actual API, both AddServiceDefaults and AddWeatherInfrastructure get called, so relying on the global handler works in practice. The risk is that any host calling AddWeatherInfrastructure without AddServiceDefaults would lose resilience on the NWS client. For this learning sandbox where the API always calls AddServiceDefaults, the pragmatic approach is to remove the duplicate and rely on the global handler.
+
+Actually, wait—I want the NWS client to have exactly one resilience handler with NWS-specific tuning, not stacked handlers. I can configure the HTTP client to explicitly remove any global resilience handlers and then add a single custom pipeline tuned for NWS. This guarantees the right behavior regardless of what the global default is. removes all resilience handlers registered so far, including those from the global ConfigureHttpClientDefaults. So the pattern would be: let the global config run, then explicitly remove all handlers for that specific client and add just the one custom pipeline I need. Alternatively, I could skip the custom pipeline entirely and use AddStandardResilienceHandler once globally — the real issue is the double-add, not the approach itself.
+
+The cleaner solution is to remove the explicit handler from Infrastructure and instead configure the global handler's options specifically for the NWS client name. But since Infrastructure might not always have ServiceDefaults available, I'll use the RemoveAllResilienceHandlers approach to make the NWS client's resilience self-contained and correct regardless of what global handlers exist.
+
+Now I'm designing the custom resilience pipeline for the NWS client, starting with clearing any existing handlers and then adding a single tuned handler that retrieves the NWS client options from the service provider to configure timeouts and retry logic.
+
+Configuring the pipeline layers... The pipeline order matters—strategies are applied outer to inner based on insertion order, so I'm adding them as TotalTimeout, Retry, CircuitBreaker, then AttemptTimeout. I'm skipping the rate limiter since the neighborhood warmer already has its own and concurrency is bounded by NeighborFetchConcurrency. Now I'm using the HTTP resilience strategy options from the Polly library.
+
+Setting up the resilience handler... ter, Delay, and ShouldHandlewhich defaults to handling transient errors. I add these viabuilder.AddRetry(httpRetryStrategyOptions). Similarly, HttpCircuitBreakerStrategyOptionsgets added withbuilder.AddCircuitBreaker(...), and HttpTimeoutStrategyOptionscan be added either withbuilder.AddTimeout(httpTimeoutStrategyOptions)or justbuilder.AddTimeout(TimeSpan). I need using Polly;forDelayBackoffType`. There's a real risk I'll get a method name or property slightly wrong since I can't actually compile and test this code here.
+
+Since I can't build locally and the sandbox is static analysis only with CI being the authoritative runtime check, I should take the safest approach to fix the double-add issue. The most reliable solution is to configure the standard resilience options by name and skip the second AddStandardResilienceHandler call entirely.
+
+Writing the corrected DI configuration... Configuring resilience timeouts...
+
+I need to verify that the named-options approach works correctly when the handler is added through ConfigureHttpClientDefaults. The handler applies to each client and internally binds the named options using the client name, so the IOptionsMonitor should retrieve the right configuration for each client instance. I'll add a comment documenting that AddWeatherInfrastructure depends on AddServiceDefaults being called first, otherwise the NWS client would have no resilience applied. not actually used in the tests since the fake client replaces it. So removing the explicit handler won't break anything — the global resilience from ServiceDefaults is still there, and I'm just configuring it by name instead of stacking handlers. Instead of using the explicit resilience handler, I'll configure the HTTP standard resilience options directly by reading the NwsClientOptions from the configuration section at registration time, then passing those tuned values into the Configure call.
+
+I'm also planning to extend NwsClientOptions with new fields for max retry attempts, retry base delay, and total request timeout to give more control over the resilience behavior. Then I need to validate that the HttpStandardResilienceOptions constraints are satisfied—like ensuring the total timeout exceeds the attempt timeout, and that the circuit breaker sampling duration is at least twice the attempt timeout. Configuring resilience options... Now I'm validating the configuration against the constraints—checking that the attempt timeout falls within acceptable bounds, the total timeout exceeds the per-attempt timeout, and the sampling duration covers the retry window. Everything checks out. With a 10-second per-attempt timeout and 2 retries capped by a 30-second total timeout, the worst case stays well under the previous approach that could balloon to 16 attempts.
+
+I'm also reconsidering whether to modify ServiceDefaults—the global handler applies to all clients including the Web→API hop, but since that's a local, fast connection, the default 3 retries there won't cause issues and won't show up in the NWS logs. Leaving ServiceDefaults untouched means minimal changes overall. The key insight is that removing the explicit handler on the NWS client leaves just the one from ConfigureHttpClientDefaults, eliminating the stacking problem entirely.
+
+So the fix is straightforward: update DependencyInjection.cs to remove the explicit resilience handler and add a named configuration for the NWS client, then add the new configuration options to NwsClientOptions.cs. I need to make sure the using directives include Microsoft.Extensions.Http.Resilience for HttpStandardResilienceOptions and Polly for DelayBackoffType—both should be available through existing project references.
+
+I'm double-checking the enum name: DelayBackoffType in Polly v8 with values like Constant, Linear, and Exponential. That's correct. For the timeout configuration, I'm keeping the existing 15-second default for per-attempt timeout since the logs show successful requests at that duration, and making these values configurable in NwsClientOptions is the right approach for maintainability. Looking at the logs, the successful /points calls that take 6-10s are actually the ones that end up timing out and retrying anyway, so a 10s per-attempt timeout is reasonable—it'll catch the legitimate fast successes and bound the hung requests. Now I need to finalize the NwsClientOptions fields: RequestTimeout stays as the per-attempt timeout with a default lowered to 10s, add TotalRequestTimeout as a new 30s field, and define MaxRetries.
+
+I'm also reconsidering whether to add a separate ExtrasTtl field since the current setup uses DefaultForecastTtl (30 min) for extras expiry. With the station-id now cached, the /stations call gets skipped on refresh, so the main cost on extras refresh is just the hourly forecast and observation calls.
+
+Actually, I'm going to resist the scope creep here and keep ResolveExtrasAsync using DefaultForecastTtl as-is — the station-id cache is already the real win. Adding ExtrasTtl would be over-engineering at this point.
+
+Now let me verify that my fixes actually address the alerts burst from 09:22-09:25. With coarse rounding to two decimal places, all those jittered coordinates collapse into a single alert key, so after the first fetch it's cached for 5 minutes — meaning 30 loads in 3 minutes hits the cache almost entirely instead of hammering the API. The alert coalescer also ensures concurrent requests for the same key collapse into one. That should eliminate the burst.
+
+But I realize why the burst happened in the first place: with four decimal place rounding, each of those ~30 loads had slightly different coordinates, creating different cache keys and bypassing the coalescer since they weren't concurrent requests with identical keys. Switching to coarse rounding makes them all the same key, which is the real fix. Now I'm looking at the /points burst that occurred around 13 seconds. Caching the nearest station ID so observation refreshes can skip the /stations call — I'm adding a StationId field to CellExtras and creating a GetNearestStationIdAsync method with a by-id observation overload. Then I need to fix the double-stacked resilience handler by removing the explicit AddStandardResilienceHandler and tuning the standard options by client name instead, plus adding resilience knobs to NwsClientOptions. The file changes start with updating CellExtras, the INwsApiClient interface, and the NwsApiClient implementation.
+
+Implementing the new methods and refactoring observation retrieval in NwsApiClient, then updating NwsClientOptions with resilience knobs and a lower RequestTimeout default. WeatherService gets a coarse rounding constant, metadata and extras coalescers, and reuses the station ID in ResolveExtrasAsync with two new keyed service parameters in the constructor. Finally, I'm fixing the dependency injection to register the coalescers and remove the duplicate resilience handler.
+
+For the tests, I need to update the harness in WeatherServiceTests to inject both coalescers, then modify WeatherServiceAreaTests to add the coalescers, stub GetNearestStationId for observation retrieval, fix the cache assertions, and add a concurrency stampede test.
+
+I also need to add tests for the new NWS API methods (GetNearestStationId and by-id observation), update the SQLite cache tests to include StationId in the sample data, and implement the two new interface methods in the fake client.
+
+That's 11 files total — 6 source and 5 test files. The user wants complete files with thorough coverage, so this is substantial work. Let me verify whether rounding the WeatherService response to 2 decimal places breaks anything...
+
+Looking at the existing tests, WeatherServiceTests uses coordinates like 37.0879, -76.4505, which would round to 37.09, -76.45. But the tests mock both MetadataCache and NWS calls with Arg.Any, so the actual coordinate values don't matter for verification — the tests should still pass. ✓ The NwsApiClientTests verify the request path includes the full precision coordinate, but they test the client directly, not through WeatherService's rounding layer, so they're unaffected. ✓ For ForecastEndpointsTests, coordinates flow through the API to WeatherService (which rounds to 2dp) and then to the fake NWS client — the fake returns metadata for any non-zero coordinate, and 2dp rounding of normal coordinates stays non-zero, while the (0,0) ocean sentinel remains (0,0) after rounding.
+
+But I need to check whether ForecastEndpointsTests asserts the echoed coordinate in the response matches the original input — if it does, the test would fail now since the response would contain the rounded coordinate instead.
+Done
+
+This is the compounding bug. ServiceDefaults.AddServiceDefaults() adds a standard resilience handler to every HttpClient via ConfigureHttpClientDefaults, and then AddWeatherInfrastructure adds a second one explicitly on the NWS client. Two stacked retry pipelines means retries multiply (≈3×3 attempts), each with a 10s attempt timeout — that's the 30–40-second /points hammering in your logs. Definitive root cause found.
+
+Let me confirm two API tests won't break from the coarser rounding (the area response echoes the query coordinate), then I'll write everything.
+Read ForecastEndpointsTests and WeatherApiFactory to check coordinate-echo assertions and how the fake is wired
+
+bash
+sed -n '8562,8809p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Api.Tests/ForecastEndpointsTests.cs
+SIZE: 3.99 KB
+MODIFIED: 06/19/2026 08:58:42
+================================================================================
+
+using System.Net;
+using System.Net.Http.Json;
+
+namespace Weather.Api.Tests;
+
+public sealed class ForecastEndpointsTests : IDisposable
+{
+    private readonly WeatherApiFactory _factory = new();
+
+    [Test]
+    public async Task GetForecastWithValidCoordinatesReturns200AndAForecast()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/forecast?latitude=37.0879&longitude=-76.4505");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiForecast>();
+        body.ShouldNotBeNull();
+        body!.GridId.ShouldBe("AKQ");
+        body.Periods.ShouldNotBeEmpty();
+        body.Periods[0].Temperature.ShouldBe(90);
+        body.Periods[0].ShortForecast.ShouldBe("Sunny");
+    }
+
+    [Test]
+    public async Task GetForecastWithInvalidLatitudeReturns400()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/forecast?latitude=200&longitude=-76.4505");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Test]
+    public async Task GetForecastForAnUncoveredLocationReturns404()
+    {
+        using var client = _factory.CreateClient();
+
+        // (0, 0) — open ocean — is treated as outside NWS coverage by the fake.
+        using var response = await client.GetAsync("/api/forecast?latitude=0&longitude=0");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Test]
+    public async Task GetNeighborhoodWithValidCoordinatesReturns200()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/forecast/neighborhood?latitude=37.0879&longitude=-76.4505");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiNeighborhood>();
+        body.ShouldNotBeNull();
+        body!.Primary.GridId.ShouldBe("AKQ");
+    }
+
+    [Test]
+    public async Task GetAreaReturns200WithPrimaryNeighborsHourlyAndObservation()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/forecast/area?latitude=37.0879&longitude=-76.4505");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiArea>();
+        body.ShouldNotBeNull();
+        body!.Primary.GridId.ShouldBe("AKQ");
+        body.Primary.Periods.ShouldNotBeEmpty();
+        body.Primary.Hourly.ShouldNotBeEmpty();
+        body.Primary.Observation.ShouldNotBeNull();
+        body.Primary.Observation!.TemperatureF.ShouldBe(88);
+        // The 3x3 ring around AKQ/83,61 has eight neighbours; all resolve via the fake.
+        body.Neighbors.Count.ShouldBe(8);
+    }
+
+    [Test]
+    public async Task GetAreaWithInvalidRadiusReturns400()
+    {
+        using var client = _factory.CreateClient();
+
+        using var response = await client.GetAsync("/api/forecast/area?latitude=37.0879&longitude=-76.4505&radius=9");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    public void Dispose() => _factory.Dispose();
+
+    // Minimal mirrors of the API's camelCase JSON contract for assertions.
+    private sealed record ApiForecast(string GridId, int GridX, int GridY, IReadOnlyList<ApiPeriod> Periods);
+
+    private sealed record ApiPeriod(int Temperature, string ShortForecast);
+
+    private sealed record ApiNeighborhood(double Latitude, double Longitude, ApiForecast Primary);
+
+    private sealed record ApiArea(
+        double Latitude,
+        double Longitude,
+        ApiCell Primary,
+        IReadOnlyList<ApiCell> Neighbors,
+        IReadOnlyList<ApiAlert> Alerts);
+
+    private sealed record ApiCell(
+        string GridId,
+        IReadOnlyList<ApiPeriod> Periods,
+        IReadOnlyList<ApiPeriod> Hourly,
+        ApiObservation? Observation);
+
+    private sealed record ApiObservation(int? TemperatureF, int? RelativeHumidity, string? WindDirection);
+
+    private sealed record ApiAlert(string Id, string Event);
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Api.Tests/GlobalUsings.cs
+SIZE: 0.05 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+global using Shouldly;
+global using TUnit.Core;
+
+
+
+================================================================================
+FILE: tests/Weather.Api.Tests/Weather.Api.Tests.csproj
+SIZE: 0.69 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- MTP test executable. `dotnet test` is opted into MTP via global.json. -->
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+
+    <!-- Full globalization for tests (see Weather.Core.Tests.csproj for why). -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Weather.Api\Weather.Api.csproj" />
+  </ItemGroup>
+
+</Project>
+
+
+
+================================================================================
+FILE: tests/Weather.Api.Tests/WeatherApiFactory.cs
+SIZE: 2.17 KB
+MODIFIED: 06/19/2026 09:07:22
+================================================================================
+
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Weather.Api.Tests.Fakes;
+using Weather.Core.Abstractions;
+
+namespace Weather.Api.Tests;
+
+/// <summary>
+/// Boots the real API in-memory for end-to-end tests. Two things are swapped:
+/// the NWS client (replaced with <see cref="FakeNwsApiClient"/> so no network is
+/// touched) and the cache connection string (pointed at a unique temp file so
+/// the genuine SQLite cache path runs, isolated per factory).
+/// </summary>
+internal sealed class WeatherApiFactory : WebApplicationFactory<Program>
+{
+    private readonly string _databasePath =
+        Path.Combine(Path.GetTempPath(), $"weather-api-tests-{Guid.NewGuid():N}.db");
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Production");
+
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Cache:ConnectionString"] = $"Data Source={_databasePath}",
+                // Keep tests offline: never attempt to export telemetry to Uptrace.
+                ["Uptrace:Enabled"] = "false",
+            });
+        });
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<INwsApiClient>();
+            services.AddSingleton<INwsApiClient, FakeNwsApiClient>();
+        });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (!disposing)
+        {
+            return;
+        }
+
+        SqliteConnection.ClearAllPools();
+        foreach (var file in new[] { _databasePath, _databasePath + "-wal", _databasePath + "-shm" })
+        {
+            try
+            {
+                if (File.Exists(file))
+                {
+                    File.Delete(file);
+                }
+            }
+            catch (IOException)
+            {
+                // Throwaway temp file.
+            }
+        }
+    }
+}
+
+
+
+================================================================================
+Claude couldn't finish this response. Try again in a moment.
+
+please continue
+2:58 PM
+Commenced examination of API client implementation
+
+I'm picking back up on the Blazor weather dashboard fixes for Kushal. The diagnostic work is done and I have a plan to write out 11 files, so now I need to verify the current state of each file before I start making the replacements. I need to locate all the source and test files in the dump to get their exact contents, so I'll search for the file markers and line numbers to pull the full code accurately.
+
+bash
+grep -n "^FILE: " /mnt/project/dump.txt | grep -iE "CellExtras|INwsApiClient|NwsApiClient|NwsClientOptions|WeatherService|DependencyInjection|SqliteCellExtras|GeoCoordinate|GridPoint|RequestCoalescer|StubHttpMessageHandler|FakeNwsApiClient|ICellExtrasCache"
+
+Output
+2313:FILE: src/Weather.Core/Abstractions/ICellExtrasCache.cs
+2394:FILE: src/Weather.Core/Abstractions/INwsApiClient.cs
+2473:FILE: src/Weather.Core/Abstractions/IRequestCoalescer.cs
+2530:FILE: src/Weather.Core/Abstractions/IWeatherService.cs
+2643:FILE: src/Weather.Core/Models/CellExtras.cs
+2791:FILE: src/Weather.Core/Models/GeoCoordinate.cs
+2926:FILE: src/Weather.Core/Models/GridPoint.cs
+3423:FILE: src/Weather.Infrastructure/Caching/SqliteCellExtrasCache.cs
+3811:FILE: src/Weather.Infrastructure/DependencyInjection.cs
+3919:FILE: src/Weather.Infrastructure/Nws/NwsApiClient.cs
+4430:FILE: src/Weather.Infrastructure/Nws/NwsClientOptions.cs
+4919:FILE: src/Weather.Infrastructure/Services/RequestCoalescer.cs
+5269:FILE: src/Weather.Infrastructure/Services/WeatherService.cs
+8460:FILE: tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs
+8892:FILE: tests/Weather.Core.Tests/GeoCoordinateTests.cs
+9495:FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs
+10053:FILE: tests/Weather.Infrastructure.Tests/Fakes/StubHttpMessageHandler.cs
+10122:FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs
+10258:FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
+10601:FILE: tests/Weather.Infrastructure.Tests/Services/RequestCoalescerTests.cs
+10792:FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
+11074:FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+
+I need to examine the source files and dependencies to understand what needs to be modified, starting with the core abstractions and models.
+
+bash
+sed -n '2313,2530p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Core/Abstractions/ICellExtrasCache.cs
+SIZE: 0.89 KB
+MODIFIED: 06/19/2026 08:53:20
+================================================================================
+
+using Weather.Core.Models;
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>
+/// Cache of the per-cell "extras" (hourly forecast + latest observation +
+/// cell centre) that the area view follows links to fetch. Kept separate from
+/// <see cref="IForecastCache"/> so the headline daily forecast retains its own
+/// conditional-GET / stale-on-error policy untouched.
+/// </summary>
+public interface ICellExtrasCache
+{
+    Task<CachedCellExtras?> GetAsync(GridPoint grid, CancellationToken cancellationToken = default);
+
+    Task UpsertAsync(GridPoint grid, CachedCellExtras entry, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Cell extras as stored in the cache, with TTL bookkeeping.</summary>
+public sealed record CachedCellExtras(
+    CellExtras Extras,
+    DateTimeOffset RetrievedAtUtc,
+    DateTimeOffset ExpiresAtUtc)
+{
+    public bool IsFresh(DateTimeOffset now) => ExpiresAtUtc > now;
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Abstractions/IForecastCache.cs
+SIZE: 0.37 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using Weather.Core.Models;
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>Cache of short-lived forecast payloads, keyed by grid cell.</summary>
+public interface IForecastCache
+{
+    Task<CachedForecast?> GetAsync(GridPoint grid, CancellationToken cancellationToken = default);
+
+    Task UpsertAsync(CachedForecast entry, CancellationToken cancellationToken = default);
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
+SIZE: 0.64 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Threading.Channels;
+using Weather.Core.Models;
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>
+/// A bounded, in-process work queue. Producers (request handlers) drop the
+/// user's origin cell in; a background consumer fans it out to neighbours and
+/// warms them under a global rate limit.
+/// </summary>
+public interface INeighborhoodWarmer
+{
+    /// <summary>Schedule the cells around <paramref name="origin"/> to be warmed. Non-blocking.</summary>
+    void RequestWarming(GridPoint origin);
+
+    /// <summary>Consumed by the background service. Not used by request handlers.</summary>
+    ChannelReader<GridPoint> Reader { get; }
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Abstractions/INwsApiClient.cs
+SIZE: 2.19 KB
+MODIFIED: 06/19/2026 08:53:20
+================================================================================
+
+using Weather.Core.Models;
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>
+/// Thin, testable wrapper over the National Weather Service REST API.
+/// Implementations own HTTP, resilience and telemetry; they do NOT cache.
+/// </summary>
+public interface INwsApiClient
+{
+    /// <summary>
+    /// Resolve a coordinate to its grid metadata via <c>/points/{lat},{lon}</c>.
+    /// Returns <c>null</c> if NWS does not cover the location (e.g. outside the US).
+    /// </summary>
+    Task<PointMetadata?> GetPointMetadataAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetch the daily forecast for a grid cell via
+    /// <c>/gridpoints/{office}/{x},{y}/forecast</c>, optionally as a conditional
+    /// GET using a previously stored <paramref name="etag"/>. The result also
+    /// carries the cell's approximate centre, parsed from the polygon geometry.
+    /// </summary>
+    Task<ForecastFetchResult> GetForecastAsync(
+        GridPoint grid, string? etag = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetch the hourly forecast via
+    /// <c>/gridpoints/{office}/{x},{y}/forecast/hourly</c>. Best-effort: returns
+    /// an empty list if NWS is unavailable or the cell has no hourly data.
+    /// </summary>
+    Task<IReadOnlyList<ForecastPeriod>> GetHourlyForecastAsync(
+        GridPoint grid, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetch the latest observation from the cell's nearest reporting station
+    /// (<c>/gridpoints/.../stations</c> then <c>/stations/{id}/observations/latest</c>).
+    /// Best-effort: returns <c>null</c> when no station or observation is available.
+    /// </summary>
+    Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetch active alerts affecting a point via
+    /// <c>/alerts/active?point={lat},{lon}</c>. Best-effort: returns an empty
+    /// list when there are no alerts or NWS is unavailable.
+    /// </summary>
+    Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default);
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Abstractions/IPointMetadataCache.cs
+SIZE: 0.38 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using Weather.Core.Models;
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>Cache of long-lived coordinate-&gt;grid metadata.</summary>
+public interface IPointMetadataCache
+{
+    Task<CachedPointMetadata?> GetAsync(GeoCoordinate coordinate, CancellationToken cancellationToken = default);
+
+    Task UpsertAsync(CachedPointMetadata entry, CancellationToken cancellationToken = default);
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Abstractions/IRequestCoalescer.cs
+SIZE: 2.19 KB
+MODIFIED: 06/22/2026 15:06:14
+================================================================================
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>
+/// In-process "single-flight" coordinator. When many callers ask for the same
+/// <typeparamref name="TKey"/> at the same time, only the FIRST runs the
+/// supplied factory; every other concurrent caller awaits and shares that one
+/// result. This is the defence against a cache <em>stampede</em> (a.k.a.
+/// "dogpile" / "thundering herd"): without it, every request that arrives
+/// during a cache-fill window is an independent upstream call.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The contract is deliberately tight: the coalescer guarantees that no more
+/// than one factory invocation per key is in flight at any instant. It makes
+/// NO promises about caching across time — once a flight completes, the entry
+/// is removed and the next caller starts a fresh flight. Durable freshness is
+/// the cache's job; collapsing concurrent work is the coalescer's job.
+/// </para>
+/// <para>
+/// Implementations must be thread-safe and must not leak entries: a completed,
+/// faulted or cancelled flight is always removed so a later caller is never
+/// handed a stale, failed task.
+/// </para>
+/// </remarks>
+public interface IRequestCoalescer<TKey>
+    where TKey : notnull
+{
+    /// <summary>
+    /// Run <paramref name="factory"/> for <paramref name="key"/>, or — if a
+    /// flight for that key is already running — await and return its result
+    /// instead of starting a second one.
+    /// </summary>
+    /// <param name="key">The coalescing key (e.g. a grid cell).</param>
+    /// <param name="factory">
+    /// Produces the value for a cold key. Invoked at most once per concurrent
+    /// flight. It should observe the <see cref="CancellationToken"/> it is
+    /// given, which is a token shared by the flight (see remarks on cancellation
+    /// in the implementation).
+    /// </param>
+    /// <param name="cancellationToken">
+    /// The calling request's token. Cancelling it detaches THIS caller from the
+    /// flight; the shared flight itself continues for the remaining callers.
+    /// </param>
+    Task<TValue> RunAsync<TValue>(
+        TKey key,
+        Func<CancellationToken, Task<TValue>> factory,
+        CancellationToken cancellationToken = default);
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Abstractions/IWeatherService.cs
+
+I'm looking at the CellExtras model along with GeoCoordinate and GridPoint to understand their structure.
+
+bash
+sed -n '2643,3050p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Core/Models/CellExtras.cs
+SIZE: 0.49 KB
+MODIFIED: 06/19/2026 08:52:56
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// The extra, link-followed data for a single grid cell that is cached
+/// alongside (but separately from) the headline daily forecast: the hourly
+/// forecast, the latest station observation, and the cell's approximate centre
+/// (used to rank neighbours by distance). Serialised as one JSON blob per cell.
+/// </summary>
+public sealed record CellExtras(
+    IReadOnlyList<ForecastPeriod> Hourly,
+    Observation? Observation,
+    GeoCoordinate? Center);
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/CellWeather.cs
+SIZE: 0.6 KB
+MODIFIED: 06/19/2026 08:52:56
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// Everything known about a single NWS grid cell ("tile"): the daily forecast,
+/// the hourly forecast, the latest observation, the cell's approximate centre,
+/// and — when assembled as part of a neighbourhood — how far that cell is from
+/// the user. This is what the area endpoint returns for the primary cell and
+/// for every neighbour.
+/// </summary>
+public sealed record CellWeather(
+    GridPoint Grid,
+    GeoCoordinate? Center,
+    Forecast Daily,
+    IReadOnlyList<ForecastPeriod> Hourly,
+    Observation? Observation,
+    double? DistanceMeters);
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/Forecast.cs
+SIZE: 0.35 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// A full multi-period forecast for a single grid cell, plus the NWS-reported
+/// generation/update timestamps used to reason about freshness.
+/// </summary>
+public sealed record Forecast(
+    GridPoint Grid,
+    DateTimeOffset GeneratedAt,
+    DateTimeOffset UpdateTime,
+    IReadOnlyList<ForecastPeriod> Periods);
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/ForecastFetchResult.cs
+SIZE: 1.95 KB
+MODIFIED: 06/19/2026 08:52:56
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>The four ways an attempt to fetch a forecast from NWS can resolve.</summary>
+public enum NwsFetchOutcome
+{
+    /// <summary>A fresh forecast payload was returned (HTTP 200).</summary>
+    Success,
+
+    /// <summary>The cached copy is still current (HTTP 304 Not Modified).</summary>
+    NotModified,
+
+    /// <summary>NWS does not cover this location/grid (HTTP 404).</summary>
+    NotFound,
+
+    /// <summary>NWS could not be reached or kept failing (throttled, 5xx, timeout).</summary>
+    Unavailable,
+}
+
+/// <summary>
+/// Result of an <see cref="Abstractions.INwsApiClient.GetForecastAsync"/> call.
+/// Models conditional-GET semantics explicitly so the caller can keep serving a
+/// stale-but-valid cached copy when appropriate.
+/// </summary>
+public sealed record ForecastFetchResult
+{
+    public required NwsFetchOutcome Outcome { get; init; }
+    public Forecast? Forecast { get; init; }
+    public string? ETag { get; init; }
+    public TimeSpan? MaxAge { get; init; }
+
+    /// <summary>
+    /// Approximate geographic centre of the grid cell, derived from the polygon
+    /// geometry NWS returns with the forecast. Used to order neighbouring cells
+    /// by true distance from the user. Null when geometry was absent.
+    /// </summary>
+    public GeoCoordinate? Center { get; init; }
+
+    public static ForecastFetchResult Success(
+        Forecast forecast, string? etag, TimeSpan? maxAge, GeoCoordinate? center = null) =>
+        new() { Outcome = NwsFetchOutcome.Success, Forecast = forecast, ETag = etag, MaxAge = maxAge, Center = center };
+
+    public static ForecastFetchResult NotModified(string? etag, TimeSpan? maxAge) =>
+        new() { Outcome = NwsFetchOutcome.NotModified, ETag = etag, MaxAge = maxAge };
+
+    public static readonly ForecastFetchResult NotFound = new() { Outcome = NwsFetchOutcome.NotFound };
+    public static readonly ForecastFetchResult Unavailable = new() { Outcome = NwsFetchOutcome.Unavailable };
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/ForecastPeriod.cs
+SIZE: 0.46 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>One named forecast period (e.g. "This Afternoon", "Tonight").</summary>
+public sealed record ForecastPeriod(
+    int Number,
+    string Name,
+    DateTimeOffset StartTime,
+    DateTimeOffset EndTime,
+    bool IsDaytime,
+    int Temperature,
+    string TemperatureUnit,
+    int? ProbabilityOfPrecipitation,
+    string WindSpeed,
+    string WindDirection,
+    string ShortForecast,
+    string DetailedForecast,
+    string Icon);
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/GeoCoordinate.cs
+SIZE: 2.86 KB
+MODIFIED: 06/19/2026 13:04:19
+================================================================================
+
+using System.Globalization;
+using System.Text.Json.Serialization;
+
+namespace Weather.Core.Models;
+
+public readonly record struct GeoCoordinate
+{
+    public double Latitude { get; }
+    public double Longitude { get; }
+
+    [JsonConstructor]
+    public GeoCoordinate(double latitude, double longitude)
+    {
+        if (double.IsNaN(latitude) || latitude is < -90 or > 90)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(latitude), latitude, "Latitude must be between -90 and 90 degrees.");
+        }
+
+        if (double.IsNaN(longitude) || longitude is < -180 or > 180)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(longitude), longitude, "Longitude must be between -180 and 180 degrees.");
+        }
+
+        Latitude = latitude;
+        Longitude = longitude;
+    }
+
+    /// <summary>Validation that never throws — handy for guarding API input.</summary>
+    public static bool IsValid(double latitude, double longitude) =>
+        !double.IsNaN(latitude) && latitude is >= -90 and <= 90 &&
+        !double.IsNaN(longitude) && longitude is >= -180 and <= 180;
+
+    /// <summary>
+    /// The NWS API rounds coordinates to four decimal places (~11 m). Rounding
+    /// here means many physically-close users collapse onto a single cached
+    /// point-&gt;grid mapping, sharply reducing calls to <c>/points</c>.
+    /// </summary>
+    public GeoCoordinate Rounded(int decimals = 4) =>
+        new(Math.Round(Latitude, decimals, MidpointRounding.AwayFromZero),
+            Math.Round(Longitude, decimals, MidpointRounding.AwayFromZero));
+
+    /// <summary>Invariant "lat,lon" string in the exact shape NWS expects.</summary>
+    public string ToApiString() =>
+        string.Create(CultureInfo.InvariantCulture, $"{Latitude:0.####},{Longitude:0.####}");
+
+    /// <summary>Stable cache key (identical to the API string).</summary>
+    public string ToCacheKey() => ToApiString();
+
+    /// <summary>
+    /// Great-circle (haversine) distance in metres to another coordinate. Used
+    /// to order neighbouring grid cells by how close they actually are to the
+    /// user, since a user is rarely at the centre of their own cell.
+    /// </summary>
+    public double DistanceMetersTo(GeoCoordinate other)
+    {
+        const double earthRadiusMeters = 6_371_000d;
+        const double degToRad = Math.PI / 180d;
+
+        var lat1 = Latitude * degToRad;
+        var lat2 = other.Latitude * degToRad;
+        var dLat = (other.Latitude - Latitude) * degToRad;
+        var dLon = (other.Longitude - Longitude) * degToRad;
+
+        var sinLat = Math.Sin(dLat / 2);
+        var sinLon = Math.Sin(dLon / 2);
+        var a = (sinLat * sinLat) + (Math.Cos(lat1) * Math.Cos(lat2) * sinLon * sinLon);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return earthRadiusMeters * c;
+    }
+
+    public override string ToString() => ToApiString();
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/GridNeighborhood.cs
+SIZE: 1.39 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// Pure geometry for the "neighbourhood" strategy: given the user's grid cell,
+/// compute the surrounding cells whose data may be relevant when the user sits
+/// near a cell boundary.
+/// </summary>
+public static class GridNeighborhood
+{
+    /// <summary>
+    /// The cells surrounding <paramref name="origin"/> within a Chebyshev
+    /// distance of <paramref name="radius"/> (default 1 ⇒ the 8 cells of a 3×3
+    /// block), excluding the origin itself. Cells with negative indices are
+    /// dropped because NWS grid coordinates are always non-negative.
+    /// </summary>
+    public static IReadOnlyList<GridPoint> Surrounding(GridPoint origin, int radius = 1)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
+
+        var result = new List<GridPoint>((((2 * radius) + 1) * ((2 * radius) + 1)) - 1);
+        for (var dx = -radius; dx <= radius; dx++)
+        {
+            for (var dy = -radius; dy <= radius; dy++)
+            {
+                if (dx == 0 && dy == 0)
+                {
+                    continue;
+                }
+
+                var x = origin.GridX + dx;
+                var y = origin.GridY + dy;
+                if (x < 0 || y < 0)
+                {
+                    continue;
+                }
+
+                result.Add(origin with { GridX = x, GridY = y });
+            }
+        }
+
+        return result;
+    }
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/GridPoint.cs
+SIZE: 0.36 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// A National Weather Service forecast grid cell, identified by the forecast
+/// office (a.k.a. <c>gridId</c>/<c>cwa</c>) and the X/Y indices within it.
+/// </summary>
+public readonly record struct GridPoint(string GridId, int GridX, int GridY)
+{
+    public override string ToString() => $"{GridId}/{GridX},{GridY}";
+}
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/NeighborhoodForecast.cs
+SIZE: 0.41 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// The forecast for the user's own grid cell (<see cref="Primary"/>) plus any
+/// adjacent cells that were already warm in the cache. Neighbours are returned
+/// best-effort: an empty list simply means nothing was pre-warmed yet.
+/// </summary>
+public sealed record NeighborhoodForecast(
+    GeoCoordinate Query,
+    Forecast Primary,
+    IReadOnlyList<Forecast> Neighbors);
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/Observation.cs
+SIZE: 0.71 KB
+MODIFIED: 06/19/2026 08:52:56
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// The latest surface observation from the nearest reporting station. NWS
+/// reports these in SI units; the infrastructure layer converts them to the
+/// US units the forecast uses (°F, mph, inHg, miles) so the UI is consistent.
+/// Every measurement is nullable because a station may not report all of them.
+/// </summary>
+public sealed record Observation(
+    string? StationId,
+    string? StationName,
+    DateTimeOffset? Timestamp,
+    string? TextDescription,
+    string? Icon,
+    int? TemperatureF,
+    int? DewpointF,
+    int? RelativeHumidity,
+    int? WindSpeedMph,
+    int? WindGustMph,
+    string? WindDirection,
+    double? PressureInHg,
+    double? VisibilityMiles);
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/PointMetadata.cs
+SIZE: 0.5 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// The slow-changing metadata returned by <c>/points/{lat},{lon}</c>: which
+/// grid cell a coordinate maps to, plus the URLs and human-readable location.
+/// This mapping effectively never changes, so it is cached for a long time.
+/// </summary>
+public sealed record PointMetadata(
+    GeoCoordinate Query,
+    GridPoint Grid,
+    string ForecastUrl,
+    string ForecastHourlyUrl,
+    string? City,
+    string? State,
+    string? TimeZone,
+    string? RadarStation);
+
+
+
+================================================================================
+FILE: src/Weather.Core/Models/WeatherAlert.cs
+SIZE: 0.57 KB
+MODIFIED: 06/19/2026 08:52:56
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// One active NWS alert (watch, warning, advisory, or statement) affecting the
+/// queried point. Fields mirror the CAP-derived alert <c>properties</c>.
+/// </summary>
+public sealed record WeatherAlert(
+    string Id,
+    string Event,
+    string? Severity,
+    string? Certainty,
+    string? Urgency,
+    string? Headline,
+    string? Description,
+    string? Instruction,
+    string? AreaDescription,
+    string? SenderName,
+    DateTimeOffset? Effective,
+    DateTimeOffset? Onset,
+    DateTimeOffset? Expires,
+    DateTimeOffset? Ends);
+
+
+
+================================================================================
+
+Now I'm looking at the NwsApiClient implementation to understand what needs to be modified.
+Done
+
+Now the NWS client implementation:
+Braced for substantial WeatherService examination
+
+bash
+sed -n '3919,4430p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Nws/NwsApiClient.cs
+SIZE: 19.13 KB
+MODIFIED: 06/19/2026 08:55:10
+================================================================================
+
+using System.Diagnostics;
+using System.Globalization;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Serialization;
+
+namespace Weather.Infrastructure.Nws;
+
+/// <summary>
+/// Typed <see cref="HttpClient"/> over the NWS API. Owns HTTP concerns,
+/// conditional GETs and telemetry; it performs NO caching (that is the job of
+/// the caches and <c>WeatherService</c>). The <see cref="HttpClient"/> itself —
+/// base address, User-Agent, Accept header and the resilience pipeline — is
+/// configured in <c>DependencyInjection</c>.
+/// </summary>
+internal sealed class NwsApiClient(
+    HttpClient httpClient,
+    WeatherTelemetry telemetry,
+    ILogger<NwsApiClient> logger) : INwsApiClient
+{
+    private const string PointsEndpoint = "points";
+    private const string ForecastEndpoint = "forecast";
+    private const string HourlyEndpoint = "forecast/hourly";
+    private const string StationsEndpoint = "stations";
+    private const string ObservationEndpoint = "observation";
+    private const string AlertsEndpoint = "alerts";
+
+    // Hourly forecasts run ~156 periods; the dashboard only needs the near term,
+    // and capping keeps the cached payload (and the page) reasonable per cell.
+    private const int HourlyPeriodCap = 24;
+
+    public async Task<PointMetadata?> GetPointMetadataAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var requestUri = $"points/{coordinate.ToApiString()}";
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(PointsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation("NWS has no grid coverage for {Coordinate}.", coordinate);
+                }
+
+                return null;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                RecordFailure(PointsEndpoint, response.StatusCode);
+                logger.LogWarning("NWS /points returned {StatusCode} for {Coordinate}.",
+                    (int)response.StatusCode, coordinate);
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsPointResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            var properties = payload?.Properties;
+            if (properties?.GridId is null)
+            {
+                logger.LogWarning("NWS /points payload for {Coordinate} was missing grid metadata.", coordinate);
+                return null;
+            }
+
+            var location = properties.RelativeLocation?.Properties;
+            return new PointMetadata(
+                Query: coordinate,
+                Grid: new GridPoint(properties.GridId, properties.GridX, properties.GridY),
+                ForecastUrl: properties.Forecast ?? string.Empty,
+                ForecastHourlyUrl: properties.ForecastHourly ?? string.Empty,
+                City: location?.City,
+                State: location?.State,
+                TimeZone: properties.TimeZone,
+                RadarStation: properties.RadarStation);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(PointsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /points request failed for {Coordinate}.", coordinate);
+            return null;
+        }
+    }
+
+    public async Task<ForecastFetchResult> GetForecastAsync(
+        GridPoint grid, string? etag = null, CancellationToken cancellationToken = default)
+    {
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/forecast");
+
+        var conditional = !string.IsNullOrEmpty(etag);
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+            if (conditional)
+            {
+                // Use TryAddWithoutValidation so weak ("W/...") and quoted tags
+                // round-trip exactly as NWS sent them.
+                request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+            }
+
+            using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            RecordDuration(ForecastEndpoint, (int)response.StatusCode, timestamp, conditional);
+
+            switch (response.StatusCode)
+            {
+                case HttpStatusCode.NotModified:
+                    return ForecastFetchResult.NotModified(
+                        response.Headers.ETag?.ToString() ?? etag,
+                        response.Headers.CacheControl?.MaxAge);
+
+                case HttpStatusCode.NotFound:
+                    if (logger.IsEnabled(LogLevel.Information))
+                    {
+                        logger.LogInformation("NWS has no forecast for grid {Grid}.", grid);
+                    }
+
+                    return ForecastFetchResult.NotFound;
+
+                case HttpStatusCode.TooManyRequests:
+                    telemetry.RecordThrottled(ForecastEndpoint);
+                    logger.LogWarning("NWS throttled the forecast request for grid {Grid} (HTTP 429).", grid);
+                    return ForecastFetchResult.Unavailable;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                RecordFailure(ForecastEndpoint, response.StatusCode);
+                logger.LogWarning("NWS /forecast returned {StatusCode} for grid {Grid}.",
+                    (int)response.StatusCode, grid);
+                return ForecastFetchResult.Unavailable;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsForecastResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (payload?.Properties is not { } properties)
+            {
+                logger.LogWarning("NWS /forecast payload for grid {Grid} was empty.", grid);
+                return ForecastFetchResult.Unavailable;
+            }
+
+            var periods = MapPeriods(properties.Periods);
+            var forecast = new Forecast(grid, properties.GeneratedAt, properties.UpdateTime, periods);
+            var center = TryComputePolygonCenter(payload.Geometry);
+
+            return ForecastFetchResult.Success(
+                forecast,
+                response.Headers.ETag?.ToString(),
+                response.Headers.CacheControl?.MaxAge,
+                center);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(ForecastEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /forecast request failed for grid {Grid}.", grid);
+            return ForecastFetchResult.Unavailable;
+        }
+    }
+
+    public async Task<IReadOnlyList<ForecastPeriod>> GetHourlyForecastAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/forecast/hourly");
+
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(HourlyEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(HourlyEndpoint, response.StatusCode);
+                }
+
+                return [];
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsForecastResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            var periods = MapPeriods(payload?.Properties?.Periods);
+            return periods.Count > HourlyPeriodCap ? periods.Take(HourlyPeriodCap).ToList() : periods;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(HourlyEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /forecast/hourly request failed for grid {Grid}.", grid);
+            return [];
+        }
+    }
+
+    public async Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var stationId = await GetNearestStationIdAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (stationId is null)
+        {
+            return null;
+        }
+
+        var requestUri = $"stations/{Uri.EscapeDataString(stationId)}/observations/latest";
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(ObservationEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(ObservationEndpoint, response.StatusCode);
+                }
+
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsObservationResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (payload?.Properties is not { } p)
+            {
+                return null;
+            }
+
+            return new Observation(
+                StationId: stationId,
+                StationName: null,
+                Timestamp: p.Timestamp,
+                TextDescription: string.IsNullOrWhiteSpace(p.TextDescription) ? null : p.TextDescription,
+                Icon: p.Icon,
+                TemperatureF: NwsUnits.CelsiusToFahrenheit(p.Temperature?.Value),
+                DewpointF: NwsUnits.CelsiusToFahrenheit(p.Dewpoint?.Value),
+                RelativeHumidity: NwsUnits.RoundToInt(p.RelativeHumidity?.Value),
+                WindSpeedMph: WindToMph(p.WindSpeed),
+                WindGustMph: WindToMph(p.WindGust),
+                WindDirection: NwsUnits.DegreesToCompass(p.WindDirection?.Value),
+                PressureInHg: NwsUnits.PascalsToInHg(p.BarometricPressure?.Value),
+                VisibilityMiles: NwsUnits.MetersToMiles(p.Visibility?.Value));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(ObservationEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS latest-observation request failed for station {Station}.", stationId);
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var requestUri = $"alerts/active?point={coordinate.ToApiString()}";
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(AlertsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                RecordFailure(AlertsEndpoint, response.StatusCode);
+                return [];
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsAlertsResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            var features = payload?.Features;
+            if (features is null || features.Count == 0)
+            {
+                return [];
+            }
+
+            var alerts = new List<WeatherAlert>(features.Count);
+            foreach (var feature in features)
+            {
+                if (feature.Properties is not { } a || string.IsNullOrWhiteSpace(a.Event))
+                {
+                    continue;
+                }
+
+                alerts.Add(new WeatherAlert(
+                    Id: a.Id ?? Guid.NewGuid().ToString("N"),
+                    Event: a.Event,
+                    Severity: a.Severity,
+                    Certainty: a.Certainty,
+                    Urgency: a.Urgency,
+                    Headline: a.Headline,
+                    Description: a.Description,
+                    Instruction: a.Instruction,
+                    AreaDescription: a.AreaDesc,
+                    SenderName: a.SenderName,
+                    Effective: a.Effective,
+                    Onset: a.Onset,
+                    Expires: a.Expires,
+                    Ends: a.Ends));
+            }
+
+            return alerts;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(AlertsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /alerts/active request failed for {Coordinate}.", coordinate);
+            return [];
+        }
+    }
+
+    private async Task<string?> GetNearestStationIdAsync(GridPoint grid, CancellationToken cancellationToken)
+    {
+        var requestUri = string.Create(
+            CultureInfo.InvariantCulture,
+            $"gridpoints/{grid.GridId}/{grid.GridX},{grid.GridY}/stations");
+
+        var timestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            RecordDuration(StationsEndpoint, (int)response.StatusCode, timestamp, conditional: false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is not HttpStatusCode.NotFound)
+                {
+                    RecordFailure(StationsEndpoint, response.StatusCode);
+                }
+
+                return null;
+            }
+
+            var payload = await response.Content
+                .ReadFromJsonAsync<NwsStationsResponse>(WeatherJson.Options, cancellationToken)
+                .ConfigureAwait(false);
+
+            // Stations are returned nearest-first.
+            var features = payload?.Features;
+            if (features is null)
+            {
+                return null;
+            }
+
+            foreach (var feature in features)
+            {
+                var id = feature.Properties?.StationIdentifier;
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    return id;
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            RecordFailure(StationsEndpoint, statusCode: null);
+            logger.LogWarning(ex, "NWS /stations request failed for grid {Grid}.", grid);
+            return null;
+        }
+    }
+
+    private static List<ForecastPeriod> MapPeriods(IReadOnlyList<NwsPeriod>? source)
+    {
+        source ??= [];
+        var periods = new List<ForecastPeriod>(source.Count);
+        foreach (var p in source)
+        {
+            periods.Add(new ForecastPeriod(
+                Number: p.Number,
+                Name: p.Name ?? string.Empty,
+                StartTime: p.StartTime,
+                EndTime: p.EndTime,
+                IsDaytime: p.IsDaytime,
+                Temperature: p.Temperature,
+                TemperatureUnit: p.TemperatureUnit ?? "F",
+                ProbabilityOfPrecipitation: p.ProbabilityOfPrecipitation?.Value is { } pop
+                    ? (int)Math.Round(pop, MidpointRounding.AwayFromZero)
+                    : null,
+                WindSpeed: p.WindSpeed ?? string.Empty,
+                WindDirection: p.WindDirection ?? string.Empty,
+                ShortForecast: p.ShortForecast ?? string.Empty,
+                DetailedForecast: p.DetailedForecast ?? string.Empty,
+                Icon: p.Icon ?? string.Empty));
+        }
+
+        return periods;
+    }
+
+    /// <summary>
+    /// Observation wind speed is usually km/h (<c>wmoUnit:km_h-1</c>) but can be
+    /// m/s; convert based on the reported unit code.
+    /// </summary>
+    private static int? WindToMph(NwsQuantitativeValue? value)
+    {
+        if (value?.Value is not { } v)
+        {
+            return null;
+        }
+
+        var unit = value.UnitCode ?? string.Empty;
+        if (unit.Contains("m_s-1", StringComparison.OrdinalIgnoreCase))
+        {
+            return (int)Math.Round(v * 2.236936d, MidpointRounding.AwayFromZero);
+        }
+
+        return NwsUnits.KmhToMph(v);
+    }
+
+    /// <summary>
+    /// Approximate a polygon's centre by averaging the vertices of its outer
+    /// ring. NWS forecast geometry is GeoJSON <c>[[[lon,lat], ...]]</c>.
+    /// </summary>
+    private static GeoCoordinate? TryComputePolygonCenter(NwsGeometry? geometry)
+    {
+        if (geometry?.Coordinates is not { ValueKind: JsonValueKind.Array } coords)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (coords.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            var ring = coords[0];
+            if (ring.ValueKind != JsonValueKind.Array || ring.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            double sumLat = 0;
+            double sumLon = 0;
+            var count = 0;
+
+            foreach (var point in ring.EnumerateArray())
+            {
+                if (point.ValueKind != JsonValueKind.Array || point.GetArrayLength() < 2)
+                {
+                    continue;
+                }
+
+                var lon = point[0].GetDouble();
+                var lat = point[1].GetDouble();
+                sumLon += lon;
+                sumLat += lat;
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return null;
+            }
+
+            var avgLat = sumLat / count;
+            var avgLon = sumLon / count;
+            return GeoCoordinate.IsValid(avgLat, avgLon) ? new GeoCoordinate(avgLat, avgLon) : null;
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private void RecordDuration(string endpoint, int statusCode, long startTimestamp, bool conditional) =>
+        telemetry.RecordNwsRequest(
+            endpoint,
+            statusCode,
+            Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds,
+            conditional);
+
+    private void RecordFailure(string endpoint, HttpStatusCode? statusCode) =>
+        telemetry.RecordError(endpoint, statusCode is null ? 0 : (int)statusCode);
+}
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Nws/NwsClientOptions.cs
+
+Now I'm looking at the NwsClientOptions configuration.
+
+bash
+sed -n '4430,4530p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Nws/NwsClientOptions.cs
+SIZE: 1.9 KB
+MODIFIED: 06/23/2026 13:13:39
+================================================================================
+
+namespace Weather.Infrastructure.Nws;
+
+/// <summary>
+/// Strongly-typed configuration for the NWS client, bound from the
+/// <c>"Nws"</c> configuration section.
+/// </summary>
+public sealed class NwsClientOptions
+{
+    public const string SectionName = "Nws";
+
+    /// <summary>Base address of the public NWS API.</summary>
+    public string BaseUrl { get; set; } = "https://api.weather.gov";
+
+    /// <summary>
+    /// NWS REQUIRES a descriptive User-Agent that identifies the application
+    /// and a contact. Requests without one are rejected. Override this in
+    /// configuration with your own contact details.
+    /// See https://www.weather.gov/documentation/services-web-api.
+    /// </summary>
+    public string UserAgent { get; set; } = "weather-dashboard/1.0 (+https://github.com/collabskus/weather)";
+
+    /// <summary>Fallback TTL for a forecast when NWS sends no usable Cache-Control max-age.</summary>
+    public TimeSpan DefaultForecastTtl { get; set; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>How long a coordinate-&gt;grid mapping is trusted. It effectively never changes.</summary>
+    public TimeSpan PointMetadataTtl { get; set; } = TimeSpan.FromDays(30);
+
+    /// <summary>Clamp so a misconfigured/odd upstream max-age can't pin stale data for too long.</summary>
+    public TimeSpan MaxForecastTtl { get; set; } = TimeSpan.FromHours(6);
+
+    /// <summary>
+    /// How long active alerts for a coordinate are trusted before NWS is asked
+    /// again. Alerts can appear and clear faster than forecasts, so this is
+    /// deliberately short — but long enough that a burst of browser refreshes
+    /// collapses into a single upstream <c>/alerts/active</c> call.
+    /// </summary>
+    public TimeSpan AlertsTtl { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>Per-request timeout applied by the resilience pipeline.</summary>
+    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(15);
+}
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Nws/NwsJsonModels.cs
+SIZE: 5.35 KB
+MODIFIED: 06/19/2026 08:53:52
+================================================================================
+
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Weather.Infrastructure.Nws;
+
+// ---------------------------------------------------------------------------
+// Wire DTOs for the National Weather Service API.
+//
+// These mirror only the fields the application consumes. Everything is
+// nullable because the upstream API is outside our control: a defensive parse
+// that tolerates missing fields is safer than one that throws on a surprise.
+// Property names map to the camelCase JSON via WeatherJson.Options.
+// ---------------------------------------------------------------------------
+
+/// <summary>Envelope for <c>GET /points/{lat},{lon}</c>.</summary>
+internal sealed record NwsPointResponse
+{
+    public NwsPointProperties? Properties { get; init; }
+}
+
+internal sealed record NwsPointProperties
+{
+    public string? GridId { get; init; }
+    public int GridX { get; init; }
+    public int GridY { get; init; }
+    public string? Forecast { get; init; }
+    public string? ForecastHourly { get; init; }
+    public string? TimeZone { get; init; }
+    public string? RadarStation { get; init; }
+    public NwsRelativeLocation? RelativeLocation { get; init; }
+}
+
+internal sealed record NwsRelativeLocation
+{
+    public NwsRelativeLocationProperties? Properties { get; init; }
+}
+
+internal sealed record NwsRelativeLocationProperties
+{
+    public string? City { get; init; }
+    public string? State { get; init; }
+}
+
+/// <summary>Envelope for the daily and hourly forecast endpoints (same shape).</summary>
+internal sealed record NwsForecastResponse
+{
+
+Now I'm moving into the WeatherService implementation, which is a substantial section spanning several hundred lines.
+Done
+
+Now the WeatherService — the central file:
+Examined WeatherService and commenced DependencyInjection review
+
+bash
+sed -n '5269,5765p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Services/WeatherService.cs
+SIZE: 17.83 KB
+MODIFIED: 06/23/2026 13:12:56
+================================================================================
+
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+
+namespace Weather.Infrastructure.Services;
+
+/// <summary>
+/// The cache-aside orchestrator. It is the only type that knows the freshness
+/// policy: long-TTL point metadata, short-TTL forecasts honouring NWS
+/// Cache-Control, conditional GETs to refresh expiry cheaply, and serving a
+/// stale-but-valid copy when NWS is unreachable. Cache hit/miss telemetry is
+/// recorded here because only this layer knows the <em>semantic</em> outcome.
+///
+/// <para>
+/// <b>Stampede protection.</b> The forecast fetch for a single grid cell is run
+/// through an <see cref="IRequestCoalescer{TKey}"/> keyed by the cell. When a
+/// cell is cold (or has just expired) and many requests arrive at once — the
+/// "refresh-spam from many browsers" case — only the first request calls NWS;
+/// the rest await that one in-flight fetch and share its result. This is what
+/// guarantees that load on NWS is bounded by the number of <em>distinct cold
+/// cells</em>, not by the number of users.
+/// </para>
+/// </summary>
+internal sealed class WeatherService(
+    IPointMetadataCache metadataCache,
+    IForecastCache forecastCache,
+    ICellExtrasCache extrasCache,
+    IAlertCache alertCache,
+    INwsApiClient nwsClient,
+    INeighborhoodWarmer warmer,
+    IRequestCoalescer<GridPoint> forecastCoalescer,
+    IRequestCoalescer<string> alertCoalescer,
+    WeatherTelemetry telemetry,
+    TimeProvider timeProvider,
+    IOptions<NwsClientOptions> options,
+    ILogger<WeatherService> logger) : IWeatherService
+{
+    private const string MetadataCacheName = "metadata";
+    private const string ForecastCacheName = "forecast";
+    private const string ExtrasCacheName = "extras";
+    private const string AlertsCacheName = "alerts";
+
+    // Nominal NWS cell size (~2.5 km) used only as a fallback ordering metric
+    // when a cell's true polygon centre is not currently known.
+    private const double NominalCellMeters = 2500d;
+
+    // Keep the hot-path fan-out polite to NWS even on a cold area request.
+    private const int NeighborFetchConcurrency = 4;
+
+    private readonly NwsClientOptions _options = options.Value;
+
+    public async Task<Forecast?> GetForecastAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var coord = coordinate.Rounded();
+        var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        var (forecast, _) = await GetForecastByGridCoreAsync(metadata.Grid, cancellationToken).ConfigureAwait(false);
+        if (forecast is not null)
+        {
+            // Fire-and-forget: schedule the surrounding cells to be warmed.
+            warmer.RequestWarming(metadata.Grid);
+        }
+
+        return forecast;
+    }
+
+    public async Task<NeighborhoodForecast?> GetNeighborhoodForecastAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        var coord = coordinate.Rounded();
+        var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        var (primary, _) = await GetForecastByGridCoreAsync(metadata.Grid, cancellationToken).ConfigureAwait(false);
+        if (primary is null)
+        {
+            return null;
+        }
+
+        warmer.RequestWarming(metadata.Grid);
+
+        // Best-effort: include only neighbours that are ALREADY warm. Never
+        // fetch on the hot path — that is what keeps this endpoint fast.
+        var now = timeProvider.GetUtcNow();
+        var neighbors = new List<Forecast>();
+        foreach (var cell in GridNeighborhood.Surrounding(metadata.Grid))
+        {
+            var cached = await forecastCache.GetAsync(cell, cancellationToken).ConfigureAwait(false);
+            if (cached is not null && cached.IsFresh(now))
+            {
+                neighbors.Add(cached.Forecast);
+            }
+        }
+
+        return new NeighborhoodForecast(coord, primary, neighbors);
+    }
+
+    public async Task<AreaForecast?> GetAreaForecastAsync(
+        GeoCoordinate coordinate, int radius = 1, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
+
+        var coord = coordinate.Rounded();
+        var metadata = await ResolveMetadataAsync(coord, cancellationToken).ConfigureAwait(false);
+        if (metadata is null)
+        {
+            return null;
+        }
+
+        var primary = await AssembleCellAsync(metadata.Grid, cancellationToken).ConfigureAwait(false);
+        if (primary is null)
+        {
+            return null;
+        }
+
+        // Schedule background warming of the daily forecasts for the ring.
+        warmer.RequestWarming(metadata.Grid);
+
+        // Alerts are point-based and apply to the whole area; resolve them
+        // cache-aside (short TTL) so repeated views and browser refreshes do
+        // NOT re-hit /alerts/active every time.
+        var alerts = await ResolveAlertsAsync(coord, cancellationToken).ConfigureAwait(false);
+
+        // Assemble every neighbouring cell, cache-aside, with bounded
+        // concurrency so a cold area can never stampede NWS.
+        var cells = GridNeighborhood.Surrounding(metadata.Grid, radius);
+        var assembled = new ConcurrentBag<CellWeather>();
+
+        await Parallel.ForEachAsync(
+            cells,
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = NeighborFetchConcurrency,
+                CancellationToken = cancellationToken,
+            },
+            async (cell, token) =>
+            {
+                var assembledCell = await AssembleCellAsync(cell, token).ConfigureAwait(false);
+                if (assembledCell is not null)
+                {
+                    assembled.Add(assembledCell);
+                }
+            }).ConfigureAwait(false);
+
+        var neighbors = assembled
+            .OrderBy(c => OrderKeyMeters(coord, metadata.Grid, c))
+            .Select(c => c with { DistanceMeters = DisplayDistanceMeters(coord, c) })
+            .ToList();
+
+        return new AreaForecast(coord, metadata, primary, neighbors, alerts);
+    }
+
+    public async Task<Forecast?> GetForecastByGridAsync(GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        // Public entry point used by the background warmer. Deliberately does
+        // NOT schedule further warming, which would recurse forever.
+        var (forecast, _) = await GetForecastByGridCoreAsync(grid, cancellationToken).ConfigureAwait(false);
+        return forecast;
+    }
+
+    /// <summary>
+    /// Build the full bundle for one cell: the headline daily forecast
+    /// (cache-aside, with conditional GETs) plus the cached "extras" (hourly +
+    /// latest observation + centre). Returns <c>null</c> only when the daily
+    /// forecast itself is unavailable.
+    /// </summary>
+    private async Task<CellWeather?> AssembleCellAsync(GridPoint grid, CancellationToken cancellationToken)
+    {
+        var (daily, centerFromFetch) = await GetForecastByGridCoreAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (daily is null)
+        {
+            return null;
+        }
+
+        var extras = await ResolveExtrasAsync(grid, centerFromFetch, cancellationToken).ConfigureAwait(false);
+        var center = centerFromFetch ?? extras.Center;
+
+        return new CellWeather(grid, center, daily, extras.Hourly, extras.Observation, DistanceMeters: null);
+    }
+
+    private async Task<CellExtras> ResolveExtrasAsync(
+        GridPoint grid, GeoCoordinate? centerHint, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var cached = await extrasCache.GetAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(ExtrasCacheName);
+
+            // Backfill the centre if we only just learned it from a fresh daily fetch.
+            if (centerHint is not null && cached.Extras.Center is null)
+            {
+                var upgraded = cached.Extras with { Center = centerHint };
+                await extrasCache
+                    .UpsertAsync(grid, cached with { Extras = upgraded }, cancellationToken)
+                    .ConfigureAwait(false);
+                return upgraded;
+            }
+
+            return cached.Extras;
+        }
+
+        telemetry.RecordCacheMiss(ExtrasCacheName);
+
+        var hourly = await nwsClient.GetHourlyForecastAsync(grid, cancellationToken).ConfigureAwait(false) ?? [];
+        var observation = await nwsClient.GetLatestObservationAsync(grid, cancellationToken).ConfigureAwait(false);
+
+        var center = centerHint ?? cached?.Extras.Center;
+        var extras = new CellExtras(hourly, observation, center);
+
+        await extrasCache
+            .UpsertAsync(grid, new CachedCellExtras(extras, now, now + _options.DefaultForecastTtl), cancellationToken)
+            .ConfigureAwait(false);
+
+        return extras;
+    }
+
+    /// <summary>
+    /// Cache-aside fetch of active alerts for a coordinate, protected by the
+    /// single-flight coalescer (keyed by the coordinate's cache key) so a burst
+    /// of concurrent misses collapses into one upstream <c>/alerts/active</c>
+    /// call. A fresh cache entry is served straight from SQLite; on miss/expiry
+    /// the result is fetched once and stored with a short TTL. Caching an empty
+    /// list is deliberate and correct: "no active alerts" is a valid answer
+    /// worth remembering for the TTL, and it is what stops repeated views and
+    /// browser refreshes from re-hitting the alerts endpoint every time.
+    /// </summary>
+    private async Task<IReadOnlyList<WeatherAlert>> ResolveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+
+        var cached = await alertCache.GetAsync(coordinate, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(AlertsCacheName);
+            return cached.Alerts;
+        }
+
+        telemetry.RecordCacheMiss(AlertsCacheName);
+
+        var key = coordinate.Rounded().ToCacheKey();
+
+        return await alertCoalescer.RunAsync(
+            key,
+            async token =>
+            {
+                // Re-check the cache inside the flight: a concurrent leader for
+                // the same coordinate may have just filled it.
+                var inner = timeProvider.GetUtcNow();
+                var rechecked = await alertCache.GetAsync(coordinate, token).ConfigureAwait(false);
+                if (rechecked is not null && rechecked.IsFresh(inner))
+                {
+                    return rechecked.Alerts;
+                }
+
+                // The client is best-effort: it returns an empty list both when
+                // there are genuinely no alerts and when NWS is unreachable.
+                // Either way an empty list is a safe thing to cache for the
+                // short TTL; the next refresh after expiry will try again.
+                var fetched = await nwsClient.GetActiveAlertsAsync(coordinate, token).ConfigureAwait(false) ?? [];
+
+                await alertCache
+                    .UpsertAsync(
+                        coordinate,
+                        new CachedAlerts(fetched, inner, inner + _options.AlertsTtl),
+                        token)
+                    .ConfigureAwait(false);
+
+                return fetched;
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static double OrderKeyMeters(GeoCoordinate query, GridPoint origin, CellWeather cell) =>
+        cell.Center is { } center
+            ? query.DistanceMetersTo(center)
+            : GridApproxMeters(origin, cell.Grid);
+
+    private static double? DisplayDistanceMeters(GeoCoordinate query, CellWeather cell) =>
+        cell.Center is { } center ? query.DistanceMetersTo(center) : null;
+
+    private static double GridApproxMeters(GridPoint origin, GridPoint cell)
+    {
+        double dx = cell.GridX - origin.GridX;
+        double dy = cell.GridY - origin.GridY;
+        return Math.Sqrt((dx * dx) + (dy * dy)) * NominalCellMeters;
+    }
+
+    private async Task<PointMetadata?> ResolveMetadataAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var cached = await metadataCache.GetAsync(coordinate, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(MetadataCacheName);
+            return cached.Metadata;
+        }
+
+        telemetry.RecordCacheMiss(MetadataCacheName);
+
+        var fetched = await nwsClient.GetPointMetadataAsync(coordinate, cancellationToken).ConfigureAwait(false);
+        if (fetched is null)
+        {
+            // Either NWS is unreachable or the location is genuinely uncovered.
+            // The mapping effectively never changes, so a stale hit is safe.
+            if (cached is not null)
+            {
+                logger.LogWarning("Serving stale point metadata for {Coordinate}; NWS resolve failed.", coordinate);
+                return cached.Metadata;
+            }
+
+            return null;
+        }
+
+        await metadataCache
+            .UpsertAsync(new CachedPointMetadata(fetched, now, now + _options.PointMetadataTtl), cancellationToken)
+            .ConfigureAwait(false);
+        return fetched;
+    }
+
+    /// <summary>
+    /// Cache-aside fetch of the headline daily forecast for a cell, protected by
+    /// the single-flight coalescer so concurrent misses for the same cell
+    /// collapse into one upstream call. Also returns the cell's approximate
+    /// centre when it came from a fresh fetch (it is not stored in the daily
+    /// cache, so a pure cache hit yields a null centre and the caller falls back
+    /// to the extras-cached centre or a grid estimate).
+    /// </summary>
+    private Task<(Forecast? Forecast, GeoCoordinate? Center)> GetForecastByGridCoreAsync(
+        GridPoint grid, CancellationToken cancellationToken)
+    {
+        // A flag the factory flips when THIS call is the one that actually ran
+        // the fetch (the coalescer "leader"). Everyone else is a follower whose
+        // upstream call was avoided.
+        var ranFactory = false;
+
+        return RunCoalescedAsync();
+
+        async Task<(Forecast?, GeoCoordinate?)> RunCoalescedAsync()
+        {
+            var result = await forecastCoalescer.RunAsync(
+                grid,
+                async flightToken =>
+                {
+                    ranFactory = true;
+                    return await FetchForecastCoreAsync(grid, flightToken).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            if (ranFactory)
+            {
+                telemetry.RecordCoalesceLeader(ForecastCacheName);
+            }
+            else
+            {
+                telemetry.RecordCoalesceFollower(ForecastCacheName);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// The actual cache-aside body, run by at most one caller per cell at a
+    /// time (the coalescer guarantees this). Re-reads the cache first, so a
+    /// follower that waited for an earlier flight — and then started a fresh one
+    /// — still sees the freshly-filled cache and never calls NWS.
+    /// </summary>
+    private async Task<(Forecast? Forecast, GeoCoordinate? Center)> FetchForecastCoreAsync(
+        GridPoint grid, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var cached = await forecastCache.GetAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(ForecastCacheName);
+            return (cached.Forecast, null);
+        }
+
+        telemetry.RecordCacheMiss(ForecastCacheName);
+
+        var result = await nwsClient
+            .GetForecastAsync(grid, cached?.ETag, cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (result.Outcome)
+        {
+            case NwsFetchOutcome.Success when result.Forecast is not null:
+                var fresh = new CachedForecast(
+                    result.Forecast, result.ETag, now, ComputeExpiry(now, result.MaxAge));
+                await forecastCache.UpsertAsync(fresh, cancellationToken).ConfigureAwait(false);
+                return (result.Forecast, result.Center);
+
+            case NwsFetchOutcome.NotModified when cached is not null:
+                // Cheapest path: payload unchanged, just extend the TTL.
+                var renewed = cached with
+                {
+                    ETag = result.ETag ?? cached.ETag,
+                    RetrievedAtUtc = now,
+                    ExpiresAtUtc = ComputeExpiry(now, result.MaxAge),
+                };
+                await forecastCache.UpsertAsync(renewed, cancellationToken).ConfigureAwait(false);
+                return (cached.Forecast, null);
+
+            case NwsFetchOutcome.Unavailable when cached is not null:
+                logger.LogWarning("Serving stale forecast for grid {Grid}; NWS unavailable.", grid);
+                return (cached.Forecast, null);
+
+            case NwsFetchOutcome.NotFound:
+            case NwsFetchOutcome.Unavailable:
+            case NwsFetchOutcome.NotModified:
+            default:
+                return (null, null);
+        }
+    }
+
+    private DateTimeOffset ComputeExpiry(DateTimeOffset now, TimeSpan? maxAge)
+    {
+        var ttl = maxAge ?? _options.DefaultForecastTtl;
+        if (ttl <= TimeSpan.Zero)
+        {
+            ttl = _options.DefaultForecastTtl;
+        }
+
+        if (ttl > _options.MaxForecastTtl)
+        {
+            ttl = _options.MaxForecastTtl;
+        }
+
+        return now + ttl;
+    }
+}
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Weather.Infrastructure.csproj
+SIZE: 1.24 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Weather.Infrastructure</RootNamespace>
+    <AssemblyName>Weather.Infrastructure</AssemblyName>
+    <Description>NWS HTTP client, SQLite/Dapper caches, the orchestrating weather service and the background neighbourhood warmer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Weather.Core\Weather.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The test project exercises the internal client, caches, weather service
+       and background warmer directly, so it needs access to internals. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Weather.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <!--
+    All first-party Microsoft packages (plus Dapper, which is MIT and free).
+    Microsoft.Extensions.Http.Resilience wraps Polly v8 and is the supported
+    way to add retry / circuit-breaker / timeout to an HttpClient today.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="System.Threading.RateLimiting" />
+  </ItemGroup>
+
+</Project>
+
+
+
+================================================================================
+FILE: src/Weather.ServiceDefaults/Extensions.cs
+
+Now I'm moving on to examine the DependencyInjection section to understand how the services are wired together.
+Done
+
+Now DependencyInjection:
+Resuming analysis of RequestCoalescer implementation details
+
+bash
+sed -n '3811,3919p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/DependencyInjection.cs
+SIZE: 4.73 KB
+MODIFIED: 06/23/2026 13:13:49
+================================================================================
+
+using System.Threading.RateLimiting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Caching;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Services;
+
+namespace Weather.Infrastructure;
+
+/// <summary>
+/// The single composition root for the infrastructure layer. One call wires up
+/// configuration, the SQLite caches, the resilient NWS HTTP client, the
+/// orchestrating weather service and the background neighbourhood warmer.
+/// </summary>
+public static class DependencyInjection
+{
+    public static IServiceCollection AddWeatherInfrastructure(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        services.Configure<NwsClientOptions>(configuration.GetSection(NwsClientOptions.SectionName));
+        services.Configure<SqliteCacheOptions>(configuration.GetSection(SqliteCacheOptions.SectionName));
+
+        // Clock — the BCL abstraction. Tests substitute a controllable one.
+        services.TryAddSingleton(TimeProvider.System);
+
+        // Custom metrics + traces (the meter/source names are registered with
+        // OpenTelemetry in the API host).
+        services.TryAddSingleton<WeatherTelemetry>();
+
+        // SQLite caches are stateless and thread-safe → singletons.
+        services.TryAddSingleton<ISqliteConnectionFactory, SqliteConnectionFactory>();
+        services.TryAddSingleton<IForecastCache, SqliteForecastCache>();
+        services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
+        services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
+        services.TryAddSingleton<IAlertCache, SqliteAlertCache>();
+        services.AddHostedService<DatabaseInitializer>();
+
+        // Single-flight coalescer for forecast fetches. MUST be a singleton:
+        // its whole job is to collapse concurrent misses ACROSS requests into
+        // one upstream call, which only works if every request shares the same
+        // in-flight dictionary. A scoped registration would give each request
+        // its own dictionary and reintroduce the stampede.
+        services.TryAddSingleton<IRequestCoalescer<GridPoint>, RequestCoalescer<GridPoint>>();
+
+        // Single-flight coalescer for alert fetches, keyed by the rounded
+        // coordinate's cache key (a string). Same rationale as the forecast
+        // coalescer: when an alert entry is cold/expired and many browsers
+        // refresh at once, only the first request calls /alerts/active; the
+        // rest await it. Singleton so the in-flight dictionary is shared.
+        services.TryAddSingleton<IRequestCoalescer<string>, RequestCoalescer<string>>();
+
+        // Resilient, identified NWS client. The standard resilience handler
+        // wraps Polly v8 (retry w/ jitter, circuit breaker, timeout) and emits
+        // its own OpenTelemetry signals.
+        services.AddHttpClient<INwsApiClient, NwsApiClient>(static (serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<NwsClientOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+
+            // The resilience pipeline owns timeouts; disable HttpClient's own.
+            client.Timeout = Timeout.InfiniteTimeSpan;
+
+            // NWS rejects requests with no identifying User-Agent.
+            if (!client.DefaultRequestHeaders.UserAgent.TryParseAdd(options.UserAgent))
+            {
+                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", options.UserAgent);
+            }
+
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/geo+json");
+        }).AddStandardResilienceHandler();
+
+        // Request-scoped orchestration.
+        services.TryAddScoped<IWeatherService, WeatherService>();
+
+        // Background neighbourhood warming with a shared, global rate limit.
+        services.TryAddSingleton<INeighborhoodWarmer, NeighborhoodWarmer>();
+        services.TryAddSingleton<RateLimiter>(static _ => new TokenBucketRateLimiter(
+            new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 20,
+                TokensPerPeriod = 10,
+                ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+                AutoReplenishment = true,
+                QueueLimit = 64,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            }));
+        services.AddHostedService<NeighborhoodWarmingBackgroundService>();
+
+        return services;
+    }
+}
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Nws/NwsApiClient.cs
+
+Let me check the RequestCoalescer constructor to verify the test harness signatures.
+Done
+
+Now the RequestCoalescer implementation (to confirm constructor for test harnesses):
+Examined constructor patterns and identified test files to review
+
+bash
+sed -n '4919,5060p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Services/RequestCoalescer.cs
+SIZE: 13.16 KB
+MODIFIED: 06/22/2026 15:42:31
+================================================================================
+
+using System.Collections.Concurrent;
+using Weather.Core.Abstractions;
+
+namespace Weather.Infrastructure.Services;
+
+/// <summary>
+/// Thread-safe, in-process implementation of <see cref="IRequestCoalescer{TKey}"/>.
+///
+/// <para>
+/// <b>How it collapses a stampede.</b> The first caller for a key wins a race
+/// to insert a <see cref="Flight"/> into a <see cref="ConcurrentDictionary{TKey,TValue}"/>
+/// and starts the factory. Concurrent callers for the same key lose the race,
+/// find the existing flight, and await its task. The instant the factory
+/// completes, the flight is evicted so the NEXT caller (after the cache has
+/// presumably been filled by the winner) is free to start a new flight if the
+/// cache is cold again.
+/// </para>
+///
+/// <para>
+/// <b>Cancellation.</b> A flight is shared by N callers, so one caller's
+/// cancellation must not abort the work the other N-1 are waiting on. Each
+/// caller therefore awaits with <c>Task.WaitAsync(callerToken)</c>, which
+/// detaches only that caller. The underlying factory runs under a flight-owned
+/// linked token that is cancelled only when EVERY attached caller has gone
+/// away (reference-counted), so an abandoned flight does not keep an upstream
+/// call alive needlessly.
+/// </para>
+///
+/// <para>
+/// The dictionary key is the coalescing key; the stored value is weakly typed
+/// as <see cref="object"/> because a single coalescer instance is generic over
+/// the key but each call supplies its own value type. The cast back is always
+/// safe: a given key is only ever used with one value type in this codebase
+/// (a <c>GridPoint</c> always yields a forecast tuple).
+/// </para>
+/// </summary>
+internal sealed class RequestCoalescer<TKey> : IRequestCoalescer<TKey>
+    where TKey : notnull
+{
+    private readonly ConcurrentDictionary<TKey, Flight> _flights = new();
+
+    public async Task<TValue> RunAsync<TValue>(
+        TKey key,
+        Func<CancellationToken, Task<TValue>> factory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(factory);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Attach to an existing flight or become the owner of a new one. The
+        // loop guards the tiny window where a flight is removed (because it just
+        // completed) between our GetOrAdd and our successful attach.
+        while (true)
+        {
+            // Construct a candidate up front and let GetOrAdd decide the winner
+            // by reference. Using the value-overload (not the factory-overload)
+            // means ownership is unambiguous even under heavy contention: the
+            // owner is whoever's candidate is the one actually stored. A losing
+            // candidate is simply discarded (and disposed) without ever running
+            // the factory, so NWS is never called by a non-owner.
+            var candidate = new Flight();
+            var flight = _flights.GetOrAdd(key, candidate);
+            var isOwner = ReferenceEquals(flight, candidate);
+
+            if (!isOwner)
+            {
+                // Lost the race: dispose our unused candidate's token source.
+                candidate.DisposeUnused();
+            }
+
+            // Attach (owner and followers alike). If the flight has already
+            // finished and been evicted, start over with a fresh one.
+            if (!flight.TryAttach())
+            {
+                continue;
+            }
+
+            // The OWNER kicks off the single factory invocation. It runs
+            // detached from any one caller's token (it observes the flight's
+            // own token, which is cancelled only when EVERY caller has gone)
+            // and arranges its own eviction on completion. Crucially, the owner
+            // does NOT await the factory directly — it awaits the shared task
+            // below, just like a follower, so the owner's own cancellation
+            // detaches only the owner and never aborts work others are awaiting.
+            if (isOwner)
+            {
+                StartFlight(key, flight, factory);
+            }
+
+            try
+            {
+                // Every caller awaits the shared result, but its own token
+                // detaches only itself.
+                var result = (TValue)await flight.Task
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return result;
+            }
+            finally
+            {
+                flight.Detach();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Run the factory exactly once for an owned flight, bind its outcome to the
+    /// shared task, and evict the flight when it finishes (success, fault, or
+    /// cancellation) so the next caller starts fresh. Runs detached: no single
+    /// caller's lifetime governs it.
+    /// </summary>
+    private void StartFlight<TValue>(
+        TKey key, Flight flight, Func<CancellationToken, Task<TValue>> factory)
+    {
+        Task<TValue> task;
+        try
+        {
+            task = factory(flight.Token);
+        }
+        catch (Exception ex)
+        {
+            // Synchronous throw from the factory: fault the shared task so all
+            // attached callers observe the failure, then evict.
+            flight.Fault(ex);
+            EvictAndDispose(key, flight);
+            return;
+        }
+
+        flight.Bind(task);
+
+        // Detached eviction: when the factory's task settles, remove the flight.
+        // We do not await this; the callers await flight.Task instead.
+        _ = task.ContinueWith(
+            (_, state) =>
+            {
+
+The RequestCoalescer<TKey> class has a parameterless constructor that initializes the concurrent dictionary inline, so I can instantiate it directly with different type parameters like GridPoint, string, and GeoCoordinate in the test harnesses. Now I'm moving on to examine the test files, starting with the weather service tests.
+Done
+
+Now the test harnesses. First the two WeatherService test files:
+Gathered test utilities and sample data for implementation
+
+bash
+sed -n '10792,11074p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
+SIZE: 11.55 KB
+MODIFIED: 06/23/2026 13:14:24
+================================================================================
+
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Weather.Core.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Services;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Services;
+
+public sealed class WeatherServiceAreaTests
+{
+    private static readonly GeoCoordinate Coord = new(37.0879, -76.4505);
+    private static readonly GridPoint Grid = new("AKQ", 83, 61);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    private static PointMetadata Meta() =>
+        new(Coord, Grid, "forecast-url", "hourly-url", "Bethel Manor", "VA", "America/New_York", "KAKQ");
+
+    private static Forecast ForecastFor(GridPoint grid) =>
+        new(grid, Now, Now, new[]
+        {
+            new ForecastPeriod(1, "This Afternoon", Now, Now.AddHours(4), true, 90, "F", 3,
+                "5 mph", "S", "Sunny", "Detailed.", "icon"),
+            new ForecastPeriod(2, "Tonight", Now.AddHours(4), Now.AddHours(16), false, 74, "F", null,
+                "12 mph", "S", "Mostly Clear", "Detailed.", "icon"),
+        });
+
+    // A deterministic, distinct centre per cell so distance ordering is testable:
+    // cells further from the origin in grid space map to centres further from Coord.
+    private static GeoCoordinate CenterFor(GridPoint grid) =>
+        new(37.0 + (grid.GridY * 0.01), -76.0 - (grid.GridX * 0.01));
+
+    // Return the concrete array type (CA1859): the method is private and every
+    // caller is fine with ForecastPeriod[], which still satisfies the
+    // IReadOnlyList<ForecastPeriod> parameters it is passed to.
+    private static ForecastPeriod[] HourlyTwo() => new[]
+    {
+        new ForecastPeriod(1, string.Empty, Now, Now.AddHours(1), true, 90, "F", 2,
+            "6 mph", "S", "Sunny", string.Empty, "icon"),
+        new ForecastPeriod(2, string.Empty, Now.AddHours(1), Now.AddHours(2), true, 89, "F", 2,
+            "7 mph", "S", "Sunny", string.Empty, "icon"),
+    };
+
+    private static Observation ObservationSample() =>
+        new("KPHF", "Newport News", Now, "Sunny", "icon", 88, 70, 55, 8, 15, "S", 30.06, 10.0);
+
+    private static WeatherAlert AlertSample() =>
+        new("id-1", "Heat Advisory", "Moderate", "Likely", "Expected", "Heat Advisory in effect",
+            "Hot.", "Drink fluids.", "Hampton", "NWS Wakefield VA", Now, Now, Now.AddHours(6), Now.AddHours(6));
+
+    private sealed class Harness
+    {
+        public IPointMetadataCache MetadataCache { get; } = Substitute.For<IPointMetadataCache>();
+        public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
+        public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
+        public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
+        public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
+        public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
+
+        // A REAL coalescer: its logic is pure and in-process, so the area hot
+        // path runs through it exactly as in production while these tests keep
+        // asserting cache-aside behaviour.
+        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
+
+        public WeatherService Service { get; }
+
+        public Harness()
+        {
+            Service = new WeatherService(
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                Coalescer, AlertCoalescer,
+                new WeatherTelemetry(), new MutableTimeProvider(Now),
+                Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
+        }
+
+        public void ResolvesMetadata() =>
+            Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(Meta());
+
+        public void AllDailyFetchesSucceed() =>
+            Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                .Returns(ci =>
+                {
+                    var grid = ci.Arg<GridPoint>();
+                    return ForecastFetchResult.Success(ForecastFor(grid), "\"e\"", TimeSpan.FromMinutes(30), CenterFor(grid));
+                });
+
+        public void ExtrasAlwaysMiss() =>
+            ExtrasCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>())
+                .Returns((CachedCellExtras?)null);
+
+        public void HourlyAndObservationAndAlertsAvailable()
+        {
+            Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+            Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+            Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+                .Returns(new[] { AlertSample() });
+        }
+    }
+
+    [Test]
+    public async Task GetAreaAssemblesPrimaryAllNeighboursHourlyObservationAndAlerts()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Grid.ShouldBe(Grid);
+        area.Primary.Daily.Periods.Count.ShouldBe(2);
+        area.Primary.Hourly.Count.ShouldBe(2);
+        area.Primary.Observation.ShouldNotBeNull();
+        area.Primary.Observation!.TemperatureF.ShouldBe(88);
+
+        // The 3x3 ring around the origin has eight neighbours.
+        area.Neighbors.Count.ShouldBe(8);
+        area.Alerts.Count.ShouldBe(1);
+        area.Alerts[0].Event.ShouldBe("Heat Advisory");
+
+        h.Warmer.Received(1).RequestWarming(Grid);
+    }
+
+    [Test]
+    public async Task GetAreaOrdersNeighboursByDistanceFromTheUser()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        var distances = area!.Neighbors
+            .Where(n => n.DistanceMeters is not null)
+            .Select(n => n.DistanceMeters!.Value)
+            .ToList();
+
+        distances.Count.ShouldBe(8);
+        distances.ShouldBe(distances.OrderBy(d => d).ToList());
+    }
+
+    [Test]
+    public async Task GetAreaServesExtrasFromCacheWithoutRefetchingHourly()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        // Every cell already has fresh extras cached.
+        var cached = new CachedCellExtras(
+            new CellExtras(HourlyTwo(), ObservationSample(), CenterFor(Grid)),
+            Now, Now.AddMinutes(30));
+        h.ExtrasCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(cached);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Hourly.Count.ShouldBe(2);
+        await h.Nws.DidNotReceive().GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
+        await h.Nws.DidNotReceive().GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaReturnsNullWhenLocationUncovered()
+    {
+        var h = new Harness();
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((PointMetadata?)null);
+
+        (await h.Service.GetAreaForecastAsync(Coord)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetAreaWithRadiusTwoReturnsTwentyFourNeighbours()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        var area = await h.Service.GetAreaForecastAsync(Coord, radius: 2);
+
+        area.ShouldNotBeNull();
+        area!.Neighbors.Count.ShouldBe(24);
+    }
+
+    [Test]
+    public async Task GetAreaOnAlertCacheMissFetchesOnceAndStores()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        // Alert cache is cold for this coordinate.
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((CachedAlerts?)null);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(1);
+
+        // Fetched exactly once and the result was written back to the cache.
+        await h.Nws.Received(1).GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+        await h.AlertCache.Received(1).UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaServesAlertsFromCacheWithoutHittingNws()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+
+        // A FRESH alert entry already cached for this coordinate.
+        var cachedAlerts = new CachedAlerts(new[] { AlertSample() }, Now, Now.AddMinutes(5));
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(cachedAlerts);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(1);
+        area.Alerts[0].Event.ShouldBe("Heat Advisory");
+
+        // The whole point of the fix: a fresh cache entry means ZERO calls to
+        // the /alerts/active endpoint, no matter how many times the page loads.
+        await h.Nws.DidNotReceive().GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+        await h.AlertCache.DidNotReceive().UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaCachesEmptyAlertResultToAvoidRefetching()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((CachedAlerts?)null);
+        // No active alerts (and/or NWS best-effort empty).
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(0);
+
+        // "No alerts" is itself cached, so the next view will not re-hit NWS.
+        await h.AlertCache.Received(1).UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+
+Now I'm looking at the WeatherServiceTests class.
+
+bash
+sed -n '11074,11320p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
+SIZE: 10.05 KB
+MODIFIED: 06/23/2026 13:14:35
+================================================================================
+
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Weather.Core.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Services;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Services;
+
+public sealed class WeatherServiceTests
+{
+    private static readonly GeoCoordinate Coord = new(37.0879, -76.4505);
+    private static readonly GridPoint Grid = new("AKQ", 83, 61);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    private static PointMetadata Meta() =>
+        new(Coord, Grid, "forecast-url", "hourly-url", "Bethel Manor", "VA", "America/New_York", "KAKQ");
+
+    private static Forecast ForecastFor(GridPoint grid) =>
+        new(grid, Now, Now, new[]
+        {
+            new ForecastPeriod(1, "This Afternoon", Now, Now.AddHours(4), true, 90, "F", 3,
+                "5 mph", "S", "Sunny", "Detailed.", "icon"),
+        });
+
+    private static CachedForecast FreshForecast(GridPoint grid) =>
+        new(ForecastFor(grid), "\"e\"", Now, Now.AddHours(1));
+
+    private static CachedForecast StaleForecast(GridPoint grid) =>
+        new(ForecastFor(grid), "\"e\"", Now.AddHours(-2), Now.AddHours(-1));
+
+    private static CachedPointMetadata FreshMeta() => new(Meta(), Now, Now.AddDays(30));
+
+    private static CachedPointMetadata StaleMeta() => new(Meta(), Now.AddDays(-60), Now.AddDays(-30));
+
+    private sealed class Harness
+    {
+        public IPointMetadataCache MetadataCache { get; } = Substitute.For<IPointMetadataCache>();
+        public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
+        public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
+        public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
+        public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
+        public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
+        public WeatherService Service { get; }
+        // A REAL coalescer: its logic is pure and in-process, so the area hot
+        // path runs through it exactly as in production while these tests keep
+        // asserting cache-aside behaviour.
+        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
+
+        public Harness()
+        {
+            Service = new WeatherService(
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                Coalescer, AlertCoalescer,
+                new WeatherTelemetry(), new MutableTimeProvider(Now),
+                Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
+        }
+    }
+
+    [Test]
+    public async Task GetForecastOnFullMissFetchesStoresAndSchedulesWarming()
+    {
+        var h = new Harness();
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(Meta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        result!.Grid.ShouldBe(Grid);
+        await h.MetadataCache.Received(1).UpsertAsync(Arg.Any<CachedPointMetadata>(), Arg.Any<CancellationToken>());
+        await h.ForecastCache.Received(1).UpsertAsync(Arg.Any<CachedForecast>(), Arg.Any<CancellationToken>());
+        h.Warmer.Received(1).RequestWarming(Grid);
+    }
+
+    [Test]
+    public async Task GetForecastWithFreshMetadataDoesNotCallPoints()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(FreshForecast(Grid));
+
+        await h.Service.GetForecastAsync(Coord);
+
+        await h.Nws.DidNotReceive().GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastWithFreshForecastDoesNotCallForecast()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(FreshForecast(Grid));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        await h.Nws.DidNotReceive().GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastStaleThenNotModifiedRenewsTtlAndReturnsCached()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(StaleForecast(Grid));
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.NotModified("\"e2\"", TimeSpan.FromMinutes(20)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        result!.Periods[0].ShortForecast.ShouldBe("Sunny");
+        await h.ForecastCache.Received(1).UpsertAsync(
+            Arg.Is<CachedForecast>(c =>
+                c.ETag == "\"e2\"" &&
+                c.RetrievedAtUtc == Now &&
+                c.ExpiresAtUtc == Now.AddMinutes(20)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastStaleThenUnavailableServesStaleWithoutUpsert()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(StaleForecast(Grid));
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Unavailable);
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        result!.Grid.ShouldBe(Grid);
+        await h.ForecastCache.DidNotReceive().UpsertAsync(Arg.Any<CachedForecast>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastNotFoundWithoutCacheReturnsNull()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.NotFound);
+
+        (await h.Service.GetForecastAsync(Coord)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastWithUnresolvableMetadataAndNoCacheReturnsNull()
+    {
+        var h = new Harness();
+        // metadata cache empty + NWS resolve returns null
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((PointMetadata?)null);
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldBeNull();
+        await h.Nws.DidNotReceive().GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastWithUnresolvableMetadataButStaleCacheServesStaleMetadata()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(StaleMeta());
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((PointMetadata?)null);
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        await h.Nws.Received(1).GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetNeighborhoodReturnsOnlyAlreadyFreshNeighbors()
+    {
+        var h = new Harness();
+        var neighborA = new GridPoint("AKQ", 82, 61);
+        var neighborB = new GridPoint("AKQ", 84, 61);
+
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.ForecastCache.GetAsync(Grid, Arg.Any<CancellationToken>()).Returns(FreshForecast(Grid));
+        h.ForecastCache.GetAsync(neighborA, Arg.Any<CancellationToken>()).Returns(FreshForecast(neighborA));
+        h.ForecastCache.GetAsync(neighborB, Arg.Any<CancellationToken>()).Returns(FreshForecast(neighborB));
+        // every other surrounding cell returns null (the NSubstitute default)
+
+        var result = await h.Service.GetNeighborhoodForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        result!.Primary.Grid.ShouldBe(Grid);
+        result.Neighbors.Count.ShouldBe(2);
+        result.Neighbors.Select(n => n.Grid).ShouldBe(new[] { neighborA, neighborB }, ignoreOrder: true);
+        h.Warmer.Received(1).RequestWarming(Grid);
+    }
+
+    [Test]
+    public async Task GetNeighborhoodWithoutMetadataReturnsNull()
+    {
+        var h = new Harness();
+        h.Nws.GetPointMetadataAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((PointMetadata?)null);
+
+        (await h.Service.GetNeighborhoodForecastAsync(Coord)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastByGridDoesNotScheduleWarming()
+    {
+        var h = new Harness();
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        var result = await h.Service.GetForecastByGridAsync(Grid);
+
+        result.ShouldNotBeNull();
+        h.Warmer.DidNotReceive().RequestWarming(Arg.Any<GridPoint>());
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Weather.Infrastructure.Tests.csproj
+SIZE: 0.69 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- MTP test executable. `dotnet test` is opted into MTP via global.json. -->
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+
+I need to pull in the extra test classes and helper utilities from the existing test file to support what I'm building.
+Done
+
+Now the NWS client tests, stub handler, extras cache test, and the API fake:
+Scrutinizing test files and cache implementations
+
+bash
+sed -n '10053,10601p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Infrastructure.Tests/Fakes/StubHttpMessageHandler.cs
+SIZE: 1.63 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Net;
+
+namespace Weather.Infrastructure.Tests.Fakes;
+
+/// <summary>
+/// A test <see cref="HttpMessageHandler"/> whose response is produced by a
+/// caller-supplied delegate. It records every request (including headers) so
+/// tests can assert that, for example, a conditional <c>If-None-Match</c> was
+/// sent. Set <see cref="ThrowOnSend"/> to simulate a transport failure.
+/// </summary>
+internal sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+    : HttpMessageHandler
+{
+    private readonly List<HttpRequestMessage> _requests = [];
+
+    public IReadOnlyList<HttpRequestMessage> Requests => _requests;
+
+    public HttpRequestMessage? LastRequest => _requests.Count > 0 ? _requests[^1] : null;
+
+    public Exception? ThrowOnSend { get; set; }
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        _requests.Add(request);
+
+        if (ThrowOnSend is not null)
+        {
+            return Task.FromException<HttpResponseMessage>(ThrowOnSend);
+        }
+
+        var response = responder(request);
+        return Task.FromResult(response);
+    }
+
+    /// <summary>Build a JSON (application/geo+json, as NWS uses) response.</summary>
+    public static HttpResponseMessage GeoJson(HttpStatusCode statusCode, string body)
+    {
+        var response = new HttpResponseMessage(statusCode)
+        {
+            Content = new StringContent(body),
+        };
+        response.Content.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue("application/geo+json");
+        return response;
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/GlobalUsings.cs
+SIZE: 0.11 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+global using NSubstitute;
+global using Shouldly;
+global using TUnit.Core;
+global using Weather.Core.Models;
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs
+SIZE: 5.02 KB
+MODIFIED: 06/19/2026 12:35:38
+================================================================================
+
+using System.Net;
+using Microsoft.Extensions.Logging.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Nws;
+
+public sealed class NwsApiClientExtraTests
+{
+    private static readonly GeoCoordinate SampleCoordinate = new(37.0879, -76.4505);
+    private static readonly GridPoint SampleGrid = new("AKQ", 83, 61);
+
+    private static NwsApiClient CreateClient(StubHttpMessageHandler handler)
+    {
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api.weather.gov/") };
+        return new NwsApiClient(httpClient, new WeatherTelemetry(), NullLogger<NwsApiClient>.Instance);
+    }
+
+    /// <summary>Route each NWS path to its canned payload (handles the two-step observation flow).</summary>
+    private static StubHttpMessageHandler RoutingHandler() => new(request =>
+    {
+        var path = request.RequestUri!.AbsolutePath;
+        var body = path switch
+        {
+            _ when path.EndsWith("/forecast/hourly", StringComparison.Ordinal) => NwsPayloads.Hourly,
+            _ when path.EndsWith("/stations", StringComparison.Ordinal) => NwsPayloads.Stations,
+            _ when path.Contains("/observations/latest", StringComparison.Ordinal) => NwsPayloads.Observation,
+            _ when path.StartsWith("/alerts/active", StringComparison.Ordinal) => NwsPayloads.Alerts,
+            _ when path.EndsWith("/forecast", StringComparison.Ordinal) => NwsPayloads.ForecastWithGeometry,
+            _ => NwsPayloads.Points,
+        };
+
+        return StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, body);
+    });
+
+    [Test]
+    public async Task GetHourlyForecastParsesPeriods()
+    {
+        var client = CreateClient(RoutingHandler());
+
+        var hourly = await client.GetHourlyForecastAsync(SampleGrid);
+
+        hourly.Count.ShouldBe(2);
+        hourly[0].Temperature.ShouldBe(90);
+        hourly[1].Temperature.ShouldBe(89);
+    }
+
+    [Test]
+    public async Task GetHourlyForecastReturnsEmptyOn404()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = CreateClient(handler);
+
+        (await client.GetHourlyForecastAsync(SampleGrid)).ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task GetLatestObservationFollowsStationsThenConvertsUnits()
+    {
+        var client = CreateClient(RoutingHandler());
+
+        var observation = await client.GetLatestObservationAsync(SampleGrid);
+
+        observation.ShouldNotBeNull();
+        observation!.StationId.ShouldBe("KPHF");
+        observation.TemperatureF.ShouldBe(88);    // 31.1 degC
+        observation.DewpointF.ShouldBe(70);       // 21.0 degC
+        observation.RelativeHumidity.ShouldBe(55);
+        observation.WindDirection.ShouldBe("S");  // 180 degrees
+        observation.WindSpeedMph.ShouldBe(8);     // 13 km/h
+        observation.WindGustMph.ShouldBe(15);     // 24.1 km/h
+        observation.PressureInHg!.Value.ShouldBe(30.06, tolerance: 0.05);  // 101800 Pa
+        observation.VisibilityMiles!.Value.ShouldBe(10.0, tolerance: 0.1); // 16093 m
+    }
+
+    [Test]
+    public async Task GetLatestObservationReturnsNullWhenNoStations()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+            request.RequestUri!.AbsolutePath.EndsWith("/stations", StringComparison.Ordinal)
+                ? StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, """{ "features": [] }""")
+                : StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Observation));
+        var client = CreateClient(handler);
+
+        (await client.GetLatestObservationAsync(SampleGrid)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetActiveAlertsParsesAnAdvisory()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Alerts));
+        var client = CreateClient(handler);
+
+        var alerts = await client.GetActiveAlertsAsync(SampleCoordinate);
+
+        alerts.Count.ShouldBe(1);
+        alerts[0].Event.ShouldBe("Heat Advisory");
+        alerts[0].Severity.ShouldBe("Moderate");
+        alerts[0].Instruction.ShouldBe("Drink plenty of fluids.");
+    }
+
+    [Test]
+    public async Task GetActiveAlertsReturnsEmptyWhenNone()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.NoAlerts));
+        var client = CreateClient(handler);
+
+        (await client.GetActiveAlertsAsync(SampleCoordinate)).ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task GetForecastComputesCellCentreFromGeometry()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.ForecastWithGeometry));
+        var client = CreateClient(handler);
+
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        result.Center.ShouldNotBeNull();
+        result.Center!.Value.Latitude.ShouldBe(37.088, tolerance: 0.001);
+        result.Center.Value.Longitude.ShouldBe(-76.452, tolerance: 0.001);
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
+SIZE: 7.82 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Net;
+using System.Net.Http.Headers;
+using Microsoft.Extensions.Logging.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Nws;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Nws;
+
+public sealed class NwsApiClientTests
+{
+    private static readonly GeoCoordinate SampleCoordinate = new(37.0879, -76.4505);
+    private static readonly GridPoint SampleGrid = new("AKQ", 83, 61);
+
+    private static NwsApiClient CreateClient(StubHttpMessageHandler handler, WeatherTelemetry telemetry)
+    {
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://api.weather.gov/"),
+        };
+        return new NwsApiClient(httpClient, telemetry, NullLogger<NwsApiClient>.Instance);
+    }
+
+    [Test]
+    public async Task GetPointMetadataParsesGridAndLocation()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var metadata = await client.GetPointMetadataAsync(SampleCoordinate);
+
+        metadata.ShouldNotBeNull();
+        metadata!.Grid.ShouldBe(SampleGrid);
+        metadata.City.ShouldBe("Bethel Manor");
+        metadata.State.ShouldBe("VA");
+        metadata.TimeZone.ShouldBe("America/New_York");
+        metadata.RadarStation.ShouldBe("KAKQ");
+        metadata.ForecastUrl.ShouldBe("https://api.weather.gov/gridpoints/AKQ/83,61/forecast");
+    }
+
+    [Test]
+    public async Task GetPointMetadataRequestsTheRoundedCoordinatePath()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        await client.GetPointMetadataAsync(SampleCoordinate);
+
+        handler.LastRequest.ShouldNotBeNull();
+        handler.LastRequest!.RequestUri!.AbsolutePath.ShouldBe("/points/37.0879,-76.4505");
+    }
+
+    [Test]
+    public async Task GetPointMetadataReturnsNullWhenUncovered()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var metadata = await client.GetPointMetadataAsync(SampleCoordinate);
+
+        metadata.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetPointMetadataReturnsNullOnServerError()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetPointMetadataAsync(SampleCoordinate)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastSuccessMapsPeriodsEtagAndMaxage()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast);
+            response.Headers.ETag = new EntityTagHeaderValue("\"abc123\"");
+            response.Headers.CacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(45) };
+            return response;
+        });
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.Success);
+        result.ETag.ShouldBe("\"abc123\"");
+        result.MaxAge.ShouldBe(TimeSpan.FromMinutes(45));
+
+        result.Forecast.ShouldNotBeNull();
+        var forecast = result.Forecast!;
+        forecast.Grid.ShouldBe(SampleGrid);
+        forecast.Periods.Count.ShouldBe(2);
+
+        var first = forecast.Periods[0];
+        first.Name.ShouldBe("This Afternoon");
+        first.Temperature.ShouldBe(90);
+        first.TemperatureUnit.ShouldBe("F");
+        first.IsDaytime.ShouldBeTrue();
+        first.ProbabilityOfPrecipitation.ShouldBe(3);
+        first.ShortForecast.ShouldBe("Sunny");
+
+        // A null POP value must map to null, not zero.
+        forecast.Periods[1].ProbabilityOfPrecipitation.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastRequestsTheGridForecastPath()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        await client.GetForecastAsync(SampleGrid);
+
+        handler.LastRequest!.RequestUri!.AbsolutePath.ShouldBe("/gridpoints/AKQ/83,61/forecast");
+    }
+
+    [Test]
+    public async Task GetForecastSendsConditionalHeaderAndMaps304()
+    {
+        const string etag = "\"abc123\"";
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.NotModified);
+            response.Headers.ETag = new EntityTagHeaderValue(etag);
+            response.Headers.CacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(20) };
+            return response;
+        });
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var result = await client.GetForecastAsync(SampleGrid, etag);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotModified);
+        result.ETag.ShouldBe(etag);
+        result.MaxAge.ShouldBe(TimeSpan.FromMinutes(20));
+
+        handler.LastRequest!.Headers.TryGetValues("If-None-Match", out var values).ShouldBeTrue();
+        values!.ShouldContain(etag);
+    }
+
+    [Test]
+    public async Task GetForecastWithoutEtagSendsNoConditionalHeader()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        await client.GetForecastAsync(SampleGrid);
+
+        handler.LastRequest!.Headers.Contains("If-None-Match").ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task GetForecastMaps404ToNotFound()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+    }
+
+    [Test]
+    public async Task GetForecastMaps429ToUnavailable()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.Unavailable);
+    }
+
+    [Test]
+    public async Task GetForecastMaps500ToUnavailable()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.Unavailable);
+    }
+
+    [Test]
+    public async Task GetForecastMapsTransportFailureToUnavailable()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))
+        {
+            ThrowOnSend = new HttpRequestException("connection reset"),
+        };
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.Unavailable);
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Services/NeighborhoodWarmerTests.cs
+SIZE: 4.21 KB
+MODIFIED: 06/19/2026 08:36:12
+================================================================================
+
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Threading.RateLimiting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Weather.Core.Abstractions;
+using Weather.Core.Telemetry;
+using Weather.Infrastructure.Services;
+using Weather.Infrastructure.Tests.Fakes;
+
+namespace Weather.Infrastructure.Tests.Services;
+
+public sealed class NeighborhoodWarmerTests
+{
+    private static readonly GridPoint Origin = new("AKQ", 83, 61);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    [Test]
+    public async Task RequestWarmingEnqueuesTheOriginForTheReader()
+    {
+        var warmer = new NeighborhoodWarmer(NullLogger<NeighborhoodWarmer>.Instance);
+
+        warmer.RequestWarming(Origin);
+
+        (await warmer.Reader.ReadAsync()).ShouldBe(Origin);
+    }
+
+    [Test]
+    public async Task BackgroundServiceWarmsAllEightNeighbours()
+    {
+        var bag = new ConcurrentBag<GridPoint>();
+        var fakeWeather = Substitute.For<IWeatherService>();
+        fakeWeather.GetForecastByGridAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                bag.Add(ci.Arg<GridPoint>());
+                return (Forecast?)null;
+            });
+
+        var forecastCache = Substitute.For<IForecastCache>(); // all cells cold by default
+
+        await RunWarmingAsync(fakeWeather, forecastCache, () => bag.Count >= 8);
+
+        bag.Distinct().ShouldBe(GridNeighborhood.Surrounding(Origin), ignoreOrder: true);
+    }
+
+    [Test]
+    public async Task BackgroundServiceSkipsCellsThatAreAlreadyFresh()
+    {
+        var freshA = new GridPoint("AKQ", 82, 60);
+        var freshB = new GridPoint("AKQ", 84, 62);
+
+        var bag = new ConcurrentBag<GridPoint>();
+        var fakeWeather = Substitute.For<IWeatherService>();
+        fakeWeather.GetForecastByGridAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                bag.Add(ci.Arg<GridPoint>());
+                return (Forecast?)null;
+            });
+
+        var forecastCache = Substitute.For<IForecastCache>();
+        var fresh = new CachedForecast(
+            new Forecast(freshA, Now, Now, []), "\"e\"", Now, Now.AddHours(1));
+        forecastCache.GetAsync(freshA, Arg.Any<CancellationToken>()).Returns(fresh);
+        forecastCache.GetAsync(freshB, Arg.Any<CancellationToken>()).Returns(fresh);
+
+        // Six cold cells remain, so wait for those six fetches.
+        await RunWarmingAsync(fakeWeather, forecastCache, () => bag.Count >= 6);
+
+        bag.ShouldNotContain(freshA);
+        bag.ShouldNotContain(freshB);
+        bag.Distinct().Count().ShouldBe(6);
+    }
+
+    private static async Task RunWarmingAsync(
+        IWeatherService fakeWeather, IForecastCache forecastCache, Func<bool> until)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => fakeWeather);
+        await using var provider = services.BuildServiceProvider();
+        var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
+
+        var rateLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = 100,
+            TokensPerPeriod = 100,
+            ReplenishmentPeriod = TimeSpan.FromMilliseconds(50),
+            QueueLimit = 100,
+            AutoReplenishment = true,
+        });
+
+        var warmer = new NeighborhoodWarmer(NullLogger<NeighborhoodWarmer>.Instance);
+        var service = new NeighborhoodWarmingBackgroundService(
+            warmer, scopeFactory, forecastCache, rateLimiter,
+            new WeatherTelemetry(), new MutableTimeProvider(Now),
+            NullLogger<NeighborhoodWarmingBackgroundService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        warmer.RequestWarming(Origin);
+
+        await WaitUntilAsync(until, TimeSpan.FromSeconds(5));
+
+        await service.StopAsync(CancellationToken.None);
+        await rateLimiter.DisposeAsync();
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        while (!condition() && stopwatch.Elapsed < timeout)
+        {
+            await Task.Delay(25);
+        }
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Services/RequestCoalescerTests.cs
+
+I need to locate the NwsPayloads.Stations data to verify that "KPHF" is indeed the nearest station identifier.
+Done
+
+Let me find the NwsPayloads.Stations fixture to confirm the station id:
+Refactoring FakeNwsApiClient test assertions
+
+bash
+grep -n "NwsPayloads\|Stations\b\|KPHF\|stationIdentifier" /mnt/project/dump.txt | grep -iE "payload|stationIdentifier|KPHF" | head -40
+
+Output
+148:tests/Weather.Infrastructure.Tests/Fakes/NwsPayloads.cs
+8537:            StationId: "KPHF",
+9519:            "KPHF", "Newport News", Now, "Sunny", "icon-obs",
+9809:FILE: tests/Weather.Infrastructure.Tests/Fakes/NwsPayloads.cs
+9822:internal static class NwsPayloads
+9981:                "stationIdentifier": "KPHF",
+9987:                "stationIdentifier": "KLFI",
+9995:    /// <summary>A <c>/stations/KPHF/observations/latest</c> response in SI units.</summary>
+10152:            _ when path.EndsWith("/forecast/hourly", StringComparison.Ordinal) => NwsPayloads.Hourly,
+10153:            _ when path.EndsWith("/stations", StringComparison.Ordinal) => NwsPayloads.Stations,
+10154:            _ when path.Contains("/observations/latest", StringComparison.Ordinal) => NwsPayloads.Observation,
+10155:            _ when path.StartsWith("/alerts/active", StringComparison.Ordinal) => NwsPayloads.Alerts,
+10156:            _ when path.EndsWith("/forecast", StringComparison.Ordinal) => NwsPayloads.ForecastWithGeometry,
+10157:            _ => NwsPayloads.Points,
+10192:        observation!.StationId.ShouldBe("KPHF");
+10209:                : StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Observation));
+10219:            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Alerts));
+10234:            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.NoAlerts));
+10244:            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.ForecastWithGeometry));
+10290:            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
+10309:            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Points));
+10348:            var response = StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast);
+10383:            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
+10420:            StubHttpMessageHandler.GeoJson(HttpStatusCode.OK, NwsPayloads.Forecast));
+10842:        new("KPHF", "Newport News", Now, "Sunny", "icon", 88, 70, 55, 8, 15, "S", 30.06, 10.0);
+11497:            "KPHF", "Newport News", DateTimeOffset.UtcNow, "Sunny", "icon-obs",
+
+The first station returned is "KPHF" and the second is "KLFI", so GetNearestStationIdAsync is working correctly. Now I need to review the test class, the fake API client, and the cache implementation to understand how to properly add StationId to the JSON serialization.
+Done
+
+Now the extras cache impl + its test, and the API fake:
+Validated serialization strategy and identified next testing phase
+
+bash
+sed -n '3423,3515p' /mnt/project/dump.txt; echo "=====CELLEXTRAS TEST====="; sed -n '9495,9590p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.Infrastructure/Caching/SqliteCellExtrasCache.cs
+SIZE: 3.06 KB
+MODIFIED: 06/19/2026 08:55:36
+================================================================================
+
+using System.Text.Json;
+using Dapper;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Infrastructure.Serialization;
+
+namespace Weather.Infrastructure.Caching;
+
+/// <summary>
+/// SQLite-backed store of per-cell "extras" (hourly forecast + latest
+/// observation + cell centre), keyed by grid cell. The whole bundle is one
+/// JSON column; TTL bookkeeping lives in dedicated columns. Kept separate from
+/// <see cref="SqliteForecastCache"/> so the headline daily forecast keeps its
+/// own conditional-GET / TTL policy untouched.
+/// </summary>
+internal sealed class SqliteCellExtrasCache(ISqliteConnectionFactory connectionFactory) : ICellExtrasCache
+{
+    private const string SelectSql =
+        """
+        SELECT Payload, RetrievedAtUtc, ExpiresAtUtc
+        FROM CellExtras
+        WHERE GridId = @GridId AND GridX = @GridX AND GridY = @GridY;
+        """;
+
+    private const string UpsertSql =
+        """
+        INSERT INTO CellExtras
+            (GridId, GridX, GridY, Payload, RetrievedAtUtc, ExpiresAtUtc)
+        VALUES
+            (@GridId, @GridX, @GridY, @Payload, @RetrievedAtUtc, @ExpiresAtUtc)
+        ON CONFLICT(GridId, GridX, GridY) DO UPDATE SET
+            Payload        = excluded.Payload,
+            RetrievedAtUtc = excluded.RetrievedAtUtc,
+            ExpiresAtUtc   = excluded.ExpiresAtUtc;
+        """;
+
+    public async Task<CachedCellExtras?> GetAsync(GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        var row = await connection.QuerySingleOrDefaultAsync<ExtrasRow>(
+            new CommandDefinition(SelectSql, new { grid.GridId, grid.GridX, grid.GridY },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        var extras = JsonSerializer.Deserialize<CellExtras>(row.Payload, WeatherJson.Options);
+        if (extras is null)
+        {
+            return null;
+        }
+
+        return new CachedCellExtras(
+            extras,
+            TimestampText.Parse(row.RetrievedAtUtc),
+            TimestampText.Parse(row.ExpiresAtUtc));
+    }
+
+    public async Task UpsertAsync(GridPoint grid, CachedCellExtras entry, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        var payload = JsonSerializer.Serialize(entry.Extras, WeatherJson.Options);
+
+        await connection.ExecuteAsync(new CommandDefinition(UpsertSql, new
+        {
+            grid.GridId,
+            grid.GridX,
+            grid.GridY,
+            Payload = payload,
+            RetrievedAtUtc = TimestampText.ToText(entry.RetrievedAtUtc),
+            ExpiresAtUtc = TimestampText.ToText(entry.ExpiresAtUtc),
+        }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private sealed record ExtrasRow(string Payload, string RetrievedAtUtc, string ExpiresAtUtc);
+}
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Caching/SqliteConnectionFactory.cs
+SIZE: 1.08 KB
+=====CELLEXTRAS TEST=====
+FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs
+SIZE: 3.23 KB
+MODIFIED: 06/19/2026 13:42:16
+================================================================================
+
+using Weather.Core.Abstractions;
+using Weather.Infrastructure.Caching;
+
+namespace Weather.Infrastructure.Tests.Caching;
+
+public sealed class SqliteCellExtrasCacheTests
+{
+    private static readonly GridPoint Grid = new("AKQ", 83, 61);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    private static CellExtras SampleExtras() => new(
+        Hourly: new[]
+        {
+            new ForecastPeriod(1, string.Empty, Now, Now.AddHours(1), true, 90, "F", 2,
+                "6 mph", "S", "Sunny", string.Empty, "icon-1"),
+            new ForecastPeriod(2, string.Empty, Now.AddHours(1), Now.AddHours(2), true, 89, "F", 2,
+                "7 mph", "S", "Sunny", string.Empty, "icon-2"),
+        },
+        Observation: new Observation(
+            "KPHF", "Newport News", Now, "Sunny", "icon-obs",
+            88, 70, 55, 8, 15, "S", 30.06, 10.0),
+        Center: new GeoCoordinate(37.088, -76.452));
+
+    [Test]
+    public async Task UpsertThenGetRoundTripsEveryField()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteCellExtrasCache(harness.Factory);
+        var entry = new CachedCellExtras(SampleExtras(), Now, Now.AddMinutes(30));
+
+        await cache.UpsertAsync(Grid, entry);
+        var read = await cache.GetAsync(Grid);
+
+        read.ShouldNotBeNull();
+        read!.RetrievedAtUtc.ShouldBe(Now);
+        read.ExpiresAtUtc.ShouldBe(Now.AddMinutes(30));
+        read.Extras.Hourly.Count.ShouldBe(2);
+        read.Extras.Hourly[0].Temperature.ShouldBe(90);
+        read.Extras.Observation.ShouldNotBeNull();
+        read.Extras.Observation!.TemperatureF.ShouldBe(88);
+        read.Extras.Observation.WindDirection.ShouldBe("S");
+        read.Extras.Center.ShouldNotBeNull();
+        read.Extras.Center!.Value.Latitude.ShouldBe(37.088, tolerance: 0.0001);
+    }
+
+    [Test]
+    public async Task GetReturnsNullWhenAbsent()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteCellExtrasCache(harness.Factory);
+
+        (await cache.GetAsync(Grid)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task UpsertOverwritesTheExistingEntry()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteCellExtrasCache(harness.Factory);
+
+        await cache.UpsertAsync(Grid, new CachedCellExtras(SampleExtras(), Now, Now.AddMinutes(30)));
+
+        var updated = SampleExtras() with { Observation = null };
+        await cache.UpsertAsync(Grid, new CachedCellExtras(updated, Now.AddMinutes(5), Now.AddMinutes(35)));
+
+        var read = await cache.GetAsync(Grid);
+        read.ShouldNotBeNull();
+        read!.Extras.Observation.ShouldBeNull();
+        read.RetrievedAtUtc.ShouldBe(Now.AddMinutes(5));
+    }
+
+    [Test]
+    public async Task FreshnessTracksTheExpiryInstant()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteCellExtrasCache(harness.Factory);
+        await cache.UpsertAsync(Grid, new CachedCellExtras(SampleExtras(), Now, Now.AddMinutes(30)));
+
+        var read = await cache.GetAsync(Grid);
+
+        read!.IsFresh(Now.AddMinutes(10)).ShouldBeTrue();
+        read.IsFresh(Now.AddMinutes(31)).ShouldBeFalse();
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
+SIZE: 3.52 KB
+MODIFIED: 06/19/2026 08:36:12
+
+Since CellExtras serializes as a single JSON blob, adding StationId to the record will automatically round-trip through the WeatherJson.Options serialization, so I just need to add a round-trip assertion to the test. Next, I'm looking at the FakeNwsApiClient in the Api.Tests project around lines 8460-8562.
+Done
+
+Now the API test fake:
+Reconciling precision defaults while calibrating cache key decimals
+
+bash
+sed -n '8460,8562p' /mnt/project/dump.txt
+
+Output
+FILE: tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs
+SIZE: 3.73 KB
+MODIFIED: 06/19/2026 08:58:42
+================================================================================
+
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+
+namespace Weather.Api.Tests.Fakes;
+
+/// <summary>
+/// A deterministic <see cref="INwsApiClient"/> for end-to-end API tests. It lets
+/// the real weather service, SQLite caches and endpoints run unchanged while
+/// removing the network: any normal coordinate resolves to grid AKQ/83,61 with a
+/// sunny forecast, hourly periods and a current observation; the ocean sentinel
+/// (0, 0) reports no coverage.
+/// </summary>
+internal sealed class FakeNwsApiClient : INwsApiClient
+{
+    private static readonly GeoCoordinate CellCenter = new(37.0900, -76.4500);
+
+    public Task<PointMetadata?> GetPointMetadataAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        // (0, 0) — open ocean — stands in for "outside NWS coverage".
+        if (Math.Abs(coordinate.Latitude) < 0.001 && Math.Abs(coordinate.Longitude) < 0.001)
+        {
+            return Task.FromResult<PointMetadata?>(null);
+        }
+
+        var metadata = new PointMetadata(
+            Query: coordinate,
+            Grid: new GridPoint("AKQ", 83, 61),
+            ForecastUrl: "https://api.weather.gov/gridpoints/AKQ/83,61/forecast",
+            ForecastHourlyUrl: "https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly",
+            City: "Bethel Manor",
+            State: "VA",
+            TimeZone: "America/New_York",
+            RadarStation: "KAKQ");
+
+        return Task.FromResult<PointMetadata?>(metadata);
+    }
+
+    public Task<ForecastFetchResult> GetForecastAsync(
+        GridPoint grid, string? etag = null, CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var forecast = new Forecast(grid, now, now, new[]
+        {
+            new ForecastPeriod(1, "This Afternoon", now, now.AddHours(4), true, 90, "F", 3,
+                "5 to 12 mph", "S", "Sunny", "Sunny, with a high near 90.", "icon-day"),
+            new ForecastPeriod(2, "Tonight", now.AddHours(4), now.AddHours(16), false, 74, "F", null,
+                "12 mph", "S", "Mostly Clear", "Mostly clear, with a low around 74.", "icon-night"),
+        });
+
+        return Task.FromResult(ForecastFetchResult.Success(forecast, "\"e\"", TimeSpan.FromMinutes(30), CellCenter));
+    }
+
+    public Task<IReadOnlyList<ForecastPeriod>> GetHourlyForecastAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        IReadOnlyList<ForecastPeriod> hourly = new[]
+        {
+            new ForecastPeriod(1, string.Empty, now, now.AddHours(1), true, 90, "F", 2,
+                "6 mph", "S", "Sunny", string.Empty, "icon-hour-1"),
+            new ForecastPeriod(2, string.Empty, now.AddHours(1), now.AddHours(2), true, 89, "F", 2,
+                "7 mph", "S", "Sunny", string.Empty, "icon-hour-2"),
+        };
+
+        return Task.FromResult(hourly);
+    }
+
+    public Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        var observation = new Observation(
+            StationId: "KPHF",
+            StationName: "Newport News",
+            Timestamp: DateTimeOffset.UtcNow,
+            TextDescription: "Sunny",
+            Icon: "icon-obs",
+            TemperatureF: 88,
+            DewpointF: 70,
+            RelativeHumidity: 55,
+            WindSpeedMph: 8,
+            WindGustMph: 14,
+            WindDirection: "S",
+            PressureInHg: 30.05,
+            VisibilityMiles: 10.0);
+
+        return Task.FromResult<Observation?>(observation);
+    }
+
+    public Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WeatherAlert>>([]);
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Api.Tests/ForecastEndpointsTests.cs
+
+I need to verify that the GeoCoordinateTests confirm the default-4 behavior so I can safely leave GeoCoordinate unchanged, then I'll review the relevant test cases.
+Done
+
+Finally, confirm the GeoCoordinate tests that pin default-4 rounding:
+Investigating how AddStandardResilienceHandler resolves options
+
+bash
+sed -n '8892,9021p' /mnt/project/dump.txt | grep -nE "Rounded|Test|Decimal|Collapses|ShouldBe" | head -40
+
+Output
+1:FILE: tests/Weather.Core.Tests/GeoCoordinateTests.cs
+8:namespace Weather.Core.Tests;
+10:public sealed class GeoCoordinateTests
+12:    [Test]
+17:        coordinate.Latitude.ShouldBe(37.0879);
+18:        coordinate.Longitude.ShouldBe(-76.4505);
+21:    [Test]
+29:        coordinate.Latitude.ShouldBe(latitude);
+30:        coordinate.Longitude.ShouldBe(longitude);
+33:    [Test]
+39:    [Test]
+45:    [Test]
+52:    [Test]
+59:        GeoCoordinate.IsValid(latitude, longitude).ShouldBe(expected);
+61:    [Test]
+64:        GeoCoordinate.IsValid(double.NaN, 0).ShouldBeFalse();
+65:        GeoCoordinate.IsValid(0, double.NaN).ShouldBeFalse();
+68:    [Test]
+69:    public void RoundedReducesPrecisionToFourDecimals()
+73:        var rounded = coordinate.Rounded();
+75:        rounded.Latitude.ShouldBe(37.0879);
+76:        rounded.Longitude.ShouldBe(-76.4505);
+79:    [Test]
+80:    public void RoundedCollapsesNearbyCoordinatesToTheSameValue()
+84:        var a = new GeoCoordinate(37.08791, -76.45049).Rounded();
+85:        var b = new GeoCoordinate(37.08793, -76.45051).Rounded();
+87:        a.ShouldBe(b);
+88:        a.ToCacheKey().ShouldBe(b.ToCacheKey());
+91:    [Test]
+92:    public void ToApiStringUsesInvariantDecimalPoint()
+96:        coordinate.ToApiString().ShouldBe("37.0879,-76.4505");
+99:    [Test]
+104:        coordinate.ToApiString().ShouldBe("37.5,-76");
+107:    [Test]
+115:            new GeoCoordinate(37.0879, -76.4505).ToApiString().ShouldBe("37.0879,-76.4505");
+123:    [Test]
+125:        new GeoCoordinate(12.3456, -65.4321).ToCacheKey().ShouldBe("12.3456,-65.4321");
+
+I need to keep the GeoCoordinate.Rounded() method with its default 4 decimal places since the existing test relies on that behavior, but my WeatherService will explicitly call it with 2 decimals for cache key generation. I'm now checking how the test classes handle coordinate rounding to make sure everything aligns. Now I need to verify that the metadata coalescer doesn't break the stale metadata test. The flow is: cache returns stale data, the coalescer flight re-checks the cache (still stale), fetches via NWS (gets null), and since there's no fresh data but stale data exists, it returns the stale metadata. The flight itself needs to return a PointMetadata? that handles this fallback logic.
+
+One thing to watch: the cache gets read twice now—once outside the flight and once inside—but that's fine since no test asserts the call count on MetadataCache.GetAsync. I should verify the upsert test flow too: when the cache is empty and NWS returns metadata, the coalescer flight will fetch it, upsert it to the cache, and return it.
+
+Now I need to wire up the metadata and extras coalescers into both test harnesses and pass them to the WeatherService constructor...
+
+Updating the constructor signature... The [FromKeyedServices] attribute only matters when the DI container constructs the service, so in test harnesses where I'm calling the constructor directly, I just pass the arguments positionally. I need to make sure I'm passing the two IRequestCoalescer<GridPoint> instances in the right order — forecast first, then extras — along with the metadata and alert coalescers. Finishing the parameter list with alertCoalescer, telemetry, timeProvider, options, and logger. Then I need to register all the coalescers in DI — the forecast coalescer is already there, but I need to add a keyed singleton for the extras coalescer, register the metadata coalescer, and set up the alert coalescer as well.
+
+Since GeoCoordinate is a readonly record struct marked as notnull, it satisfies the constraint for IRequestCoalescer<GeoCoordinate>, and the ConcurrentDictionary handles struct keys without issue. The ThrowIfNull check on a struct just boxes it, which is never null, so that's fine.
+
+The DI container keeps non-keyed and keyed registrations separate — a plain IRequestCoalescer<GridPoint> parameter resolves the non-keyed service, while [FromKeyedServices("extras")] pulls the keyed one. Now I'm reconsidering Fix 5 around resilience and the explicit `.AddSt
+
+Writing resilience config... Each client gets its own pipeline instance, and the standard resilience handler keys its options by the client's name, so configuring options under the NWS client's name should tune just that client. But I'm second-guessing myself on the exact naming convention—it might use something like "{builderName}-standard". The real issue is the double-stacking: ConfigureHttpClientDefaults applies a global resilience handler to all clients, and then the NWS client is getting another one added explicitly, which is redundant.
+
+The simplest fix is to remove the explicit handler from the NWS client setup so it only gets the single global one, then configure that global handler's options specifically for the NWS client by name. I need to check how ServiceDefaults actually registers and names these options to make sure the configuration targets the right pipeline. the standard handler automatically names its options using the HTTP client name, so I can override them per-client by configuring HttpStandardResilienceOptions under that specific client's name. But I'm worried about the named-options binding silently failing if I get the name wrong, which would mean my timeout overrides don't actually apply.
+
+Let me check the ServiceDefaults code to verify the exact naming convention before committing to this approach.
+Done
+
+Let me read ServiceDefaults to wire Fix 5 (resilience) correctly:
+Architected comprehensive fixes for resilience, caching, and API client refactoring
+
+bash
+sed -n '5765,5998p' /mnt/project/dump.txt
+
+Output
+FILE: src/Weather.ServiceDefaults/Extensions.cs
+SIZE: 8.49 KB
+MODIFIED: 06/19/2026 09:07:06
+================================================================================
+
+using System.Globalization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+
+namespace Weather.ServiceDefaults;
+
+/// <summary>
+/// The canonical .NET Aspire "service defaults". Every service in the solution
+/// calls <see cref="AddServiceDefaults"/> to get consistent OpenTelemetry,
+/// health checks, service discovery and resilient HTTP out of the box. This
+/// project is deliberately app-agnostic — app-specific meters and trace sources
+/// are registered by the host (see <c>Weather.Api/Program.cs</c>).
+///
+/// Telemetry export is vendor-neutral OTLP and resolves in priority order:
+///   1. If <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is set (Aspire injects it during
+///      local orchestration; the container compose points it at the OpenTelemetry
+///      Collector), export there. This is the path that fans out to both the
+///      Aspire dashboard and Uptrace via the collector.
+///   2. Otherwise, unless explicitly disabled (<c>Uptrace:Enabled=false</c>),
+///      export straight to Uptrace over OTLP/gRPC using a DSN. This is what makes
+///      a bare <c>dotnet run</c> (no collector) light up in Uptrace out of the box.
+///   3. Otherwise, register no exporter (used by the integration tests, which set
+///      <c>Uptrace:Enabled=false</c> so nothing touches the network).
+/// No Uptrace SDK or NuGet package is referenced; this is plain OTLP, so the same
+/// wiring works for any OTLP-compatible backend by changing configuration alone.
+/// </summary>
+public static class Extensions
+{
+    private const string HealthEndpointPath = "/health";
+    private const string AlivenessEndpointPath = "/alive";
+
+    // Uptrace's public demo DSN, used only as the last-resort default so the app
+    // exports somewhere sensible with zero configuration. Override it with the
+    // UPTRACE_DSN environment variable or the "Uptrace:Dsn" configuration key.
+    private const string DefaultUptraceDsn = "https://DEvhsB46kbZQ5yVRxz9mdZ@api.uptrace.dev?grpc=4317";
+
+    public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        builder.ConfigureOpenTelemetry();
+        builder.AddDefaultHealthChecks();
+
+        builder.Services.AddServiceDiscovery();
+
+        builder.Services.ConfigureHttpClientDefaults(http =>
+        {
+            // Turn on resilience by default for every outbound HttpClient...
+            http.AddStandardResilienceHandler();
+
+            // ...and let service discovery resolve logical service names.
+            http.AddServiceDiscovery();
+        });
+
+        return builder;
+    }
+
+    public static TBuilder ConfigureOpenTelemetry<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        builder.Logging.AddOpenTelemetry(logging =>
+        {
+            logging.IncludeFormattedMessage = true;
+            logging.IncludeScopes = true;
+        });
+
+        builder.Services.AddOpenTelemetry()
+            .WithMetrics(metrics =>
+            {
+                metrics.AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddRuntimeInstrumentation();
+            })
+            .WithTracing(tracing =>
+            {
+                tracing.AddSource(builder.Environment.ApplicationName)
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation();
+            });
+
+        builder.AddOpenTelemetryExporters();
+
+        return builder;
+    }
+
+    private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        // (1) An explicit OTLP endpoint always wins. Aspire injects this during
+        // local orchestration; the container compose sets it to the collector.
+        var endpointConfigured =
+            !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+
+        if (endpointConfigured)
+        {
+            builder.Services.AddOpenTelemetry().UseOtlpExporter();
+            return builder;
+        }
+
+        // (3) Allow a hard opt-out (the integration tests set this) so nothing
+        // is exported and no network connection is attempted.
+        var uptraceEnabled = builder.Configuration.GetValue("Uptrace:Enabled", true);
+        if (!uptraceEnabled)
+        {
+            return builder;
+        }
+
+        // (2) Fall back to shipping directly to Uptrace over OTLP.
+        var dsn = builder.Configuration["Uptrace:Dsn"];
+        if (string.IsNullOrWhiteSpace(dsn))
+        {
+            dsn = Environment.GetEnvironmentVariable("UPTRACE_DSN");
+        }
+
+        if (string.IsNullOrWhiteSpace(dsn))
+        {
+            dsn = DefaultUptraceDsn;
+        }
+
+        if (string.IsNullOrWhiteSpace(dsn))
+        {
+            return builder;
+        }
+
+        ConfigureOtlpEnvironmentForUptrace(dsn);
+        builder.Services.AddOpenTelemetry().UseOtlpExporter();
+        return builder;
+    }
+
+    /// <summary>
+    /// Translate an Uptrace DSN into the standard <c>OTEL_EXPORTER_OTLP_*</c>
+    /// environment variables that <see cref="OtlpExporterExtensions"/> reads.
+    /// Only sets a variable if the operator has not already set it, so explicit
+    /// configuration is never overridden. Uptrace authenticates via the
+    /// <c>uptrace-dsn</c> header and recommends gzip + delta metric temporality.
+    /// </summary>
+    private static void ConfigureOtlpEnvironmentForUptrace(string dsn)
+    {
+        var endpoint = BuildOtlpEndpointFromDsn(dsn);
+
+        SetIfUnset("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint);
+        SetIfUnset("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc");
+        SetIfUnset("OTEL_EXPORTER_OTLP_HEADERS", $"uptrace-dsn={dsn}");
+        SetIfUnset("OTEL_EXPORTER_OTLP_COMPRESSION", "gzip");
+        SetIfUnset("OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE", "delta");
+
+        static void SetIfUnset(string key, string value)
+        {
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+            {
+                Environment.SetEnvironmentVariable(key, value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Derive the OTLP/gRPC endpoint from a DSN such as
+    /// <c>https://TOKEN@api.uptrace.dev?grpc=4317</c>. Falls back to the public
+    /// Uptrace gRPC endpoint if the DSN cannot be parsed.
+    /// </summary>
+    private static string BuildOtlpEndpointFromDsn(string dsn)
+    {
+        const int defaultGrpcPort = 4317;
+
+        if (!Uri.TryCreate(dsn, UriKind.Absolute, out var uri))
+        {
+            return $"https://api.uptrace.dev:{defaultGrpcPort}";
+        }
+
+        var port = defaultGrpcPort;
+        var query = uri.Query.TrimStart('?');
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (parts.Length == 2 &&
+                parts[0].Equals("grpc", StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            {
+                port = parsed;
+                break;
+            }
+        }
+
+        var scheme = string.IsNullOrEmpty(uri.Scheme) ? "https" : uri.Scheme;
+        return $"{scheme}://{uri.Host}:{port}";
+    }
+
+    public static TBuilder AddDefaultHealthChecks<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        builder.Services.AddHealthChecks()
+            // A self-check tagged "live" backs the liveness endpoint.
+            .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Maps <c>/health</c> (are we ready?) and <c>/alive</c> (are we running?).
+    /// These are intended for the development/orchestration environment; lock
+    /// them down before exposing them publicly.
+    /// </summary>
+    public static WebApplication MapDefaultEndpoints(this WebApplication app)
+    {
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapHealthChecks(HealthEndpointPath);
+
+            app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
+            {
+                Predicate = registration => registration.Tags.Contains("live"),
+            });
+        }
+
+        return app;
+    }
+}
+
+
+
+================================================================================
+
+I see that ServiceDefaults applies http.AddStandardResilienceHandler() globally to all HTTP clients through ConfigureHttpClientDefaults. The question now is how AddStandardResilienceHandler actually resolves its HttpStandardResilienceOptions — I need to check the Microsoft.Extensions.Http.Resilience source to understand the parameterless overload's behavior. The real issue is that I'm getting two resilience handlers stacked on top of each other—one from the global ServiceDefaults and one explicitly added to the NWS client. I need to either remove the explicit handler and rely on the global one with correctly named options, or keep both but find a way to avoid the duplication. The safest approach is probably to remove the explicit handler from the NWS client setup and instead configure the global handler's options using the proper named options pattern. .AddHttpClient<INwsApiClient, NwsApiClient>(), the client name defaults to the interface name "INwsApiClient". So when the standard resilience handler registers its options, it uses that same name. This means I can configure options specifically for that client without affecting others—I just need to target the right options name in my configuration. a question: does ConfigureHttpClientDefaultsregister the handler and options under each client's name or under a shared default? SinceConfigureHttpClientDefaultsapplies its configuration to everyIHttpClientBuilderthat gets created—whether before or after the call—when I create theINwsApiClientbuilder, the default action runs against it with that builder's name, soAddStandardResilienceHandler()registers options under"INwsApiClient". This means I can use services.Configure<HttpStandardResilienceOptions>("INwsApiClient", ...)` to post-configure those options using the builder's name.
+
+The key insight is that IConfigureOptions implementations run in registration order, so since the standard handler's configuration runs first (during AddHttpClient<...>), and my services.Configure(...) call happens after in AddWeatherInfrastructure, my configuration takes precedence.
+
+Now I need to account for the validator constraints — there's HttpStandardResilienceOptionsValidator plus custom validation rules that check relationships between timeout values and circuit breaker settings. I need to ensure my configuration values satisfy these constraints, like making sure TotalRequestTimeout >= AttemptTimeout and that the circuit breaker sampling duration meets its own requirements. So the key constraints are that total timeout must exceed attempt timeout, and sampling duration needs to be at least twice the attempt timeout. I'm working through the calculation: with attempt at 10s and total at 30s, sampling should be at least 20s, but I'll set it higher to be safe. Now I'm computing these values in code to determine the actual configuration. I need to use the overload of AddOptions that accepts a dependency, so I can inject IOptions<NwsClientOptions> into the configuration callback and access the retry settings from there.
+
+Configuring the resilience options... I need to verify the namespace for DelayBackoffType — it's in Polly, so that using statement is correct. The circuit breaker has a SamplingDuration property that needs to be at least twice the AttemptTimeout, and I'm recalling there might be additional validation constraints on the sampling duration itself.
+
+Looking at the actual validator logic, the HttpStandardResilienceOptionsCustomValidator enforces that TotalRequestTimeout must exceed AttemptTimeout, and CircuitBreaker.SamplingDuration must be at least double the AttemptTimeout. Let me check if there are other constraints I'm missing.
+
+With my proposed values—attempt timeout of 10 seconds, total timeout of 30 seconds, and sampling duration set to the maximum of either 2× attempt timeout or total timeout—I get 30 seconds for sampling. This satisfies both the 2× requirement and the total timeout constraint. I'm not certain the validator requires sampling duration to be at least as large as total timeout, but setting it conservatively to 30 seconds should cover any edge cases.
+
+I should verify that adding configuration via Configure after AddStandardResilienceHandler actually works—the standard handler uses validated options, but chaining additional Configure calls should still apply before validation runs, so my overrides will be validated correctly. There's a potential issue though: if I remove the explicit handler and rely on the global default, the user might later change the configuration in a way that breaks things.
+
+Let me think through the alternatives. I could keep the explicit handler on the NWS client and configure it through the returned builder, but that risks stacking two handlers on the same client, which the Microsoft docs warn against. I need to verify whether calling AddStandardResilienceHandler twice actually causes a runtime error or just adds duplicate handlers to the pipeline.
+
+My approach is to remove the explicit call and instead capture the builder to post-configure the named HttpStandardResilienceOptions. The client.Timeout = Timeout.InfiniteTimeSpan will still be set, and the global handler's TotalRequestTimeout will bound it properly.
+
+I'm also confirming that HttpStandardResilienceOptions is the correct type name for this configuration. The builder's .Name property is set to "INwsApiClient". I'm also refining the NwsClientOptions defaults: reducing RequestTimeout from 15 seconds to 10 seconds, adding a TotalRequestTimeout of 30 seconds, setting MaxRetryAttempts to 2, and RetryBaseDelay to 1 second. Since RequestTimeout was never actually wired before, I'll update its documentation to clarify it's now being applied as the AttemptTimeout in the resilience pipeline.
+
+Looking back at the previous behavior, there were two nested timeout handlers each with their own defaults, which could theoretically compound to 90 seconds in the worst case, but the actual observed spans were 30-40 seconds. With my changes—a single handler with 2 retries (3 total attempts) at 10 seconds each, capped at 30 seconds total—the behavior becomes predictable and bounded, which aligns with the fix I'm aiming for.
+
+Now I'm ready to write out the files and need to make sure the WeatherService has the right imports, including Microsoft.Extensions.DependencyInjection.
+
+I'm also noticing something about the alert path: the coordinate passed into ResolveAlertsAsync is already rounded to 4 decimal places from the public method, so there's potential redundant rounding happening inside that method.
+
+With Fix 1, I'll change the public methods to round at 2 decimal places instead, making the coordinate 2dp before it reaches the alert resolver. Then inside ResolveAlertsAsync, I can skip the re-rounding and just use the coordinate's cache key directly since it's already at the right precision.
+
+The key thing is that as long as the same 2dp coordinate flows through both the cache Get and Upsert operations, the cache stays coherent — the SqliteAlertCache will key off the coordinate consistently either way.
+
+For the metadata endpoint, passing a 2dp coordinate to GetPointMetadataAsync builds the request with 4 decimals via ToApiString(), which NWS accepts and resolves correctly. The metadata cache also keys by the 2dp coordinate, so that's consistent.
+
+Now I need to wrap ResolveMetadataAsync with coalescing similar to the alert pattern, returning PointMetadata? and including stale-serve logging.
+
+Writing the coalesced metadata resolver... Writing cache and fetch logic...
+
+Now I'm tracing through the test case where metadata can't be resolved but we have a stale cache entry—the outer cache miss triggers a flight that checks the inner cache, finds stale metadata, attempts to fetch fresh data from NWS, gets null back, and falls back to serving the stale entry with a warning logged. The NWS call happens exactly once as expected, and the method returns the cached metadata rather than null.
+
+For the case with unresolvable metadata and no cache, both the outer and inner cache lookups return null, NWS also returns null, so the method short-circuits and returns null without ever attempting to fetch the forecast. The forecast call never happens since we bail out early on the missing metadata.
+
+In the full cache miss scenario, the outer cache is empty, NWS successfully returns fresh metadata, and the forecast fetch proceeds—I'm checking that the cache stores the new metadata and schedules the warming task.
+
+Now I'm thinking through the metadata coalescer concern. The test harness uses a real RequestCoalescer with GeoCoordinate as the key, and since the same rounded coordinate value is used throughout, the coalescing works correctly. For the area forecast tests with coordinates like (37.0879, -76.4505) that round to (37.09, -76.45), all the stubs are set up with Arg.Any<...>() matchers, so they'll match any argument passed in.
+
+For the second fix around extras coalescing, I need to wrap the hourly and observation fetches in a coalescer keyed by GridPoint, and also implement the cache-recheck-inside-flight pattern to prevent followers from re-fetching. The new ResolveExtrasAsync method will check the cache first, and if it's fresh, return the cached result with a backfilled center. On a cache miss, it fetches both hourly and observation data in parallel, then upserts the combined result back to the cache.
+
+Implementing the cache-recheck pattern... else I'll fetch the nearest station ID and get the observation data if available, then I'm constructing the extras object with the hourly forecast, observation, center point, and station ID before caching it and returning the result.
+
+The existing test that stubs the cache to always return fresh data should still pass because when the cache hit is fresh, the code returns immediately without entering the coalescer or calling the hourly and observation methods. The test's three-argument CellExtras constructor call will continue to work since I'm adding StationId as an optional trailing parameter that defaults to null.
+
+For the assertions in that test, since the cache-hit path bypasses all the external calls entirely, I should keep the existing DidNotReceive assertions for GetLatestObservationAsync and extend them to also verify that GetHourlyForecastAsync and GetNearestStationIdAsync are never called. ever get called, so those stubs are now dead code. I need to update both test methods to stub GetNearestStationIdAsync and the by-id GetLatestObservationAsync instead, matching what WeatherService actually invokes after the fix. ead. So the by-id overload gets called with null station ID, which returns null observation. That means HourlyAndObservationAndAlertsAvailable() expects observation to be populated, but after Fix 4 it ends up null instead — that's the real problem breaking those tests.
+
+I need to update the stub to return "KPHF" from GetNearestStationIdAsync and then stub the by-id GetLatestObservationAsync call with that station ID to return ObservationSample. Once that's in place, the temperature assertion should pass since the sample has TemperatureF=88.
+
+Now I'm setting up the by-id stub with the station ID parameter... Adding interface methods... Writing the observation methods...
+
+I'm reconsidering whether the grid parameter is actually needed in the by-id overload since the request itself only uses the station ID, though I'm keeping it for now to match the interface signature and provide logging context. I'll include grid in the catch-block log message so it's actually used in the method body, avoiding any unused parameter warnings. The original 2-arg version logged the station, so I'll keep that and add grid context. Since the interface signature requires grid as a parameter, using it in logging satisfies both the contract and the analyzer.
+
+The ArgumentException.ThrowIfNullOrWhiteSpace(stationId) guard is safe because GetNearestStationIdAsync already filters for non-whitespace IDs, but the extra validation doesn't hurt. Now I need to make sure NSubstitute can properly distinguish between the by-id overload and the 2-arg overload when stubbing them in tests... The two existing tests that stub the 2-arg observation method are now dead code since WeatherService no longer calls that overload after the fix, but they'll still pass because the observation stays null and those tests don't assert on it. I'm debating whether to clean them up or leave them as-is, since the plan only explicitly mentions updating the main test and a couple others. a helper method ObservationAvailable() that stubs both the station ID lookup and the observation fetch, then use it across the alert tests and the combined scenario to keep things consistent. I'm also considering adding a concurrency test to verify that multiple simultaneous forecast requests coalesce properly and only trigger each underlying fetch once per cell.
+
+Rather than trying to coordinate across multiple cells which could be flaky, I'll focus on a single-cell stampede test using GetForecastAsync to keep it deterministic—I'll gate the upstream call with a TaskCompletionSource so all concurrent callers pile up before the leader completes, then verify each fetch happened exactly once.
+
+Writing the test... Writing test assertions... The coalescer ensures only the leader task actually invokes GetForecastAsync, so the NSubstitute function runs once and forecastCalls equals 1, which satisfies the assertion. The 16 concurrent tasks all call into the same metadata and forecast coalescers, but the followers block waiting for the leader's result rather than making their own NWS calls.
+
+However, there's a timing issue with the metadata flight: since the NSubstitute mock returns metadata synchronously, the leader's metadata resolution completes instantly and the flight may evict before follower tasks arrive, causing them to start fresh metadata flights instead of joining the in-flight one. ds the flight open for 50ms, all 16 attach. forecastCalls==1. This should be deterministic enough.
+
+However — subtle issue: the 16 tasks are created with .Select(_ => h.Service.GetForecastAsync(Coord)). GetForecastAsync is async; calling it starts the task. The first one to reach the forecast coalescer becomes leader and blocks on gate. Others reach and attach. But do ALL 16 reach the forecast stage before the 50ms elapses? Starting 16 async state machines and having them each do a couple of awaits on synchronous-completing mocks (cache GetAsync returns null synchronously via NSubstitute? Actually NSubstitute returns Task.FromResult(null) which completes synchronously) should be microseconds. 50ms is plenty. Deterministic enough for this test.
+
+But there's a real concern: NSubstitute has thread-safety issues when multiple concurrent calls happen to the same substitute — it can occasionally throw or miscount calls because it records them in a non-thread-safe list. This could make the test flaky in CI, which is a problem given the requirement that it must pass. Since the RequestCoalescer already has dedicated tests covering the single-flight behavior, I should reconsider whether this concurrency test is necessary here.
+
+I'm going to skip the concurrency-stampede test in WeatherServiceAreaTests. Instead, I'll add a deterministic test that verifies the fix works correctly: that GetArea reuses a cached station ID and doesn't re-list stations when only the observation TTL has expired, while the extras cache TTL governs both together.
+
+Writing test method... Setting up mock expectations for the hourly forecast and observation data, then verifying the area forecast retrieves the correct data and that the cached station ID is reused on refresh...
+
+Now I'm adding tests to the NwsApiClientExtraTests class to verify that GetNearestStationIdAsync returns the nearest station and that fetching observations by ID bypasses the /stations endpoint. Writing test assertions... client.GetLatestObservationAsync(SampleGrid) with a single argument uses the first overload with the cancellation token defaulted. GetNearestStationIdAsync is now on the interface and publicly implemented by the concrete client, so the test can call it directly. For the SQLite cache tests, I'm adding StationId: "KPHF" to SampleExtras and verifying it round-trips correctly through serialization.
+
+Now I'm implementing the two new interface methods in FakeNwsApiClient — the station ID lookup returns a hardcoded test value, and the by-ID observation method delegates to the existing two-argument fake.
+
+The end-to-end tests should still pass since WeatherService now calls both methods in sequence, which ultimately returns the same fake Observation object that the tests were already asserting against.
+
+Now I need to verify that the API tests have the right dependency injection setup — AddWeatherInfrastructure must register both the keyed extras coalescer and metadata coalescer so that WeatherService can resolve them when the API tests run. The [FromKeyedServices("extras")] attribute on the constructor parameter will pull the keyed registration. Let me check the critical path here... The [FromKeyedServices] attribute is supported by the Microsoft DI container for constructor parameter injection, so my keyed service registrations will work correctly. I need to add the Microsoft.Extensions.DependencyInjection using statement to WeatherService to access the attribute.
+
+When the test harnesses construct WeatherService directly with positional arguments, the attribute is ignored and I just pass the extras coalescer as a regular parameter. Now I'm reviewing the existing method implementations to finalize the constructor parameter order and ensure all the coordinate rounding logic is consistent across the three forecast methods. Checking the test assertions to confirm they don't validate the exact coordinate value in the neighborhood result — they verify grid data and neighbor counts but not the echoed coordinate itself, so I'm safe there. Now I need to search for any other callers of the two-argument GetLatestObservationAsync that might break with this change.
+
+Looking through the codebase, WeatherService is being modified, NwsApiClientExtraTests still calls the two-arg version and remains valid, and WeatherServiceAreaTests needs updating. The NeighborhoodWarmingBackgroundService only calls GetForecastByGridAsync for daily warming, so it's not affected. I should also verify that GetNearestStationIdAsync — which was private and is now becoming public — is only called internally by the two-arg observation method, which it is.
+
+The Observation record stays the same, but CellExtras gains a nullable StationId parameter as the fourth field, so I need to check all the places where CellExtras is constructed.
+
+Updating CellExtras instantiations...
+Done
+
+I now have everything. Let me verify there are no other CellExtras constructions or 2-arg observation callers I'd break:
+Find all CellExtras constructions, observation/station callers, and Rounded() usages
+
+bash
+grep -n "new CellExtras\|GetLatestObservationAsync\|GetNearestStationIdAsync\|\.Rounded(" /mnt/project/dump.txt
+
+Output
+2438:    Task<Observation?> GetLatestObservationAsync(
+3351:        var key = coordinate.Rounded().ToCacheKey();
+3379:        var key = coordinate.Rounded().ToCacheKey();
+3708:        var key = coordinate.Rounded().ToCacheKey();
+3739:        var coordinate = entry.Metadata.Query.Rounded();
+4138:    public async Task<Observation?> GetLatestObservationAsync(
+4141:        var stationId = await GetNearestStationIdAsync(grid, cancellationToken).ConfigureAwait(false);
+4259:    private async Task<string?> GetNearestStationIdAsync(GridPoint grid, CancellationToken cancellationToken)
+5332:        var coord = coordinate.Rounded();
+5352:        var coord = coordinate.Rounded();
+5388:        var coord = coordinate.Rounded();
+5491:        var observation = await nwsClient.GetLatestObservationAsync(grid, cancellationToken).ConfigureAwait(false);
+5494:        var extras = new CellExtras(hourly, observation, center);
+5527:        var key = coordinate.Rounded().ToCacheKey();
+8533:    public Task<Observation?> GetLatestObservationAsync(
+8964:        var rounded = coordinate.Rounded();
+8975:        var a = new GeoCoordinate(37.08791, -76.45049).Rounded();
+8976:        var b = new GeoCoordinate(37.08793, -76.45051).Rounded();
+10189:        var observation = await client.GetLatestObservationAsync(SampleGrid);
+10212:        (await client.GetLatestObservationAsync(SampleGrid)).ShouldBeNull();
+10892:            Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+10956:            new CellExtras(HourlyTwo(), ObservationSample(), CenterFor(Grid)),
+10965:        await h.Nws.DidNotReceive().GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>());
+11025:        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+11052:        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+Done
+
+please continue
+6:01 PM
+Resolved compiler warning concerns and prepared implementation
+
+Looking at the coordinate rounding behavior in the alert cache — the SqliteAlertCache rounds coordinates to 4 decimal places before creating cache keys, but since WeatherService now passes in 2dp coordinates, that rounding operation becomes idempotent and doesn't change the value.
+
+The same logic applies to the metadata cache at those line numbers — it also rounds to 4dp internally, but operating on a 2dp coordinate means no actual change occurs. Both Get and Upsert operations use the same coordinate path, so they'll consistently produce matching cache keys.
+
+Now I'm checking what fetched.Query actually contains when the metadata is created in the NwsApiClient.
+
+GetPointMetadataAsync method — it stores the coordinate passed in, which is 2dp. When the cache rounds that to 4dp for keying, it's still equivalent to the original 2dp value. The lookup also uses the same 2dp coordinate, so everything stays consistent.
+
+I don't need to modify the cache classes themselves since their internal rounding is harmless with 2dp inputs. The actual changes needed are in WeatherService at those specific lines — replacing the coordinate rounding calls with the cache key decimals constant, updating the observation call to reuse the station ID, and adjusting the CellExtras construction accordingly.
+
+For the tests, most of them stay as-is since they're either testing GeoCoordinate directly or using the 2-arg overload that remains unchanged. A few tests need updates to call the new station ID lookup method or adjust their observation stubs to use the by-ID approach instead.
+
+Now I'm ready to write out all 11 files with the complete changes, preserving the directory structure so they're easy to map back to the repo.
+
+Writing the modified source files... was tracked, and for cells whose station couldn't be resolved. I'm defining a sealed record that holds the hourly forecast periods, an optional observation, the cell's center coordinates, and the station ID. Then I need to add two new methods to the API client interface, refactor the observation-related methods in the implementation, make the station lookup method public, and adjust the request timeout down to 10 seconds.
+
+Now I'm adding connection timeout and retry configuration with a 30-second total timeout, 2 retry attempts, and a 1-second base delay. I'll update the weather service to incorporate all these fixes, register the new extras and metadata coalescers in dependency injection, and write out the test files. For the station ID overload in the API client, I need to reference the grid parameter to satisfy the analyzer.
+
+Let me check the Directory.Build.props file to see if warnings are being treated as errors.
+
+I'm checking whether the CI pipeline uses -warnaserror which would cause the unused parameter warning to fail the build, so I should use the grid variable in the by-id overload to be safe and avoid any potential issues.
+
+Now I'll set up the output files.
+Done
+
+All verified. Writing the 11 full files now.
+Orchestrating dependency injection fixes and keyed service registrations
+
+bash
+mkdir -p /mnt/user-data/outputs/src/Weather.Core/Models \
+         /mnt/user-data/outputs/src/Weather.Core/Abstractions \
+         /mnt/user-data/outputs/src/Weather.Infrastructure/Nws \
+         /mnt/user-data/outputs/src/Weather.Infrastructure/Services \
+         /mnt/user-data/outputs/tests/Weather.Infrastructure.Tests/Services \
+         /mnt/user-data/outputs/tests/Weather.Infrastructure.Tests/Nws \
+         /mnt/user-data/outputs/tests/Weather.Infrastructure.Tests/Caching \
+         /mnt/user-data/outputs/tests/Weather.Api.Tests/Fakes
+echo created
+
+Output
+created
+
+Now I'm refactoring the NwsApiClient to expose the GetNearestStationIdAsync method publicly and reorganizing the observation retrieval logic while keeping the rest of the implementation intact.
+
+Now I'm working on the WeatherService implementation, making sure to incorporate all four fixes along with the updated constructor parameters.
+Done
+
+Now the central file — WeatherService with Fixes 1, 2, 3, 4:
+Refactoring test files with coalescers and observation stubs
+
+Now I'm working on Fix 5 for the DependencyInjection setup, adding the necessary imports for HTTP resilience options and Polly's delay backoff types, then registering the extras with a keyed reference to the weather service's coalescer key while capturing the builder name for the options configuration.
+Done
+
+Now DependencyInjection — Fix 5 (de-stack + tune resilience) plus the two new coalescer registrations:
+Architecting test harnesses and stubbing service dependencies
+
+Now I'm updating the test files to integrate the new coalescers. I need to modify WeatherServiceTests and WeatherServiceAreaTests to pass the ExtrasCoalescer and MetadataCoalescer to the harness and constructor, refactor the observation stubs to use by-id and station-id patterns, fix the DidNotReceive assertions, and add a test for station-id reuse. I'm also adding tests to NwsApiClientExtraTests for the GetNearestStationId method and by-id scenarios.
+Done
+
+Now the five test files. WeatherServiceTests (harness updated with the two new coalescers):
+Architected test cases for weather service area functionality
+
+For WeatherServiceAreaTests, I need to set up the test harness with ExtrasCoalescer and MetadataCoalescer passed to the constructor, then create a helper that stubs the nearest station lookup and observation retrieval. I'll also need test cases combining hourly data, observations, and alerts, plus specific tests for alert handling.
+
+For the extras cache test, I need to update the stubs to verify that GetHourlyForecastAsync and GetNearestStationIdAsync aren't called when the cached extras are fresh, and add a new test that confirms the service reuses a cached station ID on refresh without repeating the lookup. Let me write out the full test file now.
+
+Actually, I'm realizing the cached extras stub returns the same center object for all cells via Arg.Any<GridPoint>(), so even for neighbor cells, the center is non-null and BackfillCenterAsync skips the upsert — no upstream calls are triggered, which is what the test expects.
+
+Now I need to set up the new test for reusing cached station IDs on refresh. I'm configuring it with ResolvesMetadata and AllDailyFetchesSucceed, an empty alerts list, and an expired cache entry containing StationId "KPHF" for all cells. I'll stub GetHourlyForecastAsync to return HourlyTwo and GetLatestObservationAsync with the grid and station ID to return an observation sample, while leaving GetNearestStationIdAsync unstubbed so it defaults to null.
+
+The key assertion is that GetNearestStationIdAsync should never be called, while GetLatestObservationAsync with the cached station ID should be called. Even though the cache stub always returns the expired entry (since NSubstitute doesn't persist state), within a single area request each cell's ResolveExtrasAsync will read the expired entry, trigger a coalescer flight, recheck and still find it expired, then extract the StationId from that expired entry and use it for the by-ID observation lookup, bypassing the station lookup entirely.
+
+With 9 cells total (primary plus 8 neighbors), each runs through this flow independently since the coalescer is keyed by GridPoint, so all 9 flights execute and each calls the by-ID observation method with "KPHF". The by-ID method returns a non-null ObservationSample, satisfying the assertion. Now I'm ready to write the test.
+Done
+
+WeatherServiceAreaTests (harness + by-id observation stubs + station-id reuse test):
+Orchestrated test file expansion with preserved existing code
+
+Adding the two Fix-4 tests to NwsApiClientExtraTests while keeping the existing test cases intact.
+Done
+
+NwsApiClientExtraTests (add the Fix 4 station-lookup + by-id tests):
+Architected test enhancements for database caching functionality
+
+I'm working on the SqliteCellExtrasCacheTests now, adding StationId to the SampleExtras and including a round-trip assertion to verify the full file.
+Done
+
+SqliteCellExtrasCacheTests (add StationId to the round-trip fixture + assertion):
+Verifying constructor parameter alignment across test harnesses
+
+Now I need to implement the two new interface methods in the FakeNwsApiClient test class.
+Done
+
+FakeNwsApiClient (implement the two new interface methods):
+Validated code architecture and resolved nullable reference type warnings
+
+I've written all 11 files and now I'm doing a final verification pass to make sure the WeatherService constructor parameter order is consistent across the test harnesses and the actual implementation.
+
+The constructor signature matches in both WeatherServiceTests and WeatherServiceAreaTests. I'm also checking that the [FromKeyedServices(ExtrasCoalescerKey)] attribute is using a compile-time constant string, which it is, and that the DI registration with TryAddKeyedSingleton is using the same key. But I'm noticing that RequestCoalescer<GridPoint> is marked as internal, which might cause an accessibility issue with the DI registration.
+
+Actually, that's fine since both are in the same assembly. Moving on to verify the IRequestCoalescer<GeoCoordinate> registration and checking that the metadata coalescer is being called with the correct coordinate type.
+
+Now I'm tracing through the factory lambda passed to RunAsync — it's an async function that returns Task<PointMetadata?>, with return paths for the rechecked metadata, null, or the fetched metadata. The type inference should work correctly here since TValue gets inferred as PointMetadata? from the factory's return type. Right, so the nullable reference type annotation gets erased at the type level during generic inference—PointMetadata? and PointMetadata are treated identically for TValue resolution, with nullability handled through flow analysis instead. The factory ends up as Func<CancellationToken, Task<PointMetadata>>, but the lambda can still return null, which might trigger a compiler warning since we're returning null for a non-nullable reference type in the Task. Now I'm wondering if the existing alert coalescer follows this same pattern or does something different. I could explicitly specify PointMetadata? as the type argument to RunAsync so the nullable annotation is clear and the compiler won't complain about returning null, even if CI treats warnings as errors.
+
+But I need to verify that the cast actually works when TValue is PointMetadata? — the coalescer stores results as weakly-typed objects, so I should trace through how the Flight type handles the task and casting to make sure null values round-trip correctly. The null case works fine since PointMetadata? is a reference type that can be null. I should explicitly type the RunAsync call as RunAsync<PointMetadata?> to avoid nullable-return warnings, and this won't conflict with the where TKey : notnull constraint since that only applies to the key type. Let me update WeatherService with this change, then handle the extras coalescer which always returns a non-null CellExtras. I'm tracing through the type inference for the metadata coalescer's lambda to determine what TValue resolves to and whether PointMetadata is nullable or non-null based on the CachedPointMetadata.Metadata property declaration. The return type needs to be explicitly PointMetadata? to avoid the null reference warning when the lambda returns null. I'll update the WeatherService to specify this generic parameter.
+Done
+
+Let me make one defensive correctness edit — explicitly type the metadata flight as nullable so a clean -warnaserror CI build can't trip CS8603:
+Tracing null handling through TaskCompletionSource assignment
+
+I need to include the path parameter in the str_replace call.
++6-6
+
+I need to verify how the coalescer handles null values when casting the Flight's task result—specifically when TValue is a nullable reference type like PointMetadata? and the task resolves to null. Let me check if RequestCoalescer's Bind method properly supports Task<TValue> with nullable types.
+Done
+
+Let me verify the coalescer's flight binding handles a null reference result cleanly (the metadata flight can return null):
+Validated nullable reference types and resilience configuration thoroughly
+
+I'm seeing how the Bind method sets the result on a shared TaskCompletionSource<object> — when the inner task completes with a null result for nullable types like PointMetadata?, it passes that null through to the shared task, which the follower then casts back to the original type. The lambda function signature works correctly with the explicit PointMetadata? type argument—returning null is valid, and the non-null fetched metadata implicitly converts to the nullable type. Since RunAsync<TValue> has no constraints on TValue, passing a nullable reference type is allowed. Now I need to verify that the DelayBackoffType changes in DependencyInjection don't introduce any compilation issues. ttpStandardResilienceOptions>(nwsBuilder.Name).Configure<IOptions<NwsClientOptions>>(...)` — the options builder's Configure method accepts a dependency and an action that uses both the resilience options and the injected NwsClientOptions. The static lambda is valid since it only references its parameters. ✓.
+
+For the delay calculation, I'm using Math.Max to compare the exponential backoff ticks with the total timeout ticks, then converting back to a TimeSpan. ✓.
+
+Now I'm wondering if nwsBuilder.Name actually matches the options name being configured — I think it's "INwsApiClient", but even if the named-options binding doesn't align perfectly, the worst case is that the custom tuning doesn't apply and the client falls back to the standard handler's defaults (3 attempts, 10s timeout, 30s total). Since I've already removed the double-stacking, that default behavior alone fixes the core issue of the retry storm being bounded at 30 seconds instead of spiraling. So the critical fix holds regardless.
+
+Now I'm checking whether the API tests still pass after the resilience changes. The test factory replaces the real NWS client with a fake one, so the actual HTTP client and its resilience policies never execute — the options configuration I added is harmless since it configures settings that the fake bypasses entirely. But I need to confirm whether the typed client registration is fully overridden or if there's some interaction I'm missing.
+
+Actually, the fake does completely replace the INwsApiClient resolution, so the HttpClient infrastructure for that name exists but stays unused. The options configuration only runs when something tries to resolve those options for the resilience handler, which won't happen if nothing touches the typed client. Even if it did resolve, the configuration is valid. No issues there.
+
+I'm ready to present all the files now, starting with WeatherService since it's the most central piece.
+Done
+
+All files written and statically verified. Let me present them.
+Orchestrated closing summary mapping fixes to log symptoms
+
+All the files are written and ready. Now I should wrap up with a concise mapping showing how each fix addresses the specific log symptoms the user encountered.
+Done
+
+All 11 files are complete-file replacements, ready to drop in over the existing paths. Here's how each fix maps to what you saw in the logs:
+
+    Cache keys rounded to 2 decimals (WeatherService). GPS jitter in the 4th decimal (~11 m) was minting a new metadata/alert key on every reload, so /points and /alerts/active missed every time — that's your ~30 /alerts/active calls in three minutes. Keying at ~1.1 km (still well inside a ~2.5 km cell) collapses jittery reloads onto one key.
+    Extras path coalesced (WeatherService + new keyed IRequestCoalescer<GridPoint>). Hourly + observation ran outside any single-flight, so concurrent callers (rapid reloads, multiple tabs, circuit reconnects) duplicated them — the same-millisecond /forecast/hourly and /stations pairs. They now share one flight per cell, with a re-check inside the flight.
+    Metadata resolution coalesced (WeatherService + new IRequestCoalescer<GeoCoordinate>). Concurrent cold callers both hit /points; now the first fetches and the rest await it, with stale-serve on upstream failure since the mapping never really changes.
+    Station list reused, not re-fetched (INwsApiClient/NwsApiClient/CellExtras). Every observation refresh was re-listing /stations (immutable data) before /observations/latest. The nearest-station id is now cached in the extras blob and reused — even from an expired entry — so a routine refresh makes one request, not two. /stations is hit only when the id is genuinely unknown.
+    De-stacked + tuned resilience (DependencyInjection/NwsClientOptions). This is the 30–40 s /points storm. ServiceDefaults already adds AddStandardResilienceHandler() to every client globally; DependencyInjection was adding a second one to the NWS client, nesting two retry+timeout pipelines (~3×3 attempts, 10 s each). Removing the duplicate and instead tuning the single global handler by client name wires RequestTimeout as the per-attempt timeout and adds a hard TotalRequestTimeout ceiling, both of which were previously inert. Defense-in-depth: even if the named-options binding didn't take, removing the double-stack alone bounds any future storm at the 30 s default.
+
+Tests track all of it: the two WeatherService harnesses gain the extras + metadata coalescers; the observation stubs moved to the station-id/by-id shape; NwsApiClientExtraTests proves the by-id path never lists stations; a new GetAreaReusesCachedStationIdAndSkipsStationLookupOnRefresh asserts GetNearestStationIdAsync is not called when an id is cached; and SqliteCellExtrasCacheTests round-trips StationId.
+
+I ran static analysis only — CI is authoritative as usual. The concurrency-stampede assertion stays in RequestCoalescerTests (deterministic) rather than the NSubstitute-based service tests, since the substitute mocks aren't thread-safe.
+Weatherservice
+CS 
+Dependencyinjection
+CS 
+Nwsapiclient
+CS 
+Nwsclientoptions
+CS 
+Inwsapiclient
+CS 
+Cellextras
+CS 
+Weatherserviceareatests
+CS 
+Weatherservicetests
+CS 
+Nwsapiclientextratests
+CS 
+Sqlitecellextrascachetests
+CS 
+Fakenwsapiclient
+CS 
+Want to be notified when Claude responds?
+Claude Fable 5 is currently unavailable.
+Learn more(opens in new tab)
+
+
+Claude is AI and can make mistakes. Please double-check responses.
+
+53
+47
+
+All verified. Writing the 11 full files now.Now the central file — WeatherService with Fixes 1, 2, 3, 4:Now DependencyInjection — Fix 5 (de-stack + tune resilience) plus the two new coalescer registrations:Now the five test files. WeatherServiceTests (harness updated with the two new coalescers):WeatherServiceAreaTests (harness + by-id observation stubs + station-id reuse test):NwsApiClientExtraTests (add the Fix 4 station-lookup + by-id tests):SqliteCellExtrasCacheTests (add StationId to the round-trip fixture + assertion):FakeNwsApiClient (implement the two new interface methods):Let me make one defensive correctness edit — explicitly type the metadata flight as nullable so a clean `-warnaserror` CI build can't trip CS8603:Let me verify the coalescer's flight binding handles a null reference result cleanly (the metadata flight can return null):All files written and statically verified. Let me present them.
+
+53
+47

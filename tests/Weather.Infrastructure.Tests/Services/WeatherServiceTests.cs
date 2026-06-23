@@ -43,17 +43,21 @@ public sealed class WeatherServiceTests
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
         public WeatherService Service { get; }
-        // A REAL coalescer: its logic is pure and in-process, so the area hot
-        // path runs through it exactly as in production while these tests keep
-        // asserting cache-aside behaviour.
-        public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+
+        // REAL coalescers: their logic is pure and in-process, so the hot path
+        // runs through them exactly as in production while these tests keep
+        // asserting cache-aside behaviour. There is a separate flight set for
+        // forecasts, extras, metadata and alerts — matching the registrations.
+        public IRequestCoalescer<GridPoint> ForecastCoalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<GridPoint> ExtrasCoalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<GeoCoordinate> MetadataCoalescer { get; } = new RequestCoalescer<GeoCoordinate>();
         public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
 
         public Harness()
         {
             Service = new WeatherService(
                 MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
-                Coalescer, AlertCoalescer,
+                ForecastCoalescer, ExtrasCoalescer, MetadataCoalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }

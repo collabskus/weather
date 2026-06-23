@@ -12,6 +12,7 @@ namespace Weather.Api.Tests.Fakes;
 /// </summary>
 internal sealed class FakeNwsApiClient : INwsApiClient
 {
+    private const string NearestStationId = "KPHF";
     private static readonly GeoCoordinate CellCenter = new(37.0900, -76.4500);
 
     public Task<PointMetadata?> GetPointMetadataAsync(
@@ -66,11 +67,25 @@ internal sealed class FakeNwsApiClient : INwsApiClient
         return Task.FromResult(hourly);
     }
 
+    public Task<string?> GetNearestStationIdAsync(
+        GridPoint grid, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(NearestStationId);
+
     public Task<Observation?> GetLatestObservationAsync(
-        GridPoint grid, CancellationToken cancellationToken = default)
-    {
-        var observation = new Observation(
-            StationId: "KPHF",
+        GridPoint grid, string stationId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<Observation?>(BuildObservation(stationId));
+
+    public Task<Observation?> GetLatestObservationAsync(
+        GridPoint grid, CancellationToken cancellationToken = default) =>
+        Task.FromResult<Observation?>(BuildObservation(NearestStationId));
+
+    public Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<WeatherAlert>>([]);
+
+    private static Observation BuildObservation(string stationId) =>
+        new(
+            StationId: stationId,
             StationName: "Newport News",
             Timestamp: DateTimeOffset.UtcNow,
             TextDescription: "Sunny",
@@ -83,11 +98,4 @@ internal sealed class FakeNwsApiClient : INwsApiClient
             WindDirection: "S",
             PressureInHg: 30.05,
             VisibilityMiles: 10.0);
-
-        return Task.FromResult<Observation?>(observation);
-    }
-
-    public Task<IReadOnlyList<WeatherAlert>> GetActiveAlertsAsync(
-        GeoCoordinate coordinate, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<WeatherAlert>>([]);
 }
