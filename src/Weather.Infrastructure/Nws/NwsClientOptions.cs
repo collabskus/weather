@@ -28,6 +28,14 @@ public sealed class NwsClientOptions
     /// <summary>Clamp so a misconfigured/odd upstream max-age can't pin stale data for too long.</summary>
     public TimeSpan MaxForecastTtl { get; set; } = TimeSpan.FromHours(6);
 
+    /// <summary>
+    /// How long active alerts for a coordinate are trusted before NWS is asked
+    /// again. Alerts can appear and clear faster than forecasts, so this is
+    /// deliberately short — but long enough that a burst of browser refreshes
+    /// collapses into a single upstream <c>/alerts/active</c> call.
+    /// </summary>
+    public TimeSpan AlertsTtl { get; set; } = TimeSpan.FromMinutes(5);
+
     /// <summary>Per-request timeout applied by the resilience pipeline.</summary>
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(15);
 }

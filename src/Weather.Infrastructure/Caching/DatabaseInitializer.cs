@@ -66,6 +66,20 @@ public sealed class DatabaseInitializer(
 
         CREATE INDEX IF NOT EXISTS IX_CellExtras_ExpiresAtUtc
             ON CellExtras (ExpiresAtUtc);
+
+        -- Active alerts for a (rounded) coordinate, stored as one JSON blob.
+        -- Alerts are point-based and apply to the whole neighbourhood, so they
+        -- are cached once per coordinate (not per cell). Short TTL keeps refresh
+        -- spam off the NWS /alerts/active endpoint.
+        CREATE TABLE IF NOT EXISTS Alerts (
+            CoordinateKey  TEXT    NOT NULL PRIMARY KEY,
+            Payload        TEXT    NOT NULL,
+            RetrievedAtUtc TEXT    NOT NULL,
+            ExpiresAtUtc   TEXT    NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Alerts_ExpiresAtUtc
+            ON Alerts (ExpiresAtUtc);
         """;
 
     public async Task StartAsync(CancellationToken cancellationToken)

@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.TryAddSingleton<IForecastCache, SqliteForecastCache>();
         services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
         services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
+        services.TryAddSingleton<IAlertCache, SqliteAlertCache>();
         services.AddHostedService<DatabaseInitializer>();
 
         // Single-flight coalescer for forecast fetches. MUST be a singleton:
@@ -48,6 +49,12 @@ public static class DependencyInjection
         // in-flight dictionary. A scoped registration would give each request
         // its own dictionary and reintroduce the stampede.
         services.TryAddSingleton<IRequestCoalescer<GridPoint>, RequestCoalescer<GridPoint>>();
+
+        // Single-flight coalescer for alert fetches, keyed by the rounded
+        // coordinate's cache key. Same rationale as the forecast coalescer:
+        // when an alert entry is cold/expired and many browsers refresh at
+        // once, only the first request calls /alerts/active; the rest await it.
+        services.TryAddSingleton<IRequestCoalescer<string>, RequestCoalescer<string>>();
 
         // Resilient, identified NWS client. The standard resilience handler
         // wraps Polly v8 (retry w/ jitter, circuit breaker, timeout) and emits
