@@ -3008,92 +3008,1010 @@ cd ~/src/dotnet/weather; time git status; time git remote show origin; time git 
 
 
 the good news I guess is the error rate is fairly low 
-
-but it still bothers me how many requests I see to 
+but it still bothers me how many requests I see this 
 
 _display_name
-
 __chips__
-
 _time
-
 _dur_ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:30:10.559	
+5538ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast	
+	Jun 23 2026 14:29:42.185	
+272ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:27:41.560	
+339ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.371	
+187ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.345	
+28.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 14:26:24.340	
+25.6ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations	
+	Jun 23 2026 14:26:24.323	
+17.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly	
+	Jun 23 2026 14:26:24.295	
+36.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly	
+	Jun 23 2026 14:26:24.295	
+17.1ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.294	
+17.9ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.290	
+19.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 14:26:24.267	
+17.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 14:26:24.266	
+22.9ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:24.250	
+26.2ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations	
+	Jun 23 2026 14:26:24.201	
+36.1ms
 
+Oh these are distinct requests to different endpoints so that makes sense 
 
-GET https://api.weather.gov/alerts/active
+lets see more data 
+I feel that the caching implementation is still not quite correct 
 
-Jun 23 2026 14:30:10.5595538ms
+_display_name
+__chips__
+_time
+_dur_ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:30:10.559	
+5538ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast	
+	Jun 23 2026 14:29:42.185	
+272ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:27:41.560	
+339ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.371	
+187ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.345	
+28.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 14:26:24.340	
+25.6ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations	
+	Jun 23 2026 14:26:24.323	
+17.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly	
+	Jun 23 2026 14:26:24.295	
+36.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly	
+	Jun 23 2026 14:26:24.295	
+17.1ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.294	
+17.9ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.290	
+19.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 14:26:24.267	
+17.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 14:26:24.266	
+22.9ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:24.250	
+26.2ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations	
+	Jun 23 2026 14:26:24.201	
+36.1ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.171	
+24.1ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:24.170	
+24.2ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:24.170	
+26.4ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations	
+	Jun 23 2026 14:26:24.136	
+23.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations	
+	Jun 23 2026 14:26:24.134	
+26.5ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations	
+	Jun 23 2026 14:26:24.133	
+25.7ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly	
+	Jun 23 2026 14:26:23.999	
+246ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly	
+	Jun 23 2026 14:26:23.999	
+243ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:23.947	
+26.9ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/stations	
+	Jun 23 2026 14:26:23.920	
+22.3ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 14:26:23.855	
+100ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast/hourly	
+	Jun 23 2026 14:26:23.831	
+285ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast/hourly	
+	Jun 23 2026 14:26:23.831	
+329ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/stations	
+	Jun 23 2026 14:26:23.820	
+31.0ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast	
+	Jun 23 2026 14:26:23.807	
+188ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.805	
+61.2ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.778	
+19.2ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/stations	
+	Jun 23 2026 14:26:23.766	
+31.4ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/stations	
+	Jun 23 2026 14:26:23.746	
+25.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly	
+	Jun 23 2026 14:26:23.670	
+438ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast/hourly	
+	Jun 23 2026 14:26:23.643	
+248ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly	
+	Jun 23 2026 14:26:23.621	
+485ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.612	
+27.3ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.583	
+34.1ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast/hourly	
+	Jun 23 2026 14:26:23.580	
+224ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/stations	
+	Jun 23 2026 14:26:23.554	
+24.6ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/stations	
+	Jun 23 2026 14:26:23.550	
+28.9ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.546	
+29.7ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.519	
+44.9ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast/hourly	
+	Jun 23 2026 14:26:23.519	
+211ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast/hourly	
+	Jun 23 2026 14:26:23.518	
+231ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast	
+	Jun 23 2026 14:26:23.507	
+320ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/stations	
+	Jun 23 2026 14:26:23.486	
+50.0ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.485	
+30.1ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast/hourly	
+	Jun 23 2026 14:26:23.484	
+46.5ms
 
+50
 
-GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast
+_display_name
+__chips__
+_time
+_dur_ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast/hourly	
+	Jun 23 2026 14:26:23.484	
+42.0ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/stations	
+	Jun 23 2026 14:26:23.474	
+37.9ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.471	
+31.8ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/stations	
+	Jun 23 2026 14:26:23.443	
+36.5ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/stations	
+	Jun 23 2026 14:26:23.433	
+31.1ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast/hourly	
+	Jun 23 2026 14:26:23.307	
+123ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast/hourly	
+	Jun 23 2026 14:26:23.307	
+113ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast/hourly	
+	Jun 23 2026 14:26:23.301	
+101ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast/hourly	
+	Jun 23 2026 14:26:23.270	
+95.6ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast	
+	Jun 23 2026 14:26:23.270	
+245ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast	
+	Jun 23 2026 14:26:23.269	
+206ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast	
+	Jun 23 2026 14:26:23.269	
+28.1ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 14:26:23.173	
+84.2ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/stations	
+	Jun 23 2026 14:26:23.142	
+26.3ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly	
+	Jun 23 2026 14:26:23.069	
+29.8ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:25:15.225	
+398ms
+GET https://api.weather.gov/points/37.0879,-76.4507	
+	Jun 23 2026 14:25:14.050	
+1160ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast	
+	Jun 23 2026 14:22:30.474	
+62.6ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:22:30.472	
+365ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast	
+	Jun 23 2026 14:22:30.436	
+32.1ms
+GET https://api.weather.gov/points/37.0878,-76.4508	
+	Jun 23 2026 14:22:29.879	
+615ms
+GET https://api.weather.gov/points/37.0878,-76.4508	
+	Jun 23 2026 14:22:29.449	
+975ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:19:26.366	
+334ms
+GET https://api.weather.gov/points/37.0877,-76.4509	
+	Jun 23 2026 14:19:25.214	
+1140ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:18:01.533	
+804ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:12:58.824	
+322ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:12:55.996	
+312ms
+GET https://api.weather.gov/points/37.0878,-76.4509	
+	Jun 23 2026 14:12:54.845	
+1139ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:10:01.894	
+476ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:08:04.107	
+383ms
+GET https://api.weather.gov/points/37.0879,-76.4508	
+	Jun 23 2026 14:08:03.120	
+974ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:07:57.868	
+5668ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:02:56.571	
+292ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 14:02:04.801	
+349ms
+GET https://api.weather.gov/points/37.0878,-76.4507	
+	Jun 23 2026 14:02:03.642	
+1145ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:59:58.233	
+323ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast	
+	Jun 23 2026 13:59:55.431	
+139ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:58:55.404	
+316ms
+GET https://api.weather.gov/points/37.0876,-76.4506	
+	Jun 23 2026 13:58:54.938	
+508ms
+GET https://api.weather.gov/points/37.0876,-76.4506	
+	Jun 23 2026 13:58:54.429	
+962ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:56:30.109	
+314ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 13:56:16.618	
+87.3ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 13:56:16.613	
+72.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 13:56:16.597	
+17.9ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 13:56:16.595	
+89.1ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations	
+	Jun 23 2026 13:56:16.585	
+24.4ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/stations	
+	Jun 23 2026 13:56:16.568	
+20.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly	
+	Jun 23 2026 13:56:16.568	
+18.2ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:56:16.567	
+34.6ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly	
+	Jun 23 2026 13:56:16.559	
+18.9ms
 
-Jun 23 2026 14:29:42.185272ms
+50
+51 - 100 of 2668
 
+_display_name
+__chips__
+_time
+_dur_ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:56:16.543	
+21.5ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:56:16.533	
+21.9ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/stations	
+	Jun 23 2026 13:56:16.532	
+27.6ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast/hourly	
+	Jun 23 2026 13:56:16.516	
+27.7ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations	
+	Jun 23 2026 13:56:16.503	
+25.1ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/stations	
+	Jun 23 2026 13:56:16.487	
+43.4ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:56:16.485	
+27.1ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast/hourly	
+	Jun 23 2026 13:56:16.481	
+14.0ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:56:16.461	
+16.6ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast/hourly	
+	Jun 23 2026 13:56:16.448	
+21.7ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/stations	
+	Jun 23 2026 13:56:16.416	
+42.0ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/stations	
+	Jun 23 2026 13:56:16.386	
+71.1ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast	
+	Jun 23 2026 13:56:16.345	
+91.7ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast/hourly	
+	Jun 23 2026 13:56:16.345	
+84.8ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast/hourly	
+	Jun 23 2026 13:56:16.345	
+54.9ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast/hourly	
+	Jun 23 2026 13:56:16.345	
+24.7ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:56:16.209	
+122ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/stations	
+	Jun 23 2026 13:56:16.179	
+25.7ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly	
+	Jun 23 2026 13:56:15.880	
+258ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:54:44.237	
+346ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:52:13.814	
+302ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:51:26.180	
+296ms
+GET https://api.weather.gov/points/37.088,-76.4509	
+	Jun 23 2026 13:51:25.794	
+374ms
+GET https://api.weather.gov/points/37.088,-76.4509	
+	Jun 23 2026 13:51:22.307	
+3956ms
+GET https://api.weather.gov/points/37.088,-76.4509	
+	Jun 23 2026 13:51:17.067	
+9293ms
+GET https://api.weather.gov/points/37.088,-76.4509	
+	Jun 23 2026 13:51:14.066	
+9998ms
+GET https://api.weather.gov/points/37.088,-76.4509	
+	Jun 23 2026 13:51:09.855	
+10s
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:47:48.787	
+311ms
+GET https://api.weather.gov/points/37.0877,-76.4508	
+	Jun 23 2026 13:47:47.861	
+912ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:46:46.747	
+302ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:46:22.288	
+274ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:46:05.538	
+542ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:40:57.622	
+308ms
+GET https://api.weather.gov/points/37.088,-76.4508	
+	Jun 23 2026 13:40:56.346	
+1246ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:38:09.612	
+353ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:34:52.506	
+322ms
+GET https://api.weather.gov/points/37.0878,-76.4511	
+	Jun 23 2026 13:34:51.627	
+869ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:34:48.536	
+307ms
+GET https://api.weather.gov/points/37.0878,-76.451	
+	Jun 23 2026 13:34:47.333	
+1166ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:28:39.030	
+654ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 13:26:16.444	
+16.5ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 13:26:16.334	
+103ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 13:26:16.277	
+29.8ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:26:16.201	
+21.9ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations	
+	Jun 23 2026 13:26:16.156	
+115ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 13:26:16.126	
+85.0ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations	
+	Jun 23 2026 13:26:16.097	
+98.2ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly	
+	Jun 23 2026 13:26:16.077	
+240ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:26:16.046	
+18.7ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/stations	
+	Jun 23 2026 13:26:15.957	
+161ms
 
-GET https://api.weather.gov/alerts/active
+50
+101 - 150 of 2668
 
-Jun 23 2026 14:27:41.560339ms
+_display_name
+__chips__
+_time
+_dur_ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/stations	
+	Jun 23 2026 13:26:15.939	
+99.2ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly	
+	Jun 23 2026 13:26:15.912	
+217ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast/hourly	
+	Jun 23 2026 13:26:15.877	
+43.8ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:26:15.869	
+35.4ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast/hourly	
+	Jun 23 2026 13:26:15.857	
+218ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:26:15.850	
+20.9ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:26:15.804	
+34.5ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast	
+	Jun 23 2026 13:26:15.759	
+208ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast	
+	Jun 23 2026 13:26:15.717	
+35.5ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/stations	
+	Jun 23 2026 13:26:15.712	
+129ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/stations	
+	Jun 23 2026 13:26:15.679	
+118ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/stations	
+	Jun 23 2026 13:26:15.675	
+143ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast	
+	Jun 23 2026 13:26:15.628	
+73.6ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast/hourly	
+	Jun 23 2026 13:26:15.605	
+289ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast/hourly	
+	Jun 23 2026 13:26:15.604	
+85.7ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast/hourly	
+	Jun 23 2026 13:26:15.604	
+39.8ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast/hourly	
+	Jun 23 2026 13:26:15.604	
+43.7ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast	
+	Jun 23 2026 13:26:15.458	
+162ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast	
+	Jun 23 2026 13:26:15.426	
+24.4ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast	
+	Jun 23 2026 13:26:15.228	
+185ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast	
+	Jun 23 2026 13:26:15.054	
+160ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast	
+	Jun 23 2026 13:26:14.877	
+151ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 13:26:14.877	
+654ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 13:26:14.704	
+90.6ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/stations	
+	Jun 23 2026 13:26:14.586	
+98.6ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly	
+	Jun 23 2026 13:26:14.488	
+32.7ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast	
+	Jun 23 2026 13:26:13.933	
+350ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 11:44:52.328	
+195ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 11:40:45.349	
+187ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 11:40:45.343	
+141ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 11:40:44.966	
+129ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 11:40:44.524	
+424ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/stations	
+	Jun 23 2026 11:40:44.517	
+826ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations	
+	Jun 23 2026 11:40:44.496	
+842ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 11:40:43.999	
+201ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly	
+	Jun 23 2026 11:40:43.554	
+957ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast/hourly	
+	Jun 23 2026 11:40:43.474	
+799ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly	
+	Jun 23 2026 11:40:43.382	
+1054ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations	
+	Jun 23 2026 11:40:43.233	
+760ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast	
+	Jun 23 2026 11:40:43.036	
+508ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 11:40:42.999	
+33.8ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast	
+	Jun 23 2026 11:40:42.988	
+383ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 11:40:42.953	
+22.5ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/stations	
+	Jun 23 2026 11:40:42.559	
+435ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 11:40:42.556	
+37.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast	
+	Jun 23 2026 11:40:42.450	
+1014ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast/hourly	
+	Jun 23 2026 11:40:42.449	
+728ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 11:40:41.990	
+42.4ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/stations	
+	Jun 23 2026 11:40:41.918	
+620ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast	
+	Jun 23 2026 11:40:41.836	
+601ms
 
+50
+151 - 200 of 2668
 
-GET https://api.weather.gov/stations/KLFI/observations/latest
+_display_name
+__chips__
+_time
+_dur_ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast/hourly	
+	Jun 23 2026 11:40:41.824	
+721ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/stations	
+	Jun 23 2026 11:40:41.699	
+1248ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast/hourly	
+	Jun 23 2026 11:40:41.396	
+475ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/stations	
+	Jun 23 2026 11:40:41.138	
+847ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast/hourly	
+	Jun 23 2026 11:40:41.067	
+585ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast/hourly	
+	Jun 23 2026 11:40:41.005	
+79.7ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast	
+	Jun 23 2026 11:40:40.845	
+132ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast	
+	Jun 23 2026 11:40:40.844	
+524ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast	
+	Jun 23 2026 11:40:40.844	
+960ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast	
+	Jun 23 2026 11:40:40.526	
+520ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 11:40:40.526	
+317ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 11:40:40.344	
+155ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/stations	
+	Jun 23 2026 11:40:40.034	
+305ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly	
+	Jun 23 2026 11:40:39.867	
+117ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast	
+	Jun 23 2026 11:40:39.588	
+250ms
+GET https://api.weather.gov/points/37.0877,-76.4505	
+	Jun 23 2026 11:40:38.708	
+830ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 10:23:35.865	
+233ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/stations	
+	Jun 23 2026 10:23:29.214	
+6645ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly	
+	Jun 23 2026 10:23:29.018	
+154ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/stations	
+	Jun 23 2026 10:23:17.279	
+9827ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly	
+	Jun 23 2026 10:23:17.109	
+110ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly	
+	Jun 23 2026 10:23:06.204	
+9895ms
+GET https://api.weather.gov/points/37.0878,-76.4505	
+	Jun 23 2026 10:23:06.101	
+88.0ms
+GET https://api.weather.gov/points/37.0878,-76.4505	
+	Jun 23 2026 10:22:50.286	
+6383ms
+GET https://api.weather.gov/points/37.0878,-76.4505	
+	Jun 23 2026 10:22:37.582	
+10s
+GET https://api.weather.gov/points/37.0878,-76.4505	
+	Jun 23 2026 10:22:26.672	
+9998ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 09:52:53.963	
+42.8ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/stations	
+	Jun 23 2026 09:52:53.871	
+86.9ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 09:52:53.590	
+50.3ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/stations	
+	Jun 23 2026 09:52:53.529	
+56.7ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 09:52:53.386	
+28.5ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/stations	
+	Jun 23 2026 09:52:53.358	
+23.4ms
+GET https://api.weather.gov/stations/KLFI/observations/latest	
+	Jun 23 2026 09:52:53.341	
+60.0ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/stations	
+	Jun 23 2026 09:52:53.303	
+33.1ms
+GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly	
+	Jun 23 2026 09:52:53.297	
+218ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 09:52:53.257	
+34.2ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/stations	
+	Jun 23 2026 09:52:53.190	
+60.7ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly	
+	Jun 23 2026 09:52:53.171	
+424ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast/hourly	
+	Jun 23 2026 09:52:53.156	
+107ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 09:52:53.126	
+41.1ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 09:52:53.112	
+34.5ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/stations	
+	Jun 23 2026 09:52:53.089	
+32.6ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/stations	
+	Jun 23 2026 09:52:53.076	
+30.8ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast/hourly	
+	Jun 23 2026 09:52:53.065	
+279ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 09:52:53.033	
+27.5ms
+GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast	
+	Jun 23 2026 09:52:53.024	
+131ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/stations	
+	Jun 23 2026 09:52:52.990	
+38.1ms
+GET https://api.weather.gov/gridpoints/AKQ/84,60/forecast	
+	Jun 23 2026 09:52:52.910	
+104ms
+GET https://api.weather.gov/gridpoints/AKQ/83,60/forecast/hourly	
+	Jun 23 2026 09:52:52.859	
+170ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast/hourly	
+	Jun 23 2026 09:52:52.858	
+275ms
 
-Jun 23 2026 14:26:24.371187ms
+50
+201 - 250 of 2668
 
+_display_name
+__chips__
+_time
+_dur_ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast/hourly	
+	Jun 23 2026 09:52:52.858	
+87.8ms
+GET https://api.weather.gov/gridpoints/AKQ/82,60/forecast/hourly	
+	Jun 23 2026 09:52:52.858	
+216ms
+GET https://api.weather.gov/gridpoints/AKQ/83,62/forecast	
+	Jun 23 2026 09:52:52.748	
+150ms
+GET https://api.weather.gov/gridpoints/AKQ/82,62/forecast	
+	Jun 23 2026 09:52:52.611	
+126ms
+GET https://api.weather.gov/gridpoints/AKQ/82,61/forecast	
+	Jun 23 2026 09:52:52.501	
+100ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:52:52.500	
+355ms
+GET https://api.weather.gov/stations/KPHF/observations/latest	
+	Jun 23 2026 09:52:52.402	
+89.2ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/stations	
+	Jun 23 2026 09:52:52.009	
+386ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast/hourly	
+	Jun 23 2026 09:52:49.206	
+2765ms
+GET https://api.weather.gov/gridpoints/AKQ/83,61/forecast	
+	Jun 23 2026 09:52:46.162	
+3033ms
+GET https://api.weather.gov/points/37.0877,-76.4506	
+	Jun 23 2026 09:52:44.694	
+1454ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:17.643	
+30.1ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:17.010	
+18.3ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:16.377	
+79.7ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:16.057	
+396ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:14.554	
+54.2ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:13.958	
+16.0ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:11.300	
+114ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:10.167	
+22.2ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:09.636	
+21.0ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:25:08.982	
+470ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:47.799	
+20.8ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:47.401	
+21.8ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:46.807	
+40.9ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:46.455	
+40.6ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:45.971	
+44.3ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:45.532	
+43.8ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:40.746	
+18.0ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:37.151	
+390ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:36.922	
+341ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:09.203	
+25.0ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:08.788	
+61.7ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:04.403	
+333ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:24:03.561	
+335ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:49.279	
+45.9ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:17.399	
+46.5ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:13.525	
+21.2ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:13.204	
+25.1ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:11.478	
+27.7ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:10.453	
+321ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:04.427	
+46.4ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:03.927	
+16.6ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:23:02.703	
+38.5ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:22:53.447	
+340ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:22:52.431	
+43.2ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:22:47.055	
+382ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:22:41.990	
+18.1ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:22:41.333	
+327ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:22:31.824	
+13.6ms
+GET https://api.weather.gov/alerts/active	
+	Jun 23 2026 09:22:28.570	
+43.4ms
 
-GET https://api.weather.gov/stations/KLFI/observations/latest
+50
+251 - 300 of 2668
 
-Jun 23 2026 14:26:24.34528.3ms
+28
+35
 
-
-GET https://api.weather.gov/gridpoints/AKQ/84,62/stations
-
-Jun 23 2026 14:26:24.34025.6ms
-
-
-GET https://api.weather.gov/gridpoints/AKQ/84,61/stations
-
-Jun 23 2026 14:26:24.32317.4ms
-
-
-GET https://api.weather.gov/gridpoints/AKQ/84,62/forecast/hourly
-
-Jun 23 2026 14:26:24.29536.4ms
-
-
-GET https://api.weather.gov/gridpoints/AKQ/84,61/forecast/hourly
-
-Jun 23 2026 14:26:24.29517.1ms
-
-
-GET https://api.weather.gov/stations/KLFI/observations/latest
-
-Jun 23 2026 14:26:24.29417.9ms
-
-
-GET https://api.weather.gov/stations/KLFI/observations/latest
-
-Jun 23 2026 14:26:24.29019.3ms
-
-
-GET https://api.weather.gov/gridpoints/AKQ/84,62/stations
-
-Jun 23 2026 14:26:24.26717.3ms
-
-
-GET https://api.weather.gov/gridpoints/AKQ/84,62/stations
-
-Jun 23 2026 14:26:24.26622.9ms
-
-
-GET https://api.weather.gov/stations/KPHF/observations/latest
-
-Jun 23 2026 14:26:24.25026.2ms
-
-
-GET https://api.weather.gov/gridpoints/AKQ/83,62/stations
-
-Jun 23 2026 14:26:24.20136.1ms
-
-
-
-are these being preempted by the cache? 
