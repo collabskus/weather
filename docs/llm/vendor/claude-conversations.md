@@ -1298,4 +1298,4 @@ Claude is AI and can make mistakes. Please double-check cited sources.
 
 
 
-cd ~/src/dotnet/weather/deploy; podman pull mcr.microsoft.com/dotnet/sdk:10.0; podman pull mcr.microsoft.com/dotnet/aspnet:10.0; podman compose -f compose.yaml up --build --detach; podman compose -f compose.yaml ps; podman compose -f compose.yaml logs -f web
+cd ~/src/dotnet/weather; time git status; time git remote show origin; time git pull origin main --verbose; cd ~/src/dotnet/weather/deploy; podman pull mcr.microsoft.com/dotnet/sdk:10.0; podman pull mcr.microsoft.com/dotnet/aspnet:10.0; podman compose -f compose.yaml up --build --detach; podman compose -f compose.yaml ps; podman compose -f compose.yaml logs -f web
