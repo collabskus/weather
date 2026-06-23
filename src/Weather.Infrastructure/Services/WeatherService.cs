@@ -45,7 +45,7 @@ internal sealed class WeatherService(
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
     IRequestCoalescer<GridPoint> forecastCoalescer,
-    [FromKeyedServices(ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
+    [FromKeyedServices(WeatherService.ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
     IRequestCoalescer<GeoCoordinate> metadataCoalescer,
     IRequestCoalescer<string> alertCoalescer,
     WeatherTelemetry telemetry,
