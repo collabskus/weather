@@ -1,0 +1,2 @@
+
+cd ~/src/dotnet/weather; time git status; time git remote show origin; time git pull origin main --verbose; cd ~/src/dotnet/weather/deploy; time podman compose -f compose.yaml down; time podman pull mcr.microsoft.com/dotnet/sdk:10.0; time podman pull mcr.microsoft.com/dotnet/aspnet:10.0; time podman compose -f compose.yaml up --build --detach; podman compose -f compose.yaml ps; podman logs weather_tunnel-web_1 2>&1 | grep trycloudflare.com;
