@@ -51,9 +51,10 @@ public static class DependencyInjection
         services.TryAddSingleton<IRequestCoalescer<GridPoint>, RequestCoalescer<GridPoint>>();
 
         // Single-flight coalescer for alert fetches, keyed by the rounded
-        // coordinate's cache key. Same rationale as the forecast coalescer:
-        // when an alert entry is cold/expired and many browsers refresh at
-        // once, only the first request calls /alerts/active; the rest await it.
+        // coordinate's cache key (a string). Same rationale as the forecast
+        // coalescer: when an alert entry is cold/expired and many browsers
+        // refresh at once, only the first request calls /alerts/active; the
+        // rest await it. Singleton so the in-flight dictionary is shared.
         services.TryAddSingleton<IRequestCoalescer<string>, RequestCoalescer<string>>();
 
         // Resilient, identified NWS client. The standard resilience handler

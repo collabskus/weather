@@ -54,6 +54,7 @@ public sealed class WeatherServiceAreaTests
         public IPointMetadataCache MetadataCache { get; } = Substitute.For<IPointMetadataCache>();
         public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
+        public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
 
@@ -61,13 +62,15 @@ public sealed class WeatherServiceAreaTests
         // path runs through it exactly as in production while these tests keep
         // asserting cache-aside behaviour.
         public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
 
         public WeatherService Service { get; }
 
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, Coalescer,
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                Coalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
@@ -189,5 +192,82 @@ public sealed class WeatherServiceAreaTests
 
         area.ShouldNotBeNull();
         area!.Neighbors.Count.ShouldBe(24);
+    }
+
+    [Test]
+    public async Task GetAreaOnAlertCacheMissFetchesOnceAndStores()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        // Alert cache is cold for this coordinate.
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((CachedAlerts?)null);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(1);
+
+        // Fetched exactly once and the result was written back to the cache.
+        await h.Nws.Received(1).GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+        await h.AlertCache.Received(1).UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaServesAlertsFromCacheWithoutHittingNws()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+
+        // A FRESH alert entry already cached for this coordinate.
+        var cachedAlerts = new CachedAlerts(new[] { AlertSample() }, Now, Now.AddMinutes(5));
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(cachedAlerts);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(1);
+        area.Alerts[0].Event.ShouldBe("Heat Advisory");
+
+        // The whole point of the fix: a fresh cache entry means ZERO calls to
+        // the /alerts/active endpoint, no matter how many times the page loads.
+        await h.Nws.DidNotReceive().GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+        await h.AlertCache.DidNotReceive().UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaCachesEmptyAlertResultToAvoidRefetching()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((CachedAlerts?)null);
+        // No active alerts (and/or NWS best-effort empty).
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(0);
+
+        // "No alerts" is itself cached, so the next view will not re-hit NWS.
+        await h.AlertCache.Received(1).UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
     }
 }

@@ -29,9 +29,11 @@ internal sealed class WeatherService(
     IPointMetadataCache metadataCache,
     IForecastCache forecastCache,
     ICellExtrasCache extrasCache,
+    IAlertCache alertCache,
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
     IRequestCoalescer<GridPoint> forecastCoalescer,
+    IRequestCoalescer<string> alertCoalescer,
     WeatherTelemetry telemetry,
     TimeProvider timeProvider,
     IOptions<NwsClientOptions> options,
@@ -40,6 +42,7 @@ internal sealed class WeatherService(
     private const string MetadataCacheName = "metadata";
     private const string ForecastCacheName = "forecast";
     private const string ExtrasCacheName = "extras";
+    private const string AlertsCacheName = "alerts";
 
     // Nominal NWS cell size (~2.5 km) used only as a fallback ordering metric
     // when a cell's true polygon centre is not currently known.
@@ -125,8 +128,10 @@ internal sealed class WeatherService(
         // Schedule background warming of the daily forecasts for the ring.
         warmer.RequestWarming(metadata.Grid);
 
-        // Alerts are point-based and apply to the whole area; fetch once.
-        var alerts = await nwsClient.GetActiveAlertsAsync(coord, cancellationToken).ConfigureAwait(false) ?? [];
+        // Alerts are point-based and apply to the whole area; resolve them
+        // cache-aside (short TTL) so repeated views and browser refreshes do
+        // NOT re-hit /alerts/active every time.
+        var alerts = await ResolveAlertsAsync(coord, cancellationToken).ConfigureAwait(false);
 
         // Assemble every neighbouring cell, cache-aside, with bounded
         // concurrency so a cold area can never stampede NWS.
@@ -220,6 +225,63 @@ internal sealed class WeatherService(
             .ConfigureAwait(false);
 
         return extras;
+    }
+
+    /// <summary>
+    /// Cache-aside fetch of active alerts for a coordinate, protected by the
+    /// single-flight coalescer (keyed by the coordinate's cache key) so a burst
+    /// of concurrent misses collapses into one upstream <c>/alerts/active</c>
+    /// call. A fresh cache entry is served straight from SQLite; on miss/expiry
+    /// the result is fetched once and stored with a short TTL. Caching an empty
+    /// list is deliberate and correct: "no active alerts" is a valid answer
+    /// worth remembering for the TTL, and it is what stops repeated views and
+    /// browser refreshes from re-hitting the alerts endpoint every time.
+    /// </summary>
+    private async Task<IReadOnlyList<WeatherAlert>> ResolveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+
+        var cached = await alertCache.GetAsync(coordinate, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(AlertsCacheName);
+            return cached.Alerts;
+        }
+
+        telemetry.RecordCacheMiss(AlertsCacheName);
+
+        var key = coordinate.Rounded().ToCacheKey();
+
+        return await alertCoalescer.RunAsync(
+            key,
+            async token =>
+            {
+                // Re-check the cache inside the flight: a concurrent leader for
+                // the same coordinate may have just filled it.
+                var inner = timeProvider.GetUtcNow();
+                var rechecked = await alertCache.GetAsync(coordinate, token).ConfigureAwait(false);
+                if (rechecked is not null && rechecked.IsFresh(inner))
+                {
+                    return rechecked.Alerts;
+                }
+
+                // The client is best-effort: it returns an empty list both when
+                // there are genuinely no alerts and when NWS is unreachable.
+                // Either way an empty list is a safe thing to cache for the
+                // short TTL; the next refresh after expiry will try again.
+                var fetched = await nwsClient.GetActiveAlertsAsync(coordinate, token).ConfigureAwait(false) ?? [];
+
+                await alertCache
+                    .UpsertAsync(
+                        coordinate,
+                        new CachedAlerts(fetched, inner, inner + _options.AlertsTtl),
+                        token)
+                    .ConfigureAwait(false);
+
+                return fetched;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static double OrderKeyMeters(GeoCoordinate query, GridPoint origin, CellWeather cell) =>

@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/23/2026 12:57:42
+Generated: 06/23/2026 13:17:07
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -56,6 +56,7 @@ src/Weather.AppHost/appsettings.json
 src/Weather.AppHost/Program.cs
 src/Weather.AppHost/README.md
 src/Weather.AppHost/Weather.AppHost.csproj
+src/Weather.Core/Abstractions/IAlertCache.cs
 src/Weather.Core/Abstractions/ICellExtrasCache.cs
 src/Weather.Core/Abstractions/IForecastCache.cs
 src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
@@ -82,6 +83,7 @@ src/Weather.Core/README.md
 src/Weather.Core/Telemetry/WeatherTelemetry.cs
 src/Weather.Core/Weather.Core.csproj
 src/Weather.Infrastructure/Caching/DatabaseInitializer.cs
+src/Weather.Infrastructure/Caching/SqliteAlertCache.cs
 src/Weather.Infrastructure/Caching/SqliteCacheOptions.cs
 src/Weather.Infrastructure/Caching/SqliteCellExtrasCache.cs
 src/Weather.Infrastructure/Caching/SqliteConnectionFactory.cs
@@ -137,6 +139,7 @@ tests/Weather.Core.Tests/GlobalUsings.cs
 tests/Weather.Core.Tests/GridNeighborhoodTests.cs
 tests/Weather.Core.Tests/Weather.Core.Tests.csproj
 tests/Weather.Core.Tests/WeatherTelemetryTests.cs
+tests/Weather.Infrastructure.Tests/Caching/SqliteAlertCacheTests.cs
 tests/Weather.Infrastructure.Tests/Caching/SqliteCacheHarness.cs
 tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs
 tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
@@ -1656,8 +1659,8 @@ MODIFIED: 06/19/2026 08:36:12
 
 ================================================================================
 FILE: src/Weather.Api/appsettings.json
-SIZE: 0.54 KB
-MODIFIED: 06/19/2026 09:07:22
+SIZE: 0.57 KB
+MODIFIED: 06/23/2026 13:14:11
 ================================================================================
 
 {
@@ -1673,6 +1676,7 @@ MODIFIED: 06/19/2026 09:07:22
     "DefaultForecastTtl": "00:30:00",
     "PointMetadataTtl": "30.00:00:00",
     "MaxForecastTtl": "06:00:00",
+    "AlertsTtl": "00:05:00",
     "RequestTimeout": "00:00:15"
   },
   "Cache": {
@@ -2266,6 +2270,42 @@ MODIFIED: 06/22/2026 14:17:31
   </ItemGroup>
 
 </Project>
+
+
+
+================================================================================
+FILE: src/Weather.Core/Abstractions/IAlertCache.cs
+SIZE: 1.06 KB
+MODIFIED: 06/23/2026 13:17:06
+================================================================================
+
+using Weather.Core.Models;
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>
+/// Cache of active NWS alerts keyed by the (rounded) query coordinate. Alerts
+/// are point-based and apply to the whole neighbourhood, so they are cached
+/// once per coordinate rather than per grid cell. Kept separate from the
+/// forecast and extras caches because alerts have their own (shorter) freshness
+/// policy: they can appear and clear quickly, but not so quickly that every
+/// browser refresh should hit NWS.
+/// </summary>
+public interface IAlertCache
+{
+    Task<CachedAlerts?> GetAsync(GeoCoordinate coordinate, CancellationToken cancellationToken = default);
+
+    Task UpsertAsync(GeoCoordinate coordinate, CachedAlerts entry, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Active alerts for a coordinate as stored in the cache, with TTL bookkeeping.</summary>
+public sealed record CachedAlerts(
+    IReadOnlyList<WeatherAlert> Alerts,
+    DateTimeOffset RetrievedAtUtc,
+    DateTimeOffset ExpiresAtUtc)
+{
+    public bool IsFresh(DateTimeOffset now) => ExpiresAtUtc > now;
+}
 
 
 
@@ -3154,8 +3194,8 @@ MODIFIED: 06/19/2026 08:36:12
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Caching/DatabaseInitializer.cs
-SIZE: 3.16 KB
-MODIFIED: 06/19/2026 08:55:36
+SIZE: 3.78 KB
+MODIFIED: 06/23/2026 13:13:25
 ================================================================================
 
 using Dapper;
@@ -3226,6 +3266,20 @@ public sealed class DatabaseInitializer(
 
         CREATE INDEX IF NOT EXISTS IX_CellExtras_ExpiresAtUtc
             ON CellExtras (ExpiresAtUtc);
+
+        -- Active alerts for a (rounded) coordinate, stored as one JSON blob.
+        -- Alerts are point-based and apply to the whole neighbourhood, so they
+        -- are cached once per coordinate (not per cell). Short TTL keeps refresh
+        -- spam off the NWS /alerts/active endpoint.
+        CREATE TABLE IF NOT EXISTS Alerts (
+            CoordinateKey  TEXT    NOT NULL PRIMARY KEY,
+            Payload        TEXT    NOT NULL,
+            RetrievedAtUtc TEXT    NOT NULL,
+            ExpiresAtUtc   TEXT    NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Alerts_ExpiresAtUtc
+            ON Alerts (ExpiresAtUtc);
         """;
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -3241,6 +3295,103 @@ public sealed class DatabaseInitializer(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+
+
+================================================================================
+FILE: src/Weather.Infrastructure/Caching/SqliteAlertCache.cs
+SIZE: 3.37 KB
+MODIFIED: 06/23/2026 13:17:06
+================================================================================
+
+using System.Text.Json;
+using Dapper;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+using Weather.Infrastructure.Serialization;
+
+namespace Weather.Infrastructure.Caching;
+
+/// <summary>
+/// SQLite-backed store of active NWS alerts, keyed by the rounded query
+/// coordinate. The whole alert list is one JSON column; TTL bookkeeping lives
+/// in dedicated columns. Alerts are point-based (they apply to the whole
+/// neighbourhood), so unlike the forecast/extras caches this is keyed by
+/// coordinate, not by grid cell. This is what stops every browser refresh from
+/// hammering <c>/alerts/active</c>: a fresh entry is served straight from
+/// SQLite, exactly like metadata and forecasts.
+/// </summary>
+internal sealed class SqliteAlertCache(ISqliteConnectionFactory connectionFactory) : IAlertCache
+{
+    private const string SelectSql =
+        """
+        SELECT Payload, RetrievedAtUtc, ExpiresAtUtc
+        FROM Alerts
+        WHERE CoordinateKey = @CoordinateKey;
+        """;
+
+    private const string UpsertSql =
+        """
+        INSERT INTO Alerts
+            (CoordinateKey, Payload, RetrievedAtUtc, ExpiresAtUtc)
+        VALUES
+            (@CoordinateKey, @Payload, @RetrievedAtUtc, @ExpiresAtUtc)
+        ON CONFLICT(CoordinateKey) DO UPDATE SET
+            Payload        = excluded.Payload,
+            RetrievedAtUtc = excluded.RetrievedAtUtc,
+            ExpiresAtUtc   = excluded.ExpiresAtUtc;
+        """;
+
+    public async Task<CachedAlerts?> GetAsync(GeoCoordinate coordinate, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        var key = coordinate.Rounded().ToCacheKey();
+
+        var row = await connection.QuerySingleOrDefaultAsync<AlertRow>(
+            new CommandDefinition(SelectSql, new { CoordinateKey = key },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        var alerts = JsonSerializer.Deserialize<List<WeatherAlert>>(row.Payload, WeatherJson.Options);
+        if (alerts is null)
+        {
+            return null;
+        }
+
+        return new CachedAlerts(
+            alerts,
+            TimestampText.Parse(row.RetrievedAtUtc),
+            TimestampText.Parse(row.ExpiresAtUtc));
+    }
+
+    public async Task UpsertAsync(GeoCoordinate coordinate, CachedAlerts entry, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        var key = coordinate.Rounded().ToCacheKey();
+
+        // Materialise to a concrete list so the JSON shape is stable regardless
+        // of the underlying IReadOnlyList implementation handed in.
+        var payload = JsonSerializer.Serialize(entry.Alerts.ToList(), WeatherJson.Options);
+
+        await connection.ExecuteAsync(new CommandDefinition(UpsertSql, new
+        {
+            CoordinateKey = key,
+            Payload = payload,
+            RetrievedAtUtc = TimestampText.ToText(entry.RetrievedAtUtc),
+            ExpiresAtUtc = TimestampText.ToText(entry.ExpiresAtUtc),
+        }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private sealed record AlertRow(string Payload, string RetrievedAtUtc, string ExpiresAtUtc);
 }
 
 
@@ -3658,8 +3809,8 @@ internal static class TimestampText
 
 ================================================================================
 FILE: src/Weather.Infrastructure/DependencyInjection.cs
-SIZE: 4.2 KB
-MODIFIED: 06/22/2026 15:03:07
+SIZE: 4.73 KB
+MODIFIED: 06/23/2026 13:13:49
 ================================================================================
 
 using System.Threading.RateLimiting;
@@ -3704,6 +3855,7 @@ public static class DependencyInjection
         services.TryAddSingleton<IForecastCache, SqliteForecastCache>();
         services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
         services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
+        services.TryAddSingleton<IAlertCache, SqliteAlertCache>();
         services.AddHostedService<DatabaseInitializer>();
 
         // Single-flight coalescer for forecast fetches. MUST be a singleton:
@@ -3712,6 +3864,13 @@ public static class DependencyInjection
         // in-flight dictionary. A scoped registration would give each request
         // its own dictionary and reintroduce the stampede.
         services.TryAddSingleton<IRequestCoalescer<GridPoint>, RequestCoalescer<GridPoint>>();
+
+        // Single-flight coalescer for alert fetches, keyed by the rounded
+        // coordinate's cache key (a string). Same rationale as the forecast
+        // coalescer: when an alert entry is cold/expired and many browsers
+        // refresh at once, only the first request calls /alerts/active; the
+        // rest await it. Singleton so the in-flight dictionary is shared.
+        services.TryAddSingleton<IRequestCoalescer<string>, RequestCoalescer<string>>();
 
         // Resilient, identified NWS client. The standard resilience handler
         // wraps Polly v8 (retry w/ jitter, circuit breaker, timeout) and emits
@@ -4269,8 +4428,8 @@ internal sealed class NwsApiClient(
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Nws/NwsClientOptions.cs
-SIZE: 1.5 KB
-MODIFIED: 06/19/2026 08:36:12
+SIZE: 1.9 KB
+MODIFIED: 06/23/2026 13:13:39
 ================================================================================
 
 namespace Weather.Infrastructure.Nws;
@@ -4302,6 +4461,14 @@ public sealed class NwsClientOptions
 
     /// <summary>Clamp so a misconfigured/odd upstream max-age can't pin stale data for too long.</summary>
     public TimeSpan MaxForecastTtl { get; set; } = TimeSpan.FromHours(6);
+
+    /// <summary>
+    /// How long active alerts for a coordinate are trusted before NWS is asked
+    /// again. Alerts can appear and clear faster than forecasts, so this is
+    /// deliberately short — but long enough that a burst of browser refreshes
+    /// collapses into a single upstream <c>/alerts/active</c> call.
+    /// </summary>
+    public TimeSpan AlertsTtl { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>Per-request timeout applied by the resilience pipeline.</summary>
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(15);
@@ -5100,8 +5267,8 @@ internal sealed class RequestCoalescer<TKey> : IRequestCoalescer<TKey>
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Services/WeatherService.cs
-SIZE: 15.07 KB
-MODIFIED: 06/22/2026 15:02:57
+SIZE: 17.83 KB
+MODIFIED: 06/23/2026 13:12:56
 ================================================================================
 
 using System.Collections.Concurrent;
@@ -5135,9 +5302,11 @@ internal sealed class WeatherService(
     IPointMetadataCache metadataCache,
     IForecastCache forecastCache,
     ICellExtrasCache extrasCache,
+    IAlertCache alertCache,
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
     IRequestCoalescer<GridPoint> forecastCoalescer,
+    IRequestCoalescer<string> alertCoalescer,
     WeatherTelemetry telemetry,
     TimeProvider timeProvider,
     IOptions<NwsClientOptions> options,
@@ -5146,6 +5315,7 @@ internal sealed class WeatherService(
     private const string MetadataCacheName = "metadata";
     private const string ForecastCacheName = "forecast";
     private const string ExtrasCacheName = "extras";
+    private const string AlertsCacheName = "alerts";
 
     // Nominal NWS cell size (~2.5 km) used only as a fallback ordering metric
     // when a cell's true polygon centre is not currently known.
@@ -5231,8 +5401,10 @@ internal sealed class WeatherService(
         // Schedule background warming of the daily forecasts for the ring.
         warmer.RequestWarming(metadata.Grid);
 
-        // Alerts are point-based and apply to the whole area; fetch once.
-        var alerts = await nwsClient.GetActiveAlertsAsync(coord, cancellationToken).ConfigureAwait(false) ?? [];
+        // Alerts are point-based and apply to the whole area; resolve them
+        // cache-aside (short TTL) so repeated views and browser refreshes do
+        // NOT re-hit /alerts/active every time.
+        var alerts = await ResolveAlertsAsync(coord, cancellationToken).ConfigureAwait(false);
 
         // Assemble every neighbouring cell, cache-aside, with bounded
         // concurrency so a cold area can never stampede NWS.
@@ -5326,6 +5498,63 @@ internal sealed class WeatherService(
             .ConfigureAwait(false);
 
         return extras;
+    }
+
+    /// <summary>
+    /// Cache-aside fetch of active alerts for a coordinate, protected by the
+    /// single-flight coalescer (keyed by the coordinate's cache key) so a burst
+    /// of concurrent misses collapses into one upstream <c>/alerts/active</c>
+    /// call. A fresh cache entry is served straight from SQLite; on miss/expiry
+    /// the result is fetched once and stored with a short TTL. Caching an empty
+    /// list is deliberate and correct: "no active alerts" is a valid answer
+    /// worth remembering for the TTL, and it is what stops repeated views and
+    /// browser refreshes from re-hitting the alerts endpoint every time.
+    /// </summary>
+    private async Task<IReadOnlyList<WeatherAlert>> ResolveAlertsAsync(
+        GeoCoordinate coordinate, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+
+        var cached = await alertCache.GetAsync(coordinate, cancellationToken).ConfigureAwait(false);
+        if (cached is not null && cached.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(AlertsCacheName);
+            return cached.Alerts;
+        }
+
+        telemetry.RecordCacheMiss(AlertsCacheName);
+
+        var key = coordinate.Rounded().ToCacheKey();
+
+        return await alertCoalescer.RunAsync(
+            key,
+            async token =>
+            {
+                // Re-check the cache inside the flight: a concurrent leader for
+                // the same coordinate may have just filled it.
+                var inner = timeProvider.GetUtcNow();
+                var rechecked = await alertCache.GetAsync(coordinate, token).ConfigureAwait(false);
+                if (rechecked is not null && rechecked.IsFresh(inner))
+                {
+                    return rechecked.Alerts;
+                }
+
+                // The client is best-effort: it returns an empty list both when
+                // there are genuinely no alerts and when NWS is unreachable.
+                // Either way an empty list is a safe thing to cache for the
+                // short TTL; the next refresh after expiry will try again.
+                var fetched = await nwsClient.GetActiveAlertsAsync(coordinate, token).ConfigureAwait(false) ?? [];
+
+                await alertCache
+                    .UpsertAsync(
+                        coordinate,
+                        new CachedAlerts(fetched, inner, inner + _options.AlertsTtl),
+                        token)
+                    .ConfigureAwait(false);
+
+                return fetched;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static double OrderKeyMeters(GeoCoordinate query, GridPoint origin, CellWeather cell) =>
@@ -9080,6 +9309,121 @@ public sealed class WeatherTelemetryTests
 
 
 ================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteAlertCacheTests.cs
+SIZE: 3.91 KB
+MODIFIED: 06/23/2026 13:17:06
+================================================================================
+
+using Weather.Core.Abstractions;
+using Weather.Infrastructure.Caching;
+
+namespace Weather.Infrastructure.Tests.Caching;
+
+public sealed class SqliteAlertCacheTests
+{
+    private static readonly GeoCoordinate Coord = new(37.0879, -76.4505);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    private static WeatherAlert SampleAlert(string id = "id-1") => new(
+        id, "Heat Advisory", "Moderate", "Likely", "Expected",
+        "Heat Advisory in effect", "Hot.", "Drink fluids.", "Hampton",
+        "NWS Wakefield VA", Now, Now, Now.AddHours(6), Now.AddHours(6));
+
+    [Test]
+    public async Task UpsertThenGetRoundTripsEveryField()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteAlertCache(harness.Factory);
+        var entry = new CachedAlerts(new[] { SampleAlert() }, Now, Now.AddMinutes(5));
+
+        await cache.UpsertAsync(Coord, entry);
+        var read = await cache.GetAsync(Coord);
+
+        read.ShouldNotBeNull();
+        read!.RetrievedAtUtc.ShouldBe(Now);
+        read.ExpiresAtUtc.ShouldBe(Now.AddMinutes(5));
+        read.Alerts.Count.ShouldBe(1);
+        read.Alerts[0].Id.ShouldBe("id-1");
+        read.Alerts[0].Event.ShouldBe("Heat Advisory");
+        read.Alerts[0].Severity.ShouldBe("Moderate");
+        read.Alerts[0].Expires.ShouldBe(Now.AddHours(6));
+    }
+
+    [Test]
+    public async Task GetReturnsNullWhenAbsent()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteAlertCache(harness.Factory);
+
+        (await cache.GetAsync(Coord)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task EmptyAlertListRoundTripsAsEmptyNotNull()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteAlertCache(harness.Factory);
+
+        await cache.UpsertAsync(Coord, new CachedAlerts(Array.Empty<WeatherAlert>(), Now, Now.AddMinutes(5)));
+        var read = await cache.GetAsync(Coord);
+
+        read.ShouldNotBeNull();
+        read!.Alerts.Count.ShouldBe(0);
+    }
+
+    [Test]
+    public async Task UpsertOverwritesTheExistingEntry()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteAlertCache(harness.Factory);
+
+        await cache.UpsertAsync(Coord, new CachedAlerts(new[] { SampleAlert("a") }, Now, Now.AddMinutes(5)));
+        await cache.UpsertAsync(Coord, new CachedAlerts(
+            new[] { SampleAlert("b"), SampleAlert("c") }, Now.AddMinutes(1), Now.AddMinutes(6)));
+
+        var read = await cache.GetAsync(Coord);
+
+        read.ShouldNotBeNull();
+        read!.Alerts.Count.ShouldBe(2);
+        read.Alerts[0].Id.ShouldBe("b");
+        read.RetrievedAtUtc.ShouldBe(Now.AddMinutes(1));
+    }
+
+    [Test]
+    public async Task RoundedCoordinatesShareTheSameCacheEntry()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteAlertCache(harness.Factory);
+
+        // Two coordinates that round to the same 4-dp key collapse onto one
+        // entry — the same de-duplication that protects /points and forecasts.
+        var a = new GeoCoordinate(37.08791, -76.45049);
+        var b = new GeoCoordinate(37.08793, -76.45051);
+
+        await cache.UpsertAsync(a, new CachedAlerts(new[] { SampleAlert() }, Now, Now.AddMinutes(5)));
+        var read = await cache.GetAsync(b);
+
+        read.ShouldNotBeNull();
+        read!.Alerts.Count.ShouldBe(1);
+    }
+
+    [Test]
+    public async Task FreshnessTracksTheExpiryInstant()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteAlertCache(harness.Factory);
+        await cache.UpsertAsync(Coord, new CachedAlerts(new[] { SampleAlert() }, Now, Now.AddMinutes(5)));
+
+        var read = await cache.GetAsync(Coord);
+
+        read!.IsFresh(Now.AddMinutes(2)).ShouldBeTrue();
+        read.IsFresh(Now.AddMinutes(6)).ShouldBeFalse();
+    }
+}
+
+
+
+================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteCacheHarness.cs
 SIZE: 1.99 KB
 MODIFIED: 06/19/2026 08:36:12
@@ -10446,8 +10790,8 @@ public sealed class RequestCoalescerTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
-SIZE: 7.99 KB
-MODIFIED: 06/22/2026 15:42:54
+SIZE: 11.55 KB
+MODIFIED: 06/23/2026 13:14:24
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10506,6 +10850,7 @@ public sealed class WeatherServiceAreaTests
         public IPointMetadataCache MetadataCache { get; } = Substitute.For<IPointMetadataCache>();
         public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
+        public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
 
@@ -10513,13 +10858,15 @@ public sealed class WeatherServiceAreaTests
         // path runs through it exactly as in production while these tests keep
         // asserting cache-aside behaviour.
         public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
 
         public WeatherService Service { get; }
 
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, Coalescer,
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                Coalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
@@ -10642,14 +10989,91 @@ public sealed class WeatherServiceAreaTests
         area.ShouldNotBeNull();
         area!.Neighbors.Count.ShouldBe(24);
     }
+
+    [Test]
+    public async Task GetAreaOnAlertCacheMissFetchesOnceAndStores()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAndAlertsAvailable();
+
+        // Alert cache is cold for this coordinate.
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((CachedAlerts?)null);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(1);
+
+        // Fetched exactly once and the result was written back to the cache.
+        await h.Nws.Received(1).GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+        await h.AlertCache.Received(1).UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaServesAlertsFromCacheWithoutHittingNws()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+
+        // A FRESH alert entry already cached for this coordinate.
+        var cachedAlerts = new CachedAlerts(new[] { AlertSample() }, Now, Now.AddMinutes(5));
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(cachedAlerts);
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(1);
+        area.Alerts[0].Event.ShouldBe("Heat Advisory");
+
+        // The whole point of the fix: a fresh cache entry means ZERO calls to
+        // the /alerts/active endpoint, no matter how many times the page loads.
+        await h.Nws.DidNotReceive().GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>());
+        await h.AlertCache.DidNotReceive().UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaCachesEmptyAlertResultToAvoidRefetching()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.AllDailyFetchesSucceed();
+        h.ExtrasAlwaysMiss();
+        h.Nws.GetHourlyForecastAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(HourlyTwo());
+        h.Nws.GetLatestObservationAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>()).Returns(ObservationSample());
+
+        h.AlertCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns((CachedAlerts?)null);
+        // No active alerts (and/or NWS best-effort empty).
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Alerts.Count.ShouldBe(0);
+
+        // "No alerts" is itself cached, so the next view will not re-hit NWS.
+        await h.AlertCache.Received(1).UpsertAsync(
+            Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
 }
 
 
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
-SIZE: 9.83 KB
-MODIFIED: 06/22/2026 16:04:11
+SIZE: 10.05 KB
+MODIFIED: 06/23/2026 13:14:35
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10693,6 +11117,7 @@ public sealed class WeatherServiceTests
         public IPointMetadataCache MetadataCache { get; } = Substitute.For<IPointMetadataCache>();
         public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
+        public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
         public WeatherService Service { get; }
@@ -10700,11 +11125,13 @@ public sealed class WeatherServiceTests
         // path runs through it exactly as in production while these tests keep
         // asserting cache-aside behaviour.
         public IRequestCoalescer<GridPoint> Coalescer { get; } = new RequestCoalescer<GridPoint>();
+        public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
 
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, Nws, Warmer, Coalescer,
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                Coalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
@@ -11382,7 +11809,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/23/2026 12:57:42
-Total Files Exported: 134
+EXPORT COMPLETED: 06/23/2026 13:17:07
+Total Files Exported: 137
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
