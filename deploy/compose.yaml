@@ -19,6 +19,23 @@
 #
 # SELinux/rootless friendly: all state is in named volumes and the collector
 # config is baked into its image, so there are no host bind mounts to relabel.
+#
+# IMPORTANT — keep base images fresh on long-lived hosts:
+#   `up --build` does NOT re-pull a base image that already exists locally, and
+#   podman-compose has no working knob to force it (its --pull-always flag is a
+#   no-op, and `pull_policy` only governs run-time image pulls, not the SDK image
+#   used during `build`). The floating mcr.microsoft.com/dotnet/sdk:10.0 tag moves
+#   forward through SDK feature bands over time, so a box that pulled it long ago
+#   can be pinned to a stale (or prerelease) SDK that no longer satisfies
+#   global.json — and the build then fails with "A compatible .NET SDK was not
+#   found". Before building on such a host, refresh the .NET base images first:
+#
+#     podman pull mcr.microsoft.com/dotnet/sdk:10.0
+#     podman pull mcr.microsoft.com/dotnet/aspnet:10.0
+#     podman compose -f compose.yaml up --build --detach
+#
+#   The scripted build path already does this for you: `ci/containers.sh build
+#   <api|web|otelcol>` passes --pull=always, so it stays fresh automatically.
 # ============================================================================
 
 name: weather

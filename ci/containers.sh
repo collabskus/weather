@@ -107,7 +107,19 @@ cmd_build() {
 
   local tag="weather-${name}:${CI_TAG}"
   log "building ${tag} from ${file}"
-  pm build --file "${file}" --tag "${tag}" .
+  # --pull=always refreshes the base image (e.g. mcr.microsoft.com/dotnet/sdk:10.0)
+  # on every build. The floating ':10.0' tag advances through SDK feature bands
+  # over time (10.0.1xx -> 2xx -> 3xx ...). A long-lived host that pulled it months
+  # ago can be stuck on an OLD local digest — even a prerelease from the RC period —
+  # that no longer satisfies the version pin in global.json, so `dotnet restore`
+  # dies with "A compatible .NET SDK was not found. Requested SDK version: 10.0.x".
+  # Re-pulling eliminates that whole class of stale-cache failure. We use 'always'
+  # rather than 'newer' on purpose: podman's *build* path historically ignores
+  # --pull=newer and silently falls back to 'missing' (containers/podman#22845).
+  # 'always' is reliable everywhere; when the local digest already matches the
+  # registry, unchanged layers are not re-downloaded, so the cost is a cheap
+  # manifest check. (Override with PODMAN build flags if you ever build offline.)
+  pm build --pull=always --file "${file}" --tag "${tag}" .
 
   log "inspecting ${tag}"
   pm image inspect "${tag}" --format 'OK: {{.Id}}'
@@ -140,7 +152,10 @@ cmd_api_lifecycle() {
   pm version
 
   log "building ${tag}"
-  pm build --file Containerfile.api --tag "${tag}" .
+  # See cmd_build for the rationale: --pull=always keeps the SDK/runtime base
+  # images fresh so a stale local digest can't fail the build against the pin
+  # in global.json.
+  pm build --pull=always --file Containerfile.api --tag "${tag}" .
 
   # /alive and /health are only mapped in Development (see ServiceDefaults), so
   # the smoke test runs in that environment. The SQLite cache goes to a
