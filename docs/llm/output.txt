@@ -1,21 +1,15 @@
 PowerShell 7.6.3
+Loading personal and system profiles took 1528ms.
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-23-08-30-32
+2026-06-23-09-24-01
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test --configuration Release; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-23-08-30-43
-2026-06-23-08-30-43
+2026-06-23-09-24-04
+2026-06-23-09-24-04
 On branch main
 Your branch is up to date with 'origin/main'.
 
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-        modified:   ci/containers.sh
-        modified:   deploy/compose.yaml
-        modified:   docs/llm/vendor/claude-conversations.md
-
-no changes added to commit (use "git add" and/or "git commit -a")
-2026-06-23-08-30-44
+nothing to commit, working tree clean
+2026-06-23-09-24-04
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -26,10 +20,10 @@ no changes added to commit (use "git add" and/or "git commit -a")
     main merges with remote main
   Local ref configured for 'git push':
     main pushes to main (up to date)
-2026-06-23-08-30-44
-Restore complete (1.9s)
+2026-06-23-09-24-04
+Restore complete (3.9s)
 
-Build succeeded in 2.1s
+Build succeeded in 4.3s
 Project 'Weather.Api' has the following package references
    [net10.0]:
    Top-level Package                   Requested   Resolved
@@ -97,10 +91,10 @@ Project 'Weather.Web.Tests' has the following package references
    > TUnit                1.56.25     1.56.25
 
 (A) : Auto-referenced package.
-2026-06-23-08-30-49
-Restore complete (1.4s)
+2026-06-23-09-24-17
+Restore complete (4.1s)
 
-Build succeeded in 1.6s
+Build succeeded in 4.4s
 
 The following sources were used:
    https://api.nuget.org/v3/index.json
@@ -115,20 +109,18 @@ The given project `Weather.Api.Tests` has no updates given the current sources.
 The given project `Weather.Core.Tests` has no updates given the current sources.
 The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
 The given project `Weather.Web.Tests` has no updates given the current sources.
-2026-06-23-08-30-58
-2026-06-23-08-31-20
+2026-06-23-09-24-33
+2026-06-23-09-25-16
 On branch main
 Your branch is up to date with 'origin/main'.
 
 Changes not staged for commit:
   (use "git add <file>..." to update what will be committed)
   (use "git restore <file>..." to discard changes in working directory)
-        modified:   ci/containers.sh
-        modified:   deploy/compose.yaml
         modified:   docs/llm/vendor/claude-conversations.md
 
 no changes added to commit (use "git add" and/or "git commit -a")
-2026-06-23-08-31-20
+2026-06-23-09-25-16
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -290,7 +282,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-23-08-31-20
+2026-06-23-09-25-16
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -434,36 +426,36 @@ Processing (134/134): weather.slnx
 Export completed!
 Total files exported: 134
 Output file size: 391.61 KB
-2026-06-23-08-31-20
+2026-06-23-09-25-17
 
-Build succeeded in 1.9s
-2026-06-23-08-31-23
-Restore complete (1.8s)
+Build succeeded in 4.2s
+2026-06-23-09-25-22
+Restore complete (2.4s)
 
-Build succeeded in 2.2s
-2026-06-23-08-31-26
-Restore complete (1.6s)
-  Weather.Core net10.0 succeeded (5.4s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-  Weather.ServiceDefaults net10.0 succeeded (6.5s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-  Weather.Infrastructure net10.0 succeeded (2.9s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
-  Weather.Web net10.0 succeeded (4.6s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-  Weather.Core.Tests net10.0 succeeded (11.5s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-  Weather.Infrastructure.Tests net10.0 succeeded (9.1s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
-  Weather.Api net10.0 succeeded (2.9s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
-  Weather.Api.Tests net10.0 succeeded (2.9s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
-  Weather.Web.Tests net10.0 succeeded (5.3s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
-  Weather.AppHost net10.0 succeeded (9.9s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+Build succeeded in 2.8s
+2026-06-23-09-25-26
+Restore complete (2.7s)
+  Weather.Core net10.0 succeeded (5.5s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (5.8s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Infrastructure net10.0 succeeded (4.3s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+  Weather.Api net10.0 succeeded (4.0s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
+  Weather.Web net10.0 succeeded (8.1s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
+  Weather.Core.Tests net10.0 succeeded (9.1s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Web.Tests net10.0 succeeded (5.2s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
+  Weather.Infrastructure.Tests net10.0 succeeded (4.7s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
+  Weather.Api.Tests net10.0 succeeded (5.8s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+  Weather.AppHost net10.0 succeeded (8.1s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
 
-Build succeeded in 29.8s
-2026-06-23-08-31-56
+Build succeeded in 24.8s
+2026-06-23-09-25-51
 Running tests from tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 185ms)
-tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 847ms)
-tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 010ms)
-tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (10s 842ms)
+tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 823ms)
+tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 509ms)
+tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (4s 699ms)
+tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 388ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Debug\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -472,25 +464,25 @@ tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) pa
     - tests\Weather.Api.Tests\bin\Debug\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (2s 010ms)
-  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 185ms)
-  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (10s 842ms)
-  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 847ms)
+  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 823ms)
+  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (4s 699ms)
+  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 509ms)
+  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 388ms)
 
   total: 147
   failed: 0
   succeeded: 147
   skipped: 0
-  duration: 11s 524ms
-2026-06-23-08-32-13
-Running tests from tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
+  duration: 15s 484ms
+2026-06-23-09-26-15
 Running tests from tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64)
+Running tests from tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 125ms)
-tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 632ms)
-tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (1s 943ms)
-tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (10s 673ms)
+Running tests from tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
+tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 667ms)
+tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 534ms)
+tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (5s 868ms)
+tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (23s 979ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Release\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -499,15 +491,15 @@ tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) 
     - tests\Weather.Api.Tests\bin\Release\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (1s 632ms)
-  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (10s 673ms)
-  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 125ms)
-  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (1s 943ms)
+  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 667ms)
+  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 534ms)
+  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (5s 868ms)
+  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (23s 979ms)
 
   total: 147
   failed: 0
   succeeded: 147
   skipped: 0
-  duration: 11s 312ms
-2026-06-23-08-32-31
+  duration: 25s 075ms
+2026-06-23-09-26-53
 PS D:\DEV\personal\weather>
