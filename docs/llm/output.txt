@@ -1,15 +1,15 @@
 PowerShell 7.6.3
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-23-15-17-09
+2026-06-23-18-23-10
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test --configuration Release; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-23-15-17-34
-2026-06-23-15-17-34
+2026-06-23-18-23-16
+2026-06-23-18-23-16
 On branch main
 Your branch is ahead of 'origin/main' by 1 commit.
   (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-23-15-17-34
+2026-06-23-18-23-16
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -20,10 +20,10 @@ nothing to commit, working tree clean
     main merges with remote main
   Local ref configured for 'git push':
     main pushes to main (fast-forwardable)
-2026-06-23-15-17-35
-Restore complete (3.5s)
+2026-06-23-18-23-16
+Restore complete (2.5s)
 
-Build succeeded in 4.2s
+Build succeeded in 2.7s
 Project 'Weather.Api' has the following package references
    [net10.0]:
    Top-level Package                   Requested   Resolved
@@ -91,10 +91,10 @@ Project 'Weather.Web.Tests' has the following package references
    > TUnit                1.56.25     1.56.25
 
 (A) : Auto-referenced package.
-2026-06-23-15-17-48
-Restore complete (4.5s)
+2026-06-23-18-23-21
+Restore complete (2.4s)
 
-Build succeeded in 4.8s
+Build succeeded in 2.6s
 
 The following sources were used:
    https://api.nuget.org/v3/index.json
@@ -109,13 +109,34 @@ The given project `Weather.Api.Tests` has no updates given the current sources.
 The given project `Weather.Core.Tests` has no updates given the current sources.
 The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
 The given project `Weather.Web.Tests` has no updates given the current sources.
-2026-06-23-15-18-03
-2026-06-23-15-18-32
+2026-06-23-18-23-34
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+Unable to fix CS0246. Code fix CSharpMakeMethodAsynchronousCodeFixProvider didn't return a Fix All action.
+Unable to fix CS0246. Code fix CSharpGenerateVariableCodeFixProvider doesn't support Fix All in Solution.
+2026-06-23-18-23-58
 On branch main
-Your branch is up to date with 'origin/main'.
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
 
 nothing to commit, working tree clean
-2026-06-23-15-18-32
+2026-06-23-18-23-58
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -277,7 +298,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-23-15-18-32
+2026-06-23-18-23-58
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -423,81 +444,42 @@ Processing (137/137): weather.slnx
 
 Export completed!
 Total files exported: 137
-Output file size: 409.07 KB
-2026-06-23-15-18-33
+Output file size: 426.75 KB
+2026-06-23-18-23-59
 
-Build succeeded in 4.5s
-2026-06-23-15-18-38
+Build succeeded in 3.2s
+2026-06-23-18-24-02
 Restore complete (2.0s)
 
 Build succeeded in 2.4s
-2026-06-23-15-18-41
-Restore complete (1.7s)
-  Weather.Core net10.0 succeeded (5.2s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-  Weather.ServiceDefaults net10.0 succeeded (5.3s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-  Weather.Infrastructure net10.0 succeeded (3.1s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
-  Weather.Web net10.0 succeeded (6.6s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-  Weather.Core.Tests net10.0 succeeded (7.8s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-  Weather.Infrastructure.Tests net10.0 succeeded (5.4s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
-  Weather.Api net10.0 succeeded (3.6s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
-  Weather.Web.Tests net10.0 succeeded (4.3s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
-  Weather.AppHost net10.0 succeeded (11.5s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
-  Weather.Api.Tests net10.0 succeeded (11.7s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+2026-06-23-18-24-05
+Restore complete (1.5s)
+  Weather.Core net10.0 succeeded (4.9s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (5.5s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Infrastructure net10.0 failed with 3 error(s) and 2 warning(s) (2.0s)
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsApiClient.cs(24,37): error CS0246: The type or namespace name 'INwsApiClient' could not be found (are you missing a using directive or an assembly reference?)
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(45,5): error CS0246: The type or namespace name 'INwsApiClient' could not be found (are you missing a using directive or an assembly reference?)
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(53,14): warning CS0436: The type 'NwsClientOptions' in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs' conflicts with the imported type 'NwsClientOptions' in 'Weather.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs'.
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(77,22): warning CS0436: The type 'NwsClientOptions' in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs' conflicts with the imported type 'NwsClientOptions' in 'Weather.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs'.
+    D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(48,24): error CS0103: The name 'ExtrasCoalescerKey' does not exist in the current context
+  Weather.Web net10.0 succeeded (4.0s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
+  Weather.Core.Tests net10.0 succeeded (10.1s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Web.Tests net10.0 succeeded (7.1s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
 
-Build succeeded in 27.9s
-2026-06-23-15-19-10
-Running tests from tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 619ms)
-tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 165ms)
-tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 775ms)
-tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 294ms)
-
-  In process file artifacts produced:
-    - tests\Weather.Core.Tests\bin\Debug\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
-    - tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\TestResults\Weather.Infrastructure.Tests-windows-net10.0-report.html
-    - tests\Weather.Web.Tests\bin\Debug\net10.0\TestResults\Weather.Web.Tests-windows-net10.0-report.html
-    - tests\Weather.Api.Tests\bin\Debug\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
-
-Test run summary: Passed!
-  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 619ms)
-  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 165ms)
-  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 775ms)
-  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 294ms)
-
-  total: 156
-  failed: 0
-  succeeded: 156
-  skipped: 0
-  duration: 15s 074ms
-2026-06-23-15-19-32
-Running tests from tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 501ms)
-tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 269ms)
-tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 207ms)
-tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 778ms)
-
-  In process file artifacts produced:
-    - tests\Weather.Core.Tests\bin\Release\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
-    - tests\Weather.Infrastructure.Tests\bin\Release\net10.0\TestResults\Weather.Infrastructure.Tests-windows-net10.0-report.html
-    - tests\Weather.Web.Tests\bin\Release\net10.0\TestResults\Weather.Web.Tests-windows-net10.0-report.html
-    - tests\Weather.Api.Tests\bin\Release\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
-
-Test run summary: Passed!
-  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 501ms)
-  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 778ms)
-  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 207ms)
-  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 269ms)
-
-  total: 156
-  failed: 0
-  succeeded: 156
-  skipped: 0
-  duration: 14s 540ms
-2026-06-23-15-19-57
+Build failed with 3 error(s) and 2 warning(s) in 18.5s
+2026-06-23-18-24-25
+D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsApiClient.cs(24,37): error CS0246: The type or namespace name 'INwsApiClient' could not be found (are you missing a using directive or an assembly reference?)
+D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(45,5): error CS0246: The type or namespace name 'INwsApiClient' could not be found (are you missing a using directive or an assembly reference?)
+D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(53,14): warning CS0436: The type 'NwsClientOptions' in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs' conflicts with the imported type 'NwsClientOptions' in 'Weather.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs'.
+D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(77,22): warning CS0436: The type 'NwsClientOptions' in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs' conflicts with the imported type 'NwsClientOptions' in 'Weather.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs'.
+D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(48,24): error CS0103: The name 'ExtrasCoalescerKey' does not exist in the current context
+Build failed with exit code: 1.
+2026-06-23-18-24-29
+D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsApiClient.cs(24,37): error CS0246: The type or namespace name 'INwsApiClient' could not be found (are you missing a using directive or an assembly reference?)
+D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(45,5): error CS0246: The type or namespace name 'INwsApiClient' could not be found (are you missing a using directive or an assembly reference?)
+D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(53,14): warning CS0436: The type 'NwsClientOptions' in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs' conflicts with the imported type 'NwsClientOptions' in 'Weather.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs'.
+D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(77,22): warning CS0436: The type 'NwsClientOptions' in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs' conflicts with the imported type 'NwsClientOptions' in 'Weather.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null'. Using the type defined in 'D:\DEV\personal\weather\src\Weather.Infrastructure\Nws\NwsClientOptions.cs'.
+D:\DEV\personal\weather\src\Weather.Infrastructure\Services\WeatherService.cs(48,24): error CS0103: The name 'ExtrasCoalescerKey' does not exist in the current context
+Build failed with exit code: 1.
+2026-06-23-18-24-37
 PS D:\DEV\personal\weather>
