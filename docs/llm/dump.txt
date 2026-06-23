@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/23/2026 18:35:40
+Generated: 06/23/2026 19:01:11
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -35,6 +35,7 @@ docs/llm/dump.txt
 docs/llm/output.txt
 docs/llm/vendor/claude-conversations.md
 docs/llm/vendor/gemini-conversations.md
+docs/llm/vendor/virginia.md
 docs/OBSERVABILITY.md
 docs/STAMPEDE.md
 export.ps1
@@ -5412,8 +5413,8 @@ internal sealed class RequestCoalescer<TKey> : IRequestCoalescer<TKey>
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Services/WeatherService.cs
-SIZE: 23.51 KB
-MODIFIED: 06/23/2026 18:34:07
+SIZE: 23.52 KB
+MODIFIED: 06/23/2026 19:00:00
 ================================================================================
 
 using System.Collections.Concurrent;
@@ -5463,7 +5464,7 @@ internal sealed class WeatherService(
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
     IRequestCoalescer<GridPoint> forecastCoalescer,
-    [FromKeyedServices(ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
+    [FromKeyedServices(WeatherService.ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
     IRequestCoalescer<GeoCoordinate> metadataCoalescer,
     IRequestCoalescer<string> alertCoalescer,
     WeatherTelemetry telemetry,
@@ -12175,7 +12176,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/23/2026 18:35:40
+EXPORT COMPLETED: 06/23/2026 19:01:12
 Total Files Exported: 137
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
