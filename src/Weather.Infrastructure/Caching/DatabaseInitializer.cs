@@ -80,6 +80,30 @@ public sealed class DatabaseInitializer(
 
         CREATE INDEX IF NOT EXISTS IX_Alerts_ExpiresAtUtc
             ON Alerts (ExpiresAtUtc);
+
+        -- Negative ("not-found") cache for the daily forecast, keyed by grid
+        -- cell. A 404 from /gridpoints/.../forecast (e.g. MarineForecastNotSupported
+        -- for a marine cell) is structurally stable, so it is remembered for a
+        -- TTL to stop the area fan-out and warmer re-requesting uncovered cells.
+        -- The RFC 7807 problem is flat, so its fields live in columns (not JSON)
+        -- and are directly queryable. Every problem column is nullable: a 404
+        -- with no body is recorded with them all null.
+        CREATE TABLE IF NOT EXISTS ForecastNotFound (
+            GridId         TEXT    NOT NULL,
+            GridX          INTEGER NOT NULL,
+            GridY          INTEGER NOT NULL,
+            ProblemType    TEXT    NULL,
+            ProblemTitle   TEXT    NULL,
+            ProblemStatus  INTEGER NULL,
+            ProblemDetail  TEXT    NULL,
+            CorrelationId  TEXT    NULL,
+            RetrievedAtUtc TEXT    NOT NULL,
+            ExpiresAtUtc   TEXT    NOT NULL,
+            PRIMARY KEY (GridId, GridX, GridY)
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_ForecastNotFound_ExpiresAtUtc
+            ON ForecastNotFound (ExpiresAtUtc);
         """;
 
     public async Task StartAsync(CancellationToken cancellationToken)

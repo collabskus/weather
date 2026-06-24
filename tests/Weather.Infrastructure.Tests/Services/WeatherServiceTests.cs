@@ -40,6 +40,7 @@ public sealed class WeatherServiceTests
         public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
         public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
+        public IForecastNegativeCache NegativeCache { get; } = Substitute.For<IForecastNegativeCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
         public WeatherService Service { get; }
@@ -53,13 +54,13 @@ public sealed class WeatherServiceTests
         public IRequestCoalescer<GeoCoordinate> MetadataCoalescer { get; } = new RequestCoalescer<GeoCoordinate>();
         public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
 
-        public Harness()
+        public Harness(NwsClientOptions? options = null)
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, NegativeCache, Nws, Warmer,
                 ForecastCoalescer, ExtrasCoalescer, MetadataCoalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
-                Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
+                Options.Create(options ?? new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
     }
 
@@ -148,9 +149,98 @@ public sealed class WeatherServiceTests
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
         h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(ForecastFetchResult.NotFound);
+            .Returns(ForecastFetchResult.NotFound());
 
         (await h.Service.GetForecastAsync(Coord)).ShouldBeNull();
+
+        // The 404 is remembered so the next request skips NWS.
+        await h.NegativeCache.Received(1).UpsertAsync(
+            Grid, Arg.Any<CachedForecastNotFound>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastNotFoundCachesTheProblemDetail()
+    {
+        var h = new Harness();
+        var problem = new NwsProblem(
+            "https://api.weather.gov/problems/MarineForecastNotSupported",
+            "Marine Forecast Not Supported", 404,
+            "Forecasts for marine areas are not yet supported by this API.", "1d604a85");
+
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.NotFound(problem));
+
+        (await h.Service.GetForecastAsync(Coord)).ShouldBeNull();
+
+        await h.NegativeCache.Received(1).UpsertAsync(
+            Grid,
+            Arg.Is<CachedForecastNotFound>(e => e.Problem != null && e.Problem.TypeName == "MarineForecastNotSupported"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastWithFreshNotFoundTombstoneSkipsNws()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        // A fresh negative entry: the cell is known to have no forecast.
+        h.NegativeCache.GetAsync(Grid, Arg.Any<CancellationToken>())
+            .Returns(new CachedForecastNotFound(null, Now, Now.AddHours(6)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldBeNull();
+        // The whole point: a fresh tombstone means ZERO calls to /forecast.
+        await h.Nws.DidNotReceive().GetForecastAsync(
+            Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastWithExpiredNotFoundTombstoneRefetches()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        // An EXPIRED tombstone must not suppress a re-check.
+        h.NegativeCache.GetAsync(Grid, Arg.Any<CancellationToken>())
+            .Returns(new CachedForecastNotFound(null, Now.AddHours(-12), Now.AddHours(-6)));
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        await h.Nws.Received(1).GetForecastAsync(Grid, Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        // A now-covered cell has its stale negative entry cleared.
+        await h.NegativeCache.Received(1).RemoveAsync(Grid, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastSuccessClearsAnyNegativeTombstone()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        await h.Service.GetForecastAsync(Coord);
+
+        await h.NegativeCache.Received(1).RemoveAsync(Grid, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastNotFoundCachingCanBeDisabledByZeroTtl()
+    {
+        var h = new Harness(new NwsClientOptions { NotFoundForecastTtl = TimeSpan.Zero });
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.NotFound());
+
+        (await h.Service.GetForecastAsync(Coord)).ShouldBeNull();
+
+        // With negative caching off, nothing is written.
+        await h.NegativeCache.DidNotReceive().UpsertAsync(
+            Arg.Any<GridPoint>(), Arg.Any<CachedForecastNotFound>(), Arg.Any<CancellationToken>());
     }
 
     [Test]

@@ -171,7 +171,66 @@ public sealed class NwsApiClientTests
         using var telemetry = new WeatherTelemetry();
         var client = CreateClient(handler, telemetry);
 
-        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        // A bodyless 404 still maps to NotFound, with no problem detail.
+        result.Problem.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastParsesTheMarineForecastNotSupportedProblem()
+    {
+        const string problemBody =
+            """
+            {
+              "correlationId": "1d604a85",
+              "title": "Marine Forecast Not Supported",
+              "type": "https://api.weather.gov/problems/MarineForecastNotSupported",
+              "status": 404,
+              "detail": "Forecasts for marine areas are not yet supported by this API.",
+              "instance": "https://api.weather.gov/requests/1d604a85"
+            }
+            """;
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent(problemBody),
+            };
+            response.Content.Headers.ContentType =
+                new MediaTypeHeaderValue("application/problem+json");
+            return response;
+        });
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        result.Problem.ShouldNotBeNull();
+        result.Problem!.Title.ShouldBe("Marine Forecast Not Supported");
+        result.Problem.Type.ShouldBe("https://api.weather.gov/problems/MarineForecastNotSupported");
+        result.Problem.Status.ShouldBe(404);
+        result.Problem.CorrelationId.ShouldBe("1d604a85");
+        result.Problem.TypeName.ShouldBe("MarineForecastNotSupported");
+    }
+
+    [Test]
+    public async Task GetForecastTreatsAMalformed404BodyAsNotFoundWithoutProblem()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound)
+        {
+            Content = new StringContent("<html>not json</html>"),
+        });
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        // A non-JSON error body must never throw; it is just NotFound with no detail.
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        result.Problem.ShouldBeNull();
     }
 
     [Test]

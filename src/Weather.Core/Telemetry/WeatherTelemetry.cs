@@ -24,6 +24,7 @@ public sealed class WeatherTelemetry : IDisposable
     private readonly Counter<long> _nwsThrottled;
     private readonly Counter<long> _nwsErrors;
     private readonly Counter<long> _neighborhoodWarmed;
+    private readonly Counter<long> _nwsNotFoundCached;
 
     public ActivitySource ActivitySource { get; }
 
@@ -61,6 +62,11 @@ public sealed class WeatherTelemetry : IDisposable
             "weather.neighborhood.warmed",
             unit: "{cell}",
             description: "Neighbouring grid cells warmed by the background service.");
+
+        _nwsNotFoundCached = _meter.CreateCounter<long>(
+            "weather.nws.notfound",
+            unit: "{cell}",
+            description: "NWS forecast 404s remembered as negative cache entries (e.g. MarineForecastNotSupported for marine cells) so the area fan-out and warmer stop re-requesting uncovered cells. Tagged by problem type.");
     }
 
     public void RecordCacheHit(string cache) => _cacheRequests.Add(
@@ -102,6 +108,15 @@ public sealed class WeatherTelemetry : IDisposable
 
     public void RecordNeighborWarmed(string gridId) =>
         _neighborhoodWarmed.Add(1, new KeyValuePair<string, object?>("grid_id", gridId));
+
+    /// <summary>
+    /// A forecast 404 was just remembered in the negative cache. The
+    /// <paramref name="problemType"/> (e.g. <c>MarineForecastNotSupported</c>)
+    /// is the low-cardinality reason; <c>"unknown"</c> when NWS sent no type.
+    /// </summary>
+    public void RecordForecastNotFoundCached(string? problemType) => _nwsNotFoundCached.Add(
+        1,
+        new KeyValuePair<string, object?>("type", problemType ?? "unknown"));
 
     public void Dispose()
     {

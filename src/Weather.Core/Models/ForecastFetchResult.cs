@@ -35,6 +35,14 @@ public sealed record ForecastFetchResult
     /// </summary>
     public GeoCoordinate? Center { get; init; }
 
+    /// <summary>
+    /// The RFC 7807 problem detail accompanying a <see cref="NwsFetchOutcome.NotFound"/>
+    /// (e.g. <c>MarineForecastNotSupported</c>). Lets the caller remember and
+    /// surface <em>why</em> a cell is uncovered. Null for every other outcome,
+    /// and for a 404 with no parseable body.
+    /// </summary>
+    public NwsProblem? Problem { get; init; }
+
     public static ForecastFetchResult Success(
         Forecast forecast, string? etag, TimeSpan? maxAge, GeoCoordinate? center = null) =>
         new() { Outcome = NwsFetchOutcome.Success, Forecast = forecast, ETag = etag, MaxAge = maxAge, Center = center };
@@ -42,6 +50,14 @@ public sealed record ForecastFetchResult
     public static ForecastFetchResult NotModified(string? etag, TimeSpan? maxAge) =>
         new() { Outcome = NwsFetchOutcome.NotModified, ETag = etag, MaxAge = maxAge };
 
-    public static readonly ForecastFetchResult NotFound = new() { Outcome = NwsFetchOutcome.NotFound };
+    /// <summary>
+    /// A 404 from NWS, optionally carrying the parsed problem detail. This is a
+    /// factory (not a shared static) because each 404 can carry a different
+    /// <see cref="NwsProblem"/>; the negative cache persists it so the area
+    /// fan-out stops re-requesting uncovered cells.
+    /// </summary>
+    public static ForecastFetchResult NotFound(NwsProblem? problem = null) =>
+        new() { Outcome = NwsFetchOutcome.NotFound, Problem = problem };
+
     public static readonly ForecastFetchResult Unavailable = new() { Outcome = NwsFetchOutcome.Unavailable };
 }

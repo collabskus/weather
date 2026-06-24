@@ -31,8 +31,17 @@ $IncludeSpecificFiles = @(
 # Containerfile.worker) without having to list each one.
 $IncludeFilenamePrefixes = @("Containerfile")
 
-# Directories to skip even if tracked (e.g. this script's own output)
-$ExcludeDirectories = @("docs")
+# Directories whose contents are skipped even if tracked. The LLM output lives
+# under docs/llm (dump.txt, output.txt, vendor conversation logs); excluding it
+# keeps the dump from containing itself and keeps those large logs out. NOTE:
+# this is a path PREFIX match, so it also covers docs/llm/vendor/*.
+$ExcludeDirectories = @("docs/llm")
+
+# Directories whose ENTIRE contents are exported regardless of file extension,
+# so docs/*.md (ARCHITECTURE, OBSERVABILITY, STAMPEDE, ...) and any other docs
+# assets are included. Anything matched by $ExcludeDirectories above still wins
+# and is skipped, so docs/llm stays out.
+$IncludeDirectories = @("docs")
 
 Write-Host "Starting project export..." -ForegroundColor Green
 Write-Host "Project Path: $ProjectPath" -ForegroundColor Yellow
@@ -69,13 +78,21 @@ $AllFiles = $gitFiles | ForEach-Object {
     }
     if ($skip) { return }
 
+    # Force-include everything under an included directory (e.g. docs/), no
+    # matter the extension. Excluded dirs above already took precedence.
+    $inIncludedDir = $false
+    foreach ($d in $IncludeDirectories) {
+        if ($rel -like "$d/*" -or $rel -like "$d\*") { $inIncludedDir = $true; break }
+    }
+
     # Match by extension, exact filename, or filename prefix
     $matchesPrefix = $false
     foreach ($p in $IncludeFilenamePrefixes) {
         if ($name.StartsWith($p)) { $matchesPrefix = $true; break }
     }
 
-    if ($IncludeExtensions -contains $ext -or
+    if ($inIncludedDir -or
+        $IncludeExtensions -contains $ext -or
         $IncludeSpecificFiles -contains $name -or
         $matchesPrefix) {
         $fullPath = Join-Path $ResolvedRoot $rel
@@ -103,8 +120,17 @@ $header | Out-File -FilePath $OutputPath -Encoding UTF8
 "==============================" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 
-# Show a compact tree of tracked paths
-$gitFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+# Show a compact tree of tracked paths. Drop $ExcludeDirectories (docs/llm) so
+# the export never lists — or contains — anything inside the LLM folder.
+$treeFiles = $gitFiles | Where-Object {
+    $rel = $_
+    $hide = $false
+    foreach ($d in $ExcludeDirectories) {
+        if ($rel -like "$d/*" -or $rel -like "$d\*") { $hide = $true; break }
+    }
+    -not $hide
+}
+$treeFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8

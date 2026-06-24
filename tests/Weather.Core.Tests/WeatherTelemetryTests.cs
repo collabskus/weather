@@ -85,4 +85,39 @@ public sealed class WeatherTelemetryTests
 
         recorded.ShouldHaveSingleItem().ShouldBe(42.5);
     }
+
+    [Test]
+    public void ForecastNotFoundCachedIsRecordedWithTheProblemType()
+    {
+        using var telemetry = new WeatherTelemetry();
+        var types = new List<string?>();
+
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, l) =>
+        {
+            if (instrument.Meter.Name == WeatherTelemetry.MeterName &&
+                instrument.Name == "weather.nws.notfound")
+            {
+                l.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, state) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == "type")
+                {
+                    types.Add(tag.Value as string);
+                }
+            }
+        });
+        listener.Start();
+
+        telemetry.RecordForecastNotFoundCached("MarineForecastNotSupported");
+        telemetry.RecordForecastNotFoundCached(null);
+
+        types.Count.ShouldBe(2);
+        types.ShouldContain("MarineForecastNotSupported");
+        types.ShouldContain("unknown");
+    }
 }

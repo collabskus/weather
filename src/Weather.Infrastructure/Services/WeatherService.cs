@@ -42,10 +42,11 @@ internal sealed class WeatherService(
     IForecastCache forecastCache,
     ICellExtrasCache extrasCache,
     IAlertCache alertCache,
+    IForecastNegativeCache negativeCache,
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
     IRequestCoalescer<GridPoint> forecastCoalescer,
-    [FromKeyedServices(WeatherService.ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
+    [FromKeyedServices(ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
     IRequestCoalescer<GeoCoordinate> metadataCoalescer,
     IRequestCoalescer<string> alertCoalescer,
     WeatherTelemetry telemetry,
@@ -60,6 +61,7 @@ internal sealed class WeatherService(
     private const string ForecastCacheName = "forecast";
     private const string ExtrasCacheName = "extras";
     private const string AlertsCacheName = "alerts";
+    private const string ForecastNotFoundCacheName = "forecast.notfound";
 
     // Coordinates are rounded to this many decimals before being used as a
     // cache key. ~1.1 km of resolution: coarse enough that GPS jitter between
@@ -501,6 +503,17 @@ internal sealed class WeatherService(
             return (cached.Forecast, null);
         }
 
+        // Negative cache: if we recently learned this cell has no forecast — a
+        // marine cell answering 404 MarineForecastNotSupported is the canonical
+        // case — don't ask NWS again until the tombstone expires. This is what
+        // stops the area fan-out and the warmer re-requesting uncovered cells.
+        var notFound = await negativeCache.GetAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (notFound is not null && notFound.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(ForecastNotFoundCacheName);
+            return (null, null);
+        }
+
         telemetry.RecordCacheMiss(ForecastCacheName);
 
         var result = await nwsClient
@@ -513,6 +526,10 @@ internal sealed class WeatherService(
                 var fresh = new CachedForecast(
                     result.Forecast, result.ETag, now, ComputeExpiry(now, result.MaxAge));
                 await forecastCache.UpsertAsync(fresh, cancellationToken).ConfigureAwait(false);
+
+                // A cell that was previously uncovered may now be covered;
+                // forget any (now-stale) negative entry so it doesn't linger.
+                await negativeCache.RemoveAsync(grid, cancellationToken).ConfigureAwait(false);
                 return (result.Forecast, result.Center);
 
             case NwsFetchOutcome.NotModified when cached is not null:
@@ -531,10 +548,44 @@ internal sealed class WeatherService(
                 return (cached.Forecast, null);
 
             case NwsFetchOutcome.NotFound:
+                // Remember the 404 (with its reason) so repeat views skip NWS.
+                await CacheForecastNotFoundAsync(grid, result.Problem, now, cancellationToken).ConfigureAwait(false);
+                return (null, null);
+
             case NwsFetchOutcome.Unavailable:
             case NwsFetchOutcome.NotModified:
             default:
                 return (null, null);
+        }
+    }
+
+    /// <summary>
+    /// Persist a forecast 404 as a negative cache entry (unless negative caching
+    /// is disabled via <c>NotFoundForecastTtl &lt;= 0</c>), capturing the RFC 7807
+    /// problem so the reason — e.g. <c>MarineForecastNotSupported</c> — is logged
+    /// and surfaced in metrics. The TTL is the longer, structurally-stable window
+    /// from <see cref="NwsClientOptions.NotFoundForecastTtl"/>.
+    /// </summary>
+    private async Task CacheForecastNotFoundAsync(
+        GridPoint grid, NwsProblem? problem, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var ttl = _options.NotFoundForecastTtl;
+        if (ttl <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        await negativeCache
+            .UpsertAsync(grid, new CachedForecastNotFound(problem, now, now + ttl), cancellationToken)
+            .ConfigureAwait(false);
+
+        telemetry.RecordForecastNotFoundCached(problem?.TypeName);
+
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Cached NWS not-found for grid {Grid} for {Ttl} ({Problem}).",
+                grid, ttl, problem?.Title ?? problem?.TypeName ?? "no problem detail");
         }
     }
 

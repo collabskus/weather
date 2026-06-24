@@ -158,3 +158,26 @@ internal sealed record NwsAlertProperties
     public DateTimeOffset? Expires { get; init; }
     public DateTimeOffset? Ends { get; init; }
 }
+
+/// <summary>
+/// The RFC 7807 <c>application/problem+json</c> body NWS returns on a 4xx, e.g.
+/// a 404 for a marine cell:
+/// <code>
+/// {
+///   "correlationId": "1d604a85",
+///   "title": "Marine Forecast Not Supported",
+///   "type": "https://api.weather.gov/problems/MarineForecastNotSupported",
+///   "status": 404,
+///   "detail": "Forecasts for marine areas are not yet supported by this API."
+/// }
+/// </code>
+/// Parsed best-effort so a missing field (or a non-JSON error page) never throws.
+/// </summary>
+internal sealed record NwsProblemResponse
+{
+    public string? Type { get; init; }
+    public string? Title { get; init; }
+    public int? Status { get; init; }
+    public string? Detail { get; init; }
+    public string? CorrelationId { get; init; }
+}

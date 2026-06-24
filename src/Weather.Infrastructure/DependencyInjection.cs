@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
         services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
         services.TryAddSingleton<IAlertCache, SqliteAlertCache>();
+        services.TryAddSingleton<IForecastNegativeCache, SqliteForecastNegativeCache>();
         services.AddHostedService<DatabaseInitializer>();
 
         // ---------------------------------------------------------------------

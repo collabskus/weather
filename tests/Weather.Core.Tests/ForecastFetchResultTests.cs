@@ -35,9 +35,29 @@ public sealed class ForecastFetchResultTests
     [Test]
     public void NotFoundIsATerminalOutcomeWithNoPayload()
     {
-        ForecastFetchResult.NotFound.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
-        ForecastFetchResult.NotFound.Forecast.ShouldBeNull();
-        ForecastFetchResult.NotFound.ETag.ShouldBeNull();
+        var result = ForecastFetchResult.NotFound();
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        result.Forecast.ShouldBeNull();
+        result.ETag.ShouldBeNull();
+        result.Problem.ShouldBeNull();
+    }
+
+    [Test]
+    public void NotFoundCarriesTheProblemDetailWhenSupplied()
+    {
+        var problem = new NwsProblem(
+            "https://api.weather.gov/problems/MarineForecastNotSupported",
+            "Marine Forecast Not Supported",
+            404,
+            "Forecasts for marine areas are not yet supported by this API.",
+            "1d604a85");
+
+        var result = ForecastFetchResult.NotFound(problem);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        result.Problem.ShouldBe(problem);
+        result.Problem!.TypeName.ShouldBe("MarineForecastNotSupported");
     }
 
     [Test]
@@ -70,4 +90,25 @@ public sealed class GridPointTests
 
         (origin with { GridX = 84 }).ShouldBe(new GridPoint("AKQ", 84, 61));
     }
+}
+
+public sealed class NwsProblemTests
+{
+    [Test]
+    public void TypeNameIsTheLastPathSegmentOfTheTypeUri() =>
+        new NwsProblem("https://api.weather.gov/problems/MarineForecastNotSupported", null, null, null, null)
+            .TypeName.ShouldBe("MarineForecastNotSupported");
+
+    [Test]
+    public void TypeNameIgnoresATrailingSlash() =>
+        new NwsProblem("https://api.weather.gov/problems/InvalidPoint/", null, null, null, null)
+            .TypeName.ShouldBe("InvalidPoint");
+
+    [Test]
+    public void TypeNameReturnsTheWholeValueWhenThereIsNoSlash() =>
+        new NwsProblem("BareType", null, null, null, null).TypeName.ShouldBe("BareType");
+
+    [Test]
+    public void TypeNameIsNullWhenTypeIsMissing() =>
+        new NwsProblem(null, "Some title", 404, null, null).TypeName.ShouldBeNull();
 }

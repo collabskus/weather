@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -124,12 +125,21 @@ internal sealed class NwsApiClient(
                         response.Headers.CacheControl?.MaxAge);
 
                 case HttpStatusCode.NotFound:
+                {
+                    // Capture the RFC 7807 reason (e.g. MarineForecastNotSupported)
+                    // so the caller can remember and surface WHY this cell is
+                    // uncovered. Best-effort: a missing/non-JSON body yields null.
+                    var problem = await TryReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
+
                     if (logger.IsEnabled(LogLevel.Information))
                     {
-                        logger.LogInformation("NWS has no forecast for grid {Grid}.", grid);
+                        logger.LogInformation(
+                            "NWS has no forecast for grid {Grid} ({Problem}).",
+                            grid, problem?.Title ?? problem?.TypeName ?? "404");
                     }
 
-                    return ForecastFetchResult.NotFound;
+                    return ForecastFetchResult.NotFound(problem);
+                }
 
                 case HttpStatusCode.TooManyRequests:
                     telemetry.RecordThrottled(ForecastEndpoint);
@@ -497,6 +507,44 @@ internal sealed class NwsApiClient(
             return GeoCoordinate.IsValid(avgLat, avgLon) ? new GeoCoordinate(avgLat, avgLon) : null;
         }
         catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Best-effort parse of the RFC 7807 problem document NWS returns on a 404
+    /// (e.g. <c>MarineForecastNotSupported</c>). Returns <c>null</c> when the
+    /// body is absent, empty or not parseable — a malformed or non-JSON error
+    /// body must never turn a 404 into a throw. Cancellation propagates.
+    /// </summary>
+    private static async Task<NwsProblem?> TryReadProblemAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.Content is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return null;
+            }
+
+            var dto = JsonSerializer.Deserialize<NwsProblemResponse>(body, WeatherJson.Options);
+            if (dto is null ||
+                (dto.Type is null && dto.Title is null && dto.Status is null &&
+                 dto.Detail is null && dto.CorrelationId is null))
+            {
+                return null;
+            }
+
+            return new NwsProblem(dto.Type, dto.Title, dto.Status, dto.Detail, dto.CorrelationId);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or HttpRequestException or IOException)
         {
             return null;
         }

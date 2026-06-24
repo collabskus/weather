@@ -57,6 +57,7 @@ public sealed class WeatherServiceAreaTests
         public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
         public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
+        public IForecastNegativeCache NegativeCache { get; } = Substitute.For<IForecastNegativeCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
 
@@ -74,7 +75,7 @@ public sealed class WeatherServiceAreaTests
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, NegativeCache, Nws, Warmer,
                 ForecastCoalescer, ExtrasCoalescer, MetadataCoalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
@@ -110,6 +111,32 @@ public sealed class WeatherServiceAreaTests
             HourlyAndObservationAvailable();
             Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
                 .Returns(new[] { AlertSample() });
+        }
+
+        public static NwsProblem MarineProblem() => new(
+            "https://api.weather.gov/problems/MarineForecastNotSupported",
+            "Marine Forecast Not Supported", 404,
+            "Forecasts for marine areas are not yet supported by this API.", "1d604a85");
+
+        // The primary cell has a forecast; every neighbour is a "marine" cell
+        // that answers 404. The Grid-specific stub is registered AFTER the
+        // catch-all so it wins for the primary (NSubstitute uses the last match).
+        public void OnlyPrimaryHasForecastNeighboursAre404()
+        {
+            Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                .Returns(ForecastFetchResult.NotFound(MarineProblem()));
+            Nws.GetForecastAsync(Grid, Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30), CenterFor(Grid)));
+        }
+
+        // Every neighbour already has a fresh negative entry; the primary does
+        // not (so it is fetched). Used to prove neighbours are skipped entirely.
+        public void NeighboursHaveFreshNotFoundTombstones()
+        {
+            NegativeCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>())
+                .Returns(new CachedForecastNotFound(MarineProblem(), Now, Now.AddHours(6)));
+            NegativeCache.GetAsync(Grid, Arg.Any<CancellationToken>())
+                .Returns((CachedForecastNotFound?)null);
         }
     }
 
@@ -322,5 +349,64 @@ public sealed class WeatherServiceAreaTests
         // "No alerts" is itself cached, so the next view will not re-hit NWS.
         await h.AlertCache.Received(1).UpsertAsync(
             Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaCachesNotFoundNeighboursAndDropsThemFromTheResult()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.OnlyPrimaryHasForecastNeighboursAre404();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAvailable();
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Grid.ShouldBe(Grid);
+
+        // Marine neighbours have no forecast, so the area shows none of them.
+        area.Neighbors.Count.ShouldBe(0);
+
+        // Every one of the eight 404 neighbours was remembered (and the primary
+        // success cleared its own negative entry).
+        await h.NegativeCache.Received(8).UpsertAsync(
+            Arg.Is<GridPoint>(g => g != Grid),
+            Arg.Any<CachedForecastNotFound>(),
+            Arg.Any<CancellationToken>());
+        await h.NegativeCache.Received(1).RemoveAsync(Grid, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaSkipsNeighboursWithAFreshNotFoundTombstone()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        // Catch-all returns Unavailable; only the primary succeeds. If a
+        // neighbour were (incorrectly) fetched it would be dropped, but the
+        // DidNotReceive assertion below is what actually proves the skip.
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Unavailable);
+        h.Nws.GetForecastAsync(Grid, Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30), CenterFor(Grid)));
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAvailable();
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+        h.NeighboursHaveFreshNotFoundTombstones();
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Grid.ShouldBe(Grid);
+        area.Neighbors.Count.ShouldBe(0);
+
+        // The known-marine neighbours are never re-requested; only the primary
+        // (which has no tombstone) hits /forecast.
+        await h.Nws.Received(1).GetForecastAsync(Grid, Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        await h.Nws.DidNotReceive().GetForecastAsync(
+            Arg.Is<GridPoint>(g => g != Grid), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 }

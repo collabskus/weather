@@ -37,6 +37,18 @@ public sealed class NwsClientOptions
     public TimeSpan AlertsTtl { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
+    /// How long a forecast 404 is remembered as a negative cache entry before
+    /// NWS is asked again. A 404 from <c>/gridpoints/.../forecast</c> — for a
+    /// marine cell this is <c>MarineForecastNotSupported</c> — is structurally
+    /// stable, so this is deliberately longer than <see cref="DefaultForecastTtl"/>
+    /// to keep the area fan-out and warmer from re-requesting uncovered cells.
+    /// It is still finite so a misrouted/transient 404 self-heals and a cell
+    /// NWS later starts covering is picked up. Set to <see cref="TimeSpan.Zero"/>
+    /// (or negative) to disable negative caching entirely.
+    /// </summary>
+    public TimeSpan NotFoundForecastTtl { get; set; } = TimeSpan.FromHours(6);
+
+    /// <summary>
     /// Timeout for a SINGLE upstream attempt. Wired into the resilience
     /// pipeline's per-attempt timeout (see <c>DependencyInjection</c>). Kept
     /// modest so one slow/hung NWS response is abandoned quickly and retried
