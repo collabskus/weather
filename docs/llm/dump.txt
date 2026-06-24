@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/24/2026 10:05:52
+Generated: 06/24/2026 10:08:57
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -1211,7 +1211,7 @@ volumes:
 ================================================================================
 FILE: deploy/Containerfile.otelcol
 SIZE: 0.39 KB
-MODIFIED: 06/19/2026 13:44:48
+MODIFIED: 06/24/2026 10:08:15
 ================================================================================
 
 # syntax=docker/dockerfile:1
@@ -1220,7 +1220,7 @@ MODIFIED: 06/19/2026 13:44:48
 # (and therefore no SELinux relabeling) is needed. Build from the repo root:
 #
 #   podman build -f deploy/Containerfile.otelcol -t weather-otelcol .
-FROM otel/opentelemetry-collector-contrib:0.119.0
+FROM otel/opentelemetry-collector-contrib:0.155.0
 COPY deploy/otelcol-config.yaml /etc/otel/config.yaml
 CMD ["--config=/etc/otel/config.yaml"]
 
@@ -13589,7 +13589,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/24/2026 10:05:52
+EXPORT COMPLETED: 06/24/2026 10:08:57
 Total Files Exported: 146
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
