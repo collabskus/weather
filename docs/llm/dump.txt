@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/24/2026 09:57:52
+Generated: 06/24/2026 10:05:52
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -1073,8 +1073,8 @@ ENTRYPOINT ["dotnet", "Weather.Web.dll"]
 
 ================================================================================
 FILE: deploy/compose.yaml
-SIZE: 4.63 KB
-MODIFIED: 06/23/2026 08:28:34
+SIZE: 4.62 KB
+MODIFIED: 06/24/2026 10:05:16
 ================================================================================
 
 # ============================================================================
@@ -1161,7 +1161,7 @@ services:
     restart: unless-stopped
 
   aspire-dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13
     environment:
       # Sandbox convenience: allow anonymous access to the dashboard UI.
       DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
@@ -13589,7 +13589,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/24/2026 09:57:52
+EXPORT COMPLETED: 06/24/2026 10:05:52
 Total Files Exported: 146
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================

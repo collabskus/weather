@@ -82,7 +82,7 @@ services:
     restart: unless-stopped
 
   aspire-dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13
     environment:
       # Sandbox convenience: allow anonymous access to the dashboard UI.
       DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
