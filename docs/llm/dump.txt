@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/23/2026 19:01:11
+Generated: 06/24/2026 08:39:10
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -35,6 +35,7 @@ docs/llm/dump.txt
 docs/llm/output.txt
 docs/llm/vendor/claude-conversations.md
 docs/llm/vendor/gemini-conversations.md
+docs/llm/vendor/virginia-output.txt
 docs/llm/vendor/virginia.md
 docs/OBSERVABILITY.md
 docs/STAMPEDE.md
@@ -12176,7 +12177,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/23/2026 19:01:12
+EXPORT COMPLETED: 06/24/2026 08:39:11
 Total Files Exported: 137
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================

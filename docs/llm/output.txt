@@ -1,15 +1,14 @@
 PowerShell 7.6.3
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-23-19-00-24
+2026-06-24-08-38-18
 PS C:\Users\kushal> Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Set-Location "D:\DEV\personal\weather\"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git remote show origin; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet list package --outdated; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet format; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; git status; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; Get-Content "export.ps1"; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; .\export.ps1; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet clean; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet restore; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet build; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test; Get-Date -Format "yyyy-MM-dd-HH-mm-ss"; dotnet test --configuration Release; Get-Date -Format "yyyy-MM-dd-HH-mm-ss";
-2026-06-23-19-00-25
-2026-06-23-19-00-25
+2026-06-24-08-38-24
+2026-06-24-08-38-24
 On branch main
-Your branch is ahead of 'origin/main' by 7 commits.
-  (use "git push" to publish your local commits)
+Your branch is up to date with 'origin/main'.
 
 nothing to commit, working tree clean
-2026-06-23-19-00-25
+2026-06-24-08-38-24
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
   Push  URL: https://github.com/collabskus/weather.git
@@ -19,11 +18,11 @@ nothing to commit, working tree clean
   Local branch configured for 'git pull':
     main merges with remote main
   Local ref configured for 'git push':
-    main pushes to main (fast-forwardable)
-2026-06-23-19-00-26
-Restore complete (2.8s)
+    main pushes to main (up to date)
+2026-06-24-08-38-25
+Restore complete (1.6s)
 
-Build succeeded in 3.1s
+Build succeeded in 1.8s
 Project 'Weather.Api' has the following package references
    [net10.0]:
    Top-level Package                   Requested   Resolved
@@ -91,10 +90,10 @@ Project 'Weather.Web.Tests' has the following package references
    > TUnit                1.56.25     1.56.25
 
 (A) : Auto-referenced package.
-2026-06-23-19-00-32
-Restore complete (1.5s)
+2026-06-24-08-38-31
+Restore complete (1.3s)
 
-Build succeeded in 1.7s
+Build succeeded in 1.5s
 
 The following sources were used:
    https://api.nuget.org/v3/index.json
@@ -105,18 +104,33 @@ The given project `Weather.Core` has no updates given the current sources.
 The given project `Weather.Infrastructure` has no updates given the current sources.
 The given project `Weather.ServiceDefaults` has no updates given the current sources.
 The given project `Weather.Web` has no updates given the current sources.
-The given project `Weather.Api.Tests` has no updates given the current sources.
-The given project `Weather.Core.Tests` has no updates given the current sources.
-The given project `Weather.Infrastructure.Tests` has no updates given the current sources.
-The given project `Weather.Web.Tests` has no updates given the current sources.
-2026-06-23-19-00-42
-2026-06-23-19-01-11
+Project `Weather.Api.Tests` has the following updates to its packages
+   [net10.0]:
+   Top-level Package      Requested   Resolved   Latest
+   > TUnit                1.56.25     1.56.25    1.56.35
+
+Project `Weather.Core.Tests` has the following updates to its packages
+   [net10.0]:
+   Top-level Package      Requested   Resolved   Latest
+   > TUnit                1.56.25     1.56.25    1.56.35
+
+Project `Weather.Infrastructure.Tests` has the following updates to its packages
+   [net10.0]:
+   Top-level Package      Requested   Resolved   Latest
+   > TUnit                1.56.25     1.56.25    1.56.35
+
+Project `Weather.Web.Tests` has the following updates to its packages
+   [net10.0]:
+   Top-level Package      Requested   Resolved   Latest
+   > TUnit                1.56.25     1.56.25    1.56.35
+
+2026-06-24-08-38-42
+2026-06-24-08-39-10
 On branch main
-Your branch is ahead of 'origin/main' by 7 commits.
-  (use "git push" to publish your local commits)
+Your branch is up to date with 'origin/main'.
 
 nothing to commit, working tree clean
-2026-06-23-19-01-11
+2026-06-24-08-39-10
 # Export Git-tracked ASP.NET Project Files to Single Text File
 # Uses `git ls-files` so only committed/staged files are included.
 
@@ -278,7 +292,7 @@ Pop-Location
 Write-Host "`nExport completed!" -ForegroundColor Green
 Write-Host "Total files exported: $i" -ForegroundColor Green
 Write-Host "Output file size: $([math]::Round((Get-Item $OutputPath).Length / 1KB, 2)) KB" -ForegroundColor Cyan
-2026-06-23-19-01-11
+2026-06-24-08-39-10
 Starting project export...
 Project Path: .
 Output File: docs/llm/dump.txt
@@ -424,37 +438,37 @@ Processing (137/137): weather.slnx
 
 Export completed!
 Total files exported: 137
-Output file size: 427.55 KB
-2026-06-23-19-01-12
+Output file size: 427.59 KB
+2026-06-24-08-39-11
 
-Build succeeded in 2.0s
-2026-06-23-19-01-14
-Restore complete (3.6s)
+Build succeeded in 3.5s
+2026-06-24-08-39-15
+Restore complete (1.9s)
 
-Build succeeded in 4.3s
-2026-06-23-19-01-19
-Restore complete (2.3s)
-  Weather.Core net10.0 succeeded (5.2s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
-  Weather.ServiceDefaults net10.0 succeeded (4.8s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
-  Weather.Infrastructure net10.0 succeeded (2.8s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
-  Weather.Api net10.0 succeeded (3.1s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
+Build succeeded in 2.2s
+2026-06-24-08-39-18
+Restore complete (3.0s)
+  Weather.Core net10.0 succeeded (7.0s) → src\Weather.Core\bin\Debug\net10.0\Weather.Core.dll
+  Weather.ServiceDefaults net10.0 succeeded (8.5s) → src\Weather.ServiceDefaults\bin\Debug\net10.0\Weather.ServiceDefaults.dll
+  Weather.Infrastructure net10.0 succeeded (4.4s) → src\Weather.Infrastructure\bin\Debug\net10.0\Weather.Infrastructure.dll
+  Weather.Api net10.0 succeeded (3.8s) → src\Weather.Api\bin\Debug\net10.0\Weather.Api.dll
+  Weather.Api.Tests net10.0 succeeded (10.4s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
+  Weather.Core.Tests net10.0 succeeded (18.2s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
+  Weather.Infrastructure.Tests net10.0 succeeded (11.3s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
   Weather.Web net10.0 succeeded (6.5s) → src\Weather.Web\bin\Debug\net10.0\Weather.Web.dll
-  Weather.Core.Tests net10.0 succeeded (8.8s) → tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll
-  Weather.Web.Tests net10.0 succeeded (3.6s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
-  Weather.Api.Tests net10.0 succeeded (4.5s) → tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll
-  Weather.Infrastructure.Tests net10.0 succeeded (3.8s) → tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll
-  Weather.AppHost net10.0 succeeded (12.9s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
+  Weather.Web.Tests net10.0 succeeded (4.8s) → tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll
+  Weather.AppHost net10.0 succeeded (12.4s) → src\Weather.AppHost\bin\Debug\net10.0\Weather.AppHost.dll
 
-Build succeeded in 25.9s
-2026-06-23-19-01-46
-Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
-Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
+Build succeeded in 39.6s
+2026-06-24-08-39-58
 Running tests from tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64)
+Running tests from tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 596ms)
-tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 184ms)
-tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 163ms)
-tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 749ms)
+Running tests from tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
+tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 737ms)
+tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 141ms)
+tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 319ms)
+tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 871ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Debug\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -463,25 +477,25 @@ tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) pa
     - tests\Weather.Api.Tests\bin\Debug\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 163ms)
-  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 596ms)
-  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 184ms)
-  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 749ms)
+  tests\Weather.Api.Tests\bin\Debug\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 871ms)
+  tests\Weather.Core.Tests\bin\Debug\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 737ms)
+  tests\Weather.Infrastructure.Tests\bin\Debug\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 141ms)
+  tests\Weather.Web.Tests\bin\Debug\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 319ms)
 
   total: 160
   failed: 0
   succeeded: 160
   skipped: 0
-  duration: 15s 495ms
-2026-06-23-19-02-08
-Running tests from tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64)
+  duration: 14s 659ms
+2026-06-24-08-40-20
 Running tests from tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64)
+Running tests from tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64)
 Running tests from tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64)
-tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 401ms)
-tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 305ms)
-tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 683ms)
-tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 281ms)
+tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 849ms)
+tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 438ms)
+tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 479ms)
+tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 870ms)
 
   In process file artifacts produced:
     - tests\Weather.Core.Tests\bin\Release\net10.0\TestResults\Weather.Core.Tests-windows-net10.0-report.html
@@ -490,15 +504,15 @@ tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) 
     - tests\Weather.Api.Tests\bin\Release\net10.0\TestResults\Weather.Api.Tests-windows-net10.0-report.html
 
 Test run summary: Passed!
-  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (14s 281ms)
-  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 683ms)
-  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 305ms)
-  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 401ms)
+  tests\Weather.Web.Tests\bin\Release\net10.0\Weather.Web.Tests.dll (net10.0|x64) passed (3s 479ms)
+  tests\Weather.Infrastructure.Tests\bin\Release\net10.0\Weather.Infrastructure.Tests.dll (net10.0|x64) passed (2s 438ms)
+  tests\Weather.Api.Tests\bin\Release\net10.0\Weather.Api.Tests.dll (net10.0|x64) passed (13s 870ms)
+  tests\Weather.Core.Tests\bin\Release\net10.0\Weather.Core.Tests.dll (net10.0|x64) passed (1s 849ms)
 
   total: 160
   failed: 0
   succeeded: 160
   skipped: 0
-  duration: 15s 128ms
-2026-06-23-19-02-33
+  duration: 14s 585ms
+2026-06-24-08-40-45
 PS D:\DEV\personal\weather>
