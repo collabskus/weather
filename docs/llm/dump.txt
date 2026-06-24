@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/24/2026 10:08:57
+Generated: 06/24/2026 10:13:15
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -1357,7 +1357,7 @@ MODIFIED: 06/19/2026 08:36:12
 ================================================================================
 FILE: Directory.Packages.props
 SIZE: 3.61 KB
-MODIFIED: 06/22/2026 15:36:32
+MODIFIED: 06/24/2026 10:12:40
 ================================================================================
 
 <Project>
@@ -1392,7 +1392,7 @@ MODIFIED: 06/22/2026 15:36:32
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
   </ItemGroup>
   <ItemGroup Label="Testing (TUnit runner + Shouldly + bUnit + NSubstitute)">
-    <PackageVersion Include="TUnit" Version="1.56.25" />
+    <PackageVersion Include="TUnit" Version="1.56.35" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="bunit.web" Version="1.40.0" />
@@ -13589,7 +13589,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/24/2026 10:08:57
+EXPORT COMPLETED: 06/24/2026 10:13:16
 Total Files Exported: 146
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================
