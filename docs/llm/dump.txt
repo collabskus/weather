@@ -1,6 +1,6 @@
 ===============================================================================
 ASP.NET PROJECT EXPORT  (git-tracked files only)
-Generated: 06/24/2026 08:39:10
+Generated: 06/24/2026 08:51:15
 Project Path: D:\DEV\personal\weather
 ===============================================================================
 
@@ -31,12 +31,6 @@ Directory.Packages.props
 docs/ARCHITECTURE.md
 docs/CONTAINERS.md
 docs/FRONTEND.md
-docs/llm/dump.txt
-docs/llm/output.txt
-docs/llm/vendor/claude-conversations.md
-docs/llm/vendor/gemini-conversations.md
-docs/llm/vendor/virginia-output.txt
-docs/llm/vendor/virginia.md
 docs/OBSERVABILITY.md
 docs/STAMPEDE.md
 export.ps1
@@ -61,6 +55,7 @@ src/Weather.AppHost/Weather.AppHost.csproj
 src/Weather.Core/Abstractions/IAlertCache.cs
 src/Weather.Core/Abstractions/ICellExtrasCache.cs
 src/Weather.Core/Abstractions/IForecastCache.cs
+src/Weather.Core/Abstractions/IForecastNegativeCache.cs
 src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
 src/Weather.Core/Abstractions/INwsApiClient.cs
 src/Weather.Core/Abstractions/IPointMetadataCache.cs
@@ -78,6 +73,7 @@ src/Weather.Core/Models/GeoCoordinate.cs
 src/Weather.Core/Models/GridNeighborhood.cs
 src/Weather.Core/Models/GridPoint.cs
 src/Weather.Core/Models/NeighborhoodForecast.cs
+src/Weather.Core/Models/NwsProblem.cs
 src/Weather.Core/Models/Observation.cs
 src/Weather.Core/Models/PointMetadata.cs
 src/Weather.Core/Models/WeatherAlert.cs
@@ -90,6 +86,7 @@ src/Weather.Infrastructure/Caching/SqliteCacheOptions.cs
 src/Weather.Infrastructure/Caching/SqliteCellExtrasCache.cs
 src/Weather.Infrastructure/Caching/SqliteConnectionFactory.cs
 src/Weather.Infrastructure/Caching/SqliteForecastCache.cs
+src/Weather.Infrastructure/Caching/SqliteForecastNegativeCache.cs
 src/Weather.Infrastructure/Caching/SqlitePointMetadataCache.cs
 src/Weather.Infrastructure/Caching/TimestampText.cs
 src/Weather.Infrastructure/DependencyInjection.cs
@@ -145,6 +142,7 @@ tests/Weather.Infrastructure.Tests/Caching/SqliteAlertCacheTests.cs
 tests/Weather.Infrastructure.Tests/Caching/SqliteCacheHarness.cs
 tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs
 tests/Weather.Infrastructure.Tests/Caching/SqliteForecastCacheTests.cs
+tests/Weather.Infrastructure.Tests/Caching/SqliteForecastNegativeCacheTests.cs
 tests/Weather.Infrastructure.Tests/Caching/SqlitePointMetadataCacheTests.cs
 tests/Weather.Infrastructure.Tests/Fakes/MutableTimeProvider.cs
 tests/Weather.Infrastructure.Tests/Fakes/NwsPayloads.cs
@@ -1432,9 +1430,507 @@ MODIFIED: 06/22/2026 15:36:32
 
 
 ================================================================================
+FILE: docs/ARCHITECTURE.md
+SIZE: 5.66 KB
+MODIFIED: 06/19/2026 14:23:36
+================================================================================
+
+# Architecture
+
+This document records the three decisions that shape the system and how they are
+implemented. It is written to match the code in this repository; the per-project
+READMEs go deeper on each layer.
+
+## Shape
+
+```
+Browser ──geolocation──▶ Weather.Web (Blazor Server)
+                              │  typed HttpClient
+                              ▼
+                         Weather.Api (Minimal API)
+                              │  cache-aside
+                              ▼
+        ┌───────────────── Weather.Infrastructure ─────────────────┐
+        │  NwsApiClient (resilient HttpClient)                      │
+        │  SQLite caches: point-metadata · forecast · cell-extras   │
+        │  WeatherService (orchestration) · NeighborhoodWarmer      │
+        └───────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    api.weather.gov (NWS)
+```
+
+`Weather.Core` holds the domain models, abstractions, and telemetry primitives
+and depends on nothing else. `Weather.ServiceDefaults` supplies the Aspire
+defaults (OpenTelemetry, health, discovery, resilience) and is intentionally
+app-agnostic. `Weather.AppHost` orchestrates the API and the dashboard for local
+development.
+
+## Decision 1 — Caching: metadata vs. forecast (and extras)
+
+NWS splits the work in two: `/points/{lat},{lon}` maps a coordinate to a grid
+cell (`gridId`, `gridX`, `gridY`) and is effectively immutable, while
+`/gridpoints/{office}/{x},{y}/forecast` returns data that changes through the
+day. The cache mirrors that split, in three SQLite tiers:
+
+- **Point metadata** — long-lived (30 days by default). The key is the
+  coordinate **rounded to 4 decimal places** (~11 m), so nearby users share one
+  row and the `/points` call is made once per neighbourhood rather than per user.
+- **Forecast** — short-lived. The TTL honours the NWS `Cache-Control: max-age`
+  response, clamped to a configurable ceiling (6 h) so an odd upstream value
+  can't pin stale data. Refreshes are **conditional**: the stored `ETag` is sent
+  as `If-None-Match`, and a `304 Not Modified` renews the expiry without
+  transferring or re-parsing a body. If NWS is unreachable, the **last good
+  forecast is served stale** rather than surfacing an error.
+- **Cell extras** — a separate short-lived tier holding the per-cell **hourly
+  forecast** and **latest observation** as a JSON blob keyed by grid cell. It is
+  kept apart from the daily-forecast tier so the original forecast path is
+  unchanged and the heavier extras are only fetched when the area view needs them.
+
+`WeatherService` is the only type that knows these freshness rules; everything
+above it simply asks for data. Cache hits and misses are recorded per tier as
+metrics (see Decision 3).
+
+## Decision 2 — Neighbourhood strategy
+
+A user near a cell boundary may be closer to an adjacent cell's centre than to
+their own, so the dashboard shows the whole neighbourhood. Two mechanisms keep
+that cheap:
+
+- **Background warming.** When a user's cell is resolved, the surrounding ring is
+  enqueued on a bounded `Channel<GridPoint>` and warmed by a rate-limited
+  `BackgroundService` (a token-bucket limiter, in-flight de-duplication, and a
+  skip-if-already-fresh check). The user's own request is never blocked by this.
+- **Area assembly.** `GetAreaForecastAsync` fetches the primary cell plus every
+  cell in the ring **cache-aside**, with **bounded concurrency**, then orders the
+  neighbours by true distance from the user. Distance uses each cell's polygon
+  **centroid** (parsed from the forecast geometry) and the haversine formula
+  (`GeoCoordinate.DistanceMetersTo`), falling back to grid-index distance when a
+  centroid is unknown so ordering is always stable. The request **radius is
+  capped** so a cold area cannot stampede NWS.
+
+Active **alerts** are point-based (`/alerts/active?point=lat,lon`) and assembled
+alongside the cells.
+
+### Cold-start cost
+
+The first view of an uncached area can be several upstream calls (a cell plus its
+ring, each fetching daily + hourly + observation). It is bounded by cache-aside
+(paid once per TTL), the background warmer, capped concurrency, and the capped
+radius, so steady state is inexpensive — the cache-hit ratio trending toward 1.0
+is the signal it is working.
+
+## Decision 3 — Observability
+
+`Weather.ServiceDefaults` configures OpenTelemetry for every service: ASP.NET
+Core, `HttpClient`, and runtime instrumentation, plus the application's own
+signals from a custom meter (`Weather.Cache`) and activity source (`Weather.Nws`):
+
+- **cache hit/miss** counters per tier (`metadata`, `forecast`, `extras`),
+- **NWS request** latency and status, tagged by endpoint and whether the call was
+  conditional, and
+- **NWS throttling and errors** counted separately, so rate-limiting shows up as
+  a metric rather than as latency.
+
+Export is vendor-neutral **OTLP** — no backend SDK is referenced — and resolves
+in priority order: an explicit `OTEL_EXPORTER_OTLP_ENDPOINT` (injected by Aspire
+locally, or pointed at the OpenTelemetry Collector in containers) wins; otherwise
+the app ships straight to **Uptrace** via a DSN unless `Uptrace:Enabled=false`;
+otherwise nothing is exported (the integration tests use this). Because every
+step is plain OTLP, switching backends is configuration, not code. The container
+stack runs a collector that fans every signal out to both the Aspire dashboard
+and Uptrace — see [`OBSERVABILITY.md`](OBSERVABILITY.md) and
+[`CONTAINERS.md`](CONTAINERS.md).
+
+
+
+================================================================================
+FILE: docs/CONTAINERS.md
+SIZE: 4.9 KB
+MODIFIED: 06/19/2026 13:47:30
+================================================================================
+
+# Containers — Podman, Compose, and Cloudflare quick tunnels
+
+This document explains the container setup: how to run the full stack, what each
+piece is, and the Fedora/SELinux and Aspire nuances that shaped it. It targets
+**Podman** on Fedora but works with Docker too.
+
+## TL;DR
+
+```bash
+cd deploy
+cp .env.example .env          # set UPTRACE_DSN, or keep the demo one
+podman compose -f compose.yaml up --build
+```
+
+- Dashboard → <http://localhost:8081>
+- API → <http://localhost:8080>
+- Aspire dashboard → <http://localhost:18888>
+- Public URLs → printed in the `tunnel-web`, `tunnel-api`, `tunnel-aspire` logs:
+
+```bash
+podman compose -f compose.yaml logs tunnel-web | grep trycloudflare
+```
+
+## What runs
+
+| Service | Image / build | Purpose |
+| --- | --- | --- |
+| `api` | `Containerfile.api` | The Weather Minimal API |
+| `web` | `Containerfile.web` | The Blazor Server dashboard |
+| `aspire-dashboard` | `mcr.microsoft.com/dotnet/aspire-dashboard` | Standalone traces/metrics/logs UI |
+| `otelcol` | `deploy/Containerfile.otelcol` | OpenTelemetry Collector, fans out to Aspire + Uptrace |
+| `tunnel-web/-api/-aspire` | `cloudflare/cloudflared` | Public HTTPS URL for each UI |
+
+## The images
+
+`Containerfile.api` and `Containerfile.web` are multi-stage:
+
+1. **build** — `mcr.microsoft.com/dotnet/sdk:10.0` restores and publishes a
+   Release build. They are built from the **repository root** so the Central
+   Package Management files (`Directory.Packages.props`, `Directory.Build.props`,
+   `nuget.config`, `global.json`) and every referenced project are in context.
+2. **final** — `mcr.microsoft.com/dotnet/aspnet:10.0` runs the published app as
+   the **non-root** `app` user (UID 1654, which ships in the .NET images), listening
+   on plain HTTP `:8080`. TLS is terminated upstream by the Cloudflare tunnel.
+
+Build them directly if you like:
+
+```bash
+podman build -f Containerfile.api -t weather-api .
+podman build -f Containerfile.web -t weather-web .
+```
+
+## SELinux / rootless notes (Fedora)
+
+The stack is designed to run rootless under Podman with SELinux enforcing,
+without `chcon`/`:Z` gymnastics:
+
+- **No host bind mounts.** The SQLite cache lives on a **named volume**
+  (`api-cache:/data`), and the collector configuration is **baked into its
+  image** rather than mounted from the host. Named volumes are labeled correctly
+  by Podman automatically, so there is nothing to relabel.
+- **Writable cache directory.** The API image creates `/data` owned by UID 1654
+  and points the cache connection string at `/data/weather-cache.db`, so the
+  non-root user can write even though the rest of the filesystem is read-only to
+  it in practice.
+- **Non-root users.** Both app images run as UID 1654; nothing requires
+  privileged mode or host networking.
+
+If you *prefer* to bind-mount the collector config instead of baking it in, add
+the `:Z` suffix so Podman relabels it for the container's SELinux context:
+
+```yaml
+volumes:
+  - ./otelcol-config.yaml:/etc/otel/config.yaml:Z,ro
+```
+
+## The Aspire nuance: dashboard vs. AppHost
+
+There are two different "Aspire" things, and only one of them is containerized:
+
+- **The AppHost** (`src/Weather.AppHost`) is a **developer orchestrator**. When
+  you `dotnet run` it, it launches the API and the dashboard itself (via the
+  Developer Control Plane) and wires service discovery and telemetry for you. It
+  is a local development tool and is intentionally **not** part of the container
+  stack — containerizing an orchestrator that spawns processes is the wrong
+  shape.
+- **The Aspire dashboard** is a standalone image
+  (`mcr.microsoft.com/dotnet/aspire-dashboard`) that simply renders OTLP it
+  receives. *That* is what runs in the stack, fed through the collector. This is
+  the supported production-style topology: apps → collector → dashboard.
+
+So: use `dotnet run --project src/Weather.AppHost` for the rich local dev loop,
+and the container stack for a deployable, tunnel-exposed environment.
+
+## Telemetry path
+
+Both apps set `OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol:4317`, so (per the
+exporter precedence in `ServiceDefaults`) they send to the collector. The
+collector fans every signal out to the Aspire dashboard **and** Uptrace. See
+[`OBSERVABILITY.md`](OBSERVABILITY.md) for the full wiring and how to point it at
+your own Uptrace project via `UPTRACE_DSN`.
+
+## Cloudflare quick tunnels
+
+Each `cloudflared` container runs `tunnel --no-autoupdate --url http://<svc>:<port>`,
+which creates an **ad-hoc quick tunnel** — no Cloudflare account, login, or
+pre-agreed terms required — and prints a `https://<random>.trycloudflare.com`
+URL in its logs. These are throwaway URLs intended for demos and sharing a local
+run; they change on every restart. For anything persistent, use a named tunnel
+with a Cloudflare account instead.
+
+## Stopping and cleaning up
+
+```bash
+podman compose -f compose.yaml down            # stop and remove containers
+podman compose -f compose.yaml down -v         # also remove the cache volume
+```
+
+
+
+================================================================================
+FILE: docs/FRONTEND.md
+SIZE: 3.93 KB
+MODIFIED: 06/19/2026 13:47:02
+================================================================================
+
+# Frontend — the "all tiles, all data" dashboard
+
+This document describes how the Blazor Server dashboard
+(`src/Weather.Web`) presents weather, and the decisions behind it. For the
+geolocation bridge and fallback states specifically, see the Web project's own
+README; this focuses on the area view.
+
+## The idea
+
+An NWS forecast is published per **grid cell** (a roughly 2.5 km square). The
+`/points` endpoint maps a coordinate to one cell, but a user standing near a
+cell boundary may be physically closer to the centre of an adjacent cell than to
+their own. Rather than hide that, the dashboard embraces it:
+
+- It resolves the user's coordinate to their **primary** cell.
+- It also fetches **every neighbouring cell** in the surrounding ring.
+- It orders those neighbours by **true distance** from the user, nearest first.
+- Every cell — primary and neighbours alike — carries its **full** data set.
+
+So the page is not a single forecast; it is the user's whole neighbourhood, with
+the most relevant tiles surfaced first.
+
+## What each tile shows
+
+The dashboard calls one endpoint, `GET /api/forecast/area`, which returns the
+primary cell, the distance-ordered neighbours, and any active alerts. For each
+cell the API follows the NWS JSON links and returns:
+
+- **Daily forecast** — the named periods ("This Afternoon", "Tonight", …) with
+  temperature, precipitation chance, wind, and the short/detailed text.
+- **Hourly forecast** — the near-term hours (capped to keep payloads sane),
+  rendered as a horizontally scrollable strip.
+- **Latest observation** — the most recent report from the cell's nearest
+  station, converted from NWS's SI units to the US units the forecast uses
+  (°F, mph, inHg, miles).
+
+Point-based **active alerts** (watches, warnings, advisories) are shown in a
+banner above everything else, colour-coded by severity.
+
+## Layout and progressive disclosure
+
+The primary cell is shown expanded: a sky-state hero, the "Right now"
+observation panel, the hourly strip, and the full set of daily cards.
+
+The neighbouring tiles are rendered as collapsible `<details>` elements, ordered
+nearest-first and **collapsed by default**. Each tile's summary shows its grid
+id, the current temperature and conditions, and its distance from the user;
+opening it reveals that tile's full daily cards, hourly strip, and current
+conditions. This keeps "all the data for all the tiles" genuinely present on the
+page without forcing an overwhelming wall of content on first paint — the nearest
+tiles are one tap away, the rest are there when wanted.
+
+## Distance ordering
+
+Each cell's approximate centre is parsed from the polygon **geometry** NWS
+returns with the forecast (the average of the outer-ring vertices). The distance
+from the user's coordinate to each centre is computed with the haversine formula
+(`GeoCoordinate.DistanceMetersTo`). When a centre is unknown, ordering falls back
+to grid-index distance so the list is always stable. The displayed distance is
+shown only when a real centre is known.
+
+## Rendering and culture
+
+The component is written declaratively (Razor markup with small formatting
+helpers) rather than with a hand-built render tree, which keeps the states and
+sections easy to read and test. The app runs with `InvariantGlobalization`, so
+all number, date, and time formatting passes `CultureInfo.InvariantCulture`
+explicitly.
+
+Stable `data-testid` attributes (`forecast`, `hero`, `hero-temp`, `observation`,
+`hourly`, `neighbors`, `neighbor-tile`, and the various `state-*` markers) make
+the bUnit tests resilient to styling changes.
+
+## Caching is invisible
+
+The dashboard never reasons about freshness — that lives entirely in the API and
+its SQLite caches. Repeat views are quick because cells are served cache-aside;
+the user simply sees current data. The cold-start cost of assembling a brand-new
+neighbourhood, and how the background warmer and configurable radius mitigate it,
+is discussed in [`OBSERVABILITY.md`](OBSERVABILITY.md) and the architecture doc.
+
+
+
+================================================================================
+FILE: docs/OBSERVABILITY.md
+SIZE: 3.94 KB
+MODIFIED: 06/19/2026 13:47:02
+================================================================================
+
+# Observability — OpenTelemetry, OTLP, and Uptrace
+
+Both services are instrumented with **OpenTelemetry** and export every signal
+(traces, metrics, logs) over **OTLP**. There is deliberately **no vendor SDK**
+in the codebase: the backend is chosen entirely by configuration, so the same
+build ships to the Aspire dashboard during development, to an OpenTelemetry
+Collector in containers, or straight to a hosted backend such as **Uptrace**.
+
+## What is measured
+
+On top of the standard ASP.NET Core, `HttpClient`, and .NET runtime
+instrumentation, the application's own `WeatherTelemetry` records:
+
+- **Cache hit/miss** counters per cache (`metadata`, `forecast`, and the
+  per-cell `extras` cache) — the cache-hit ratio is the headline health metric.
+- **NWS request latency** and status, tagged by endpoint and whether the call
+  was a conditional GET — so slow upstreams or excessive calls are visible.
+- **NWS throttling and errors** — `429`s and failures are counted separately, so
+  rate-limiting shows up as a metric rather than as mysterious latency.
+
+These come from a custom meter (`Weather.Cache`) and activity source
+(`Weather.Nws`), registered with OpenTelemetry in `Weather.Api/Program.cs` and
+kept out of `ServiceDefaults` so that project stays app-agnostic.
+
+## How export is wired
+
+`Weather.ServiceDefaults` resolves the exporter in priority order:
+
+1. **`OTEL_EXPORTER_OTLP_ENDPOINT` is set** — an explicit endpoint always wins.
+   Aspire injects this during local orchestration; the container compose points
+   it at the OpenTelemetry Collector. This is the path that fans out to both the
+   Aspire dashboard and Uptrace.
+2. **Otherwise, ship straight to Uptrace over OTLP** — unless disabled, the app
+   derives the standard `OTEL_EXPORTER_OTLP_*` variables from an Uptrace **DSN**
+   (config `Uptrace:Dsn`, env `UPTRACE_DSN`, or a built-in demo default),
+   authenticating with the `uptrace-dsn` header and using gzip plus delta metric
+   temporality. This makes a bare `dotnet run` light up in Uptrace with zero
+   configuration.
+3. **Otherwise, export nothing** — set `Uptrace:Enabled=false` to opt out. The
+   integration tests set exactly this so nothing touches the network.
+
+Because every step emits plain OTLP, pointing at Grafana, Honeycomb, Jaeger, or
+any other OTLP-compatible backend is a configuration change, not a code change.
+
+## The collector fan-out (containers)
+
+In the container stack a single **OpenTelemetry Collector** receives OTLP from
+both services and exports each signal to two destinations at once:
+
+- the **standalone Aspire dashboard** (`aspire-dashboard:18889`) for live, local
+  inspection, and
+- **Uptrace** (`api.uptrace.dev:4317`, authenticated with `UPTRACE_DSN`) for a
+  hosted view.
+
+The collector config ([`deploy/otelcol-config.yaml`](../deploy/otelcol-config.yaml))
+is baked into a small image so there is no host bind mount to relabel under
+SELinux. Adding or swapping a destination is a one-line change to that file.
+
+## Seeing your data in Uptrace
+
+Set `UPTRACE_DSN` in `deploy/.env` to your own DSN (from the Uptrace project
+settings) before `podman compose up`. With the demo DSN you will export to a
+shared public project; with your own you will see your services, traces, and the
+cache-hit and NWS-latency metrics under your account.
+
+## A note on cold-start cost
+
+Assembling a brand-new neighbourhood (a cell plus its ring, each with daily +
+hourly + observation) can be several upstream calls on the very first view of an
+uncached area. Three things keep this in check, and they are worth watching in
+the metrics:
+
+- every cell is **cache-aside**, so the cost is paid once per TTL, not per view;
+- the **background warmer** pre-fetches the ring's daily forecasts; and
+- the area fan-out uses **bounded concurrency** and the request **radius is
+  capped**, so a cold area can never stampede NWS.
+
+The cache-hit ratio climbing toward 1.0 after the first views — visible in the
+dashboard or Uptrace — is the signal that the caching is doing its job.
+
+
+
+================================================================================
+FILE: docs/STAMPEDE.md
+SIZE: 3.56 KB
+MODIFIED: 06/22/2026 15:05:18
+================================================================================
+
+# Cache Stampede Protection
+
+## The problem
+
+The forecast cache is *cache-aside*: read cache → on miss, fetch from NWS →
+store. That pattern alone does **not** bound upstream load. During the window
+between a miss and the store, every concurrent request for the same grid cell
+independently sees the miss and independently calls NWS. When many browsers
+refresh the same location at once — or a popular cell's TTL expires under load —
+the result is a burst of identical upstream calls. This is the **cache
+stampede** (also "dogpile" or "thundering herd").
+
+`IWeatherService` is registered *scoped* (one instance per request), so there is
+no shared in-process coordination point inside the service itself.
+
+## The fix: single-flight coalescing
+
+`IRequestCoalescer<TKey>` (in `Weather.Core.Abstractions`) collapses concurrent
+work for the same key into one execution. For a given grid cell:
+
+- The **first** caller (the "leader") runs the real fetch.
+- Every caller that arrives **while that fetch is in flight** (a "follower")
+  awaits the same task and shares its result.
+- The instant the fetch settles, the flight is evicted, so the **next** caller
+  (after the cache has presumably been filled) starts fresh.
+
+`RequestCoalescer<GridPoint>` is registered as a **singleton** in
+`DependencyInjection`. This is essential: a scoped coalescer would give each
+request its own dictionary and reintroduce the stampede. A singleton means all
+requests across the process share one in-flight map.
+
+The cache read happens *inside* the coalesced factory, so a follower that waited
+on an earlier flight — and then began a fresh one — re-reads the now-filled
+cache and returns a hit without calling NWS.
+
+## What it does and does not guarantee
+
+- **Guarantees:** at most one upstream fetch per cell *at any instant*. Load on
+  NWS is bounded by the number of *distinct cold cells*, not by user count.
+- **Does not guarantee:** suppression of fetches *across time*. Two sequential
+  (non-overlapping) misses for a cold cell are two fetches — that is the cache's
+  job (TTL + conditional GETs), which the coalescer composes with rather than
+  replaces.
+
+## Cancellation semantics
+
+A flight is shared, so one caller cancelling must not abort the work the others
+await. Every caller — leader and follower alike — awaits the shared task via
+`Task.WaitAsync(callerToken)`, which detaches only that caller. The factory runs
+under a flight-owned token that is cancelled only when **all** callers have
+detached (reference-counted), so a genuinely abandoned flight stops its upstream
+call, while a partially-abandoned one continues for whoever is still waiting.
+
+## Observability
+
+`WeatherTelemetry` emits `weather.cache.coalesced` (a counter tagged
+`role=leader|follower`). Under refresh-spam you should see one `leader` and many
+`follower` increments per cold cell: each follower is an upstream call that was
+**avoided**. Combined with the existing `weather.cache.requests` (hit/miss) and
+`weather.nws.request.duration` metrics, the Aspire dashboard / Uptrace shows the
+protection working in real time.
+
+## Tests
+
+- `RequestCoalescerTests` — pins the coalescer contract in isolation: concurrent
+  collapse, sequential non-collapse, exception propagation to all waiters,
+  per-caller cancellation not aborting the shared flight, distinct keys running
+  in parallel, and argument validation.
+- `WeatherServiceTests.ConcurrentColdRequestsForSameGridCallNwsOnce` — fires 50
+  concurrent requests at one cold cell behind a gated NWS stub and asserts
+  exactly one upstream call.
+
+
+
+================================================================================
 FILE: export.ps1
-SIZE: 6.05 KB
-MODIFIED: 06/22/2026 15:04:57
+SIZE: 7.28 KB
+MODIFIED: 06/24/2026 08:49:33
 ================================================================================
 
 # Export Git-tracked ASP.NET Project Files to Single Text File
@@ -1470,8 +1966,17 @@ $IncludeSpecificFiles = @(
 # Containerfile.worker) without having to list each one.
 $IncludeFilenamePrefixes = @("Containerfile")
 
-# Directories to skip even if tracked (e.g. this script's own output)
-$ExcludeDirectories = @("docs")
+# Directories whose contents are skipped even if tracked. The LLM output lives
+# under docs/llm (dump.txt, output.txt, vendor conversation logs); excluding it
+# keeps the dump from containing itself and keeps those large logs out. NOTE:
+# this is a path PREFIX match, so it also covers docs/llm/vendor/*.
+$ExcludeDirectories = @("docs/llm")
+
+# Directories whose ENTIRE contents are exported regardless of file extension,
+# so docs/*.md (ARCHITECTURE, OBSERVABILITY, STAMPEDE, ...) and any other docs
+# assets are included. Anything matched by $ExcludeDirectories above still wins
+# and is skipped, so docs/llm stays out.
+$IncludeDirectories = @("docs")
 
 Write-Host "Starting project export..." -ForegroundColor Green
 Write-Host "Project Path: $ProjectPath" -ForegroundColor Yellow
@@ -1508,13 +2013,21 @@ $AllFiles = $gitFiles | ForEach-Object {
     }
     if ($skip) { return }
 
+    # Force-include everything under an included directory (e.g. docs/), no
+    # matter the extension. Excluded dirs above already took precedence.
+    $inIncludedDir = $false
+    foreach ($d in $IncludeDirectories) {
+        if ($rel -like "$d/*" -or $rel -like "$d\*") { $inIncludedDir = $true; break }
+    }
+
     # Match by extension, exact filename, or filename prefix
     $matchesPrefix = $false
     foreach ($p in $IncludeFilenamePrefixes) {
         if ($name.StartsWith($p)) { $matchesPrefix = $true; break }
     }
 
-    if ($IncludeExtensions -contains $ext -or
+    if ($inIncludedDir -or
+        $IncludeExtensions -contains $ext -or
         $IncludeSpecificFiles -contains $name -or
         $matchesPrefix) {
         $fullPath = Join-Path $ResolvedRoot $rel
@@ -1542,8 +2055,17 @@ $header | Out-File -FilePath $OutputPath -Encoding UTF8
 "==============================" | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 
-# Show a compact tree of tracked paths
-$gitFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
+# Show a compact tree of tracked paths. Drop $ExcludeDirectories (docs/llm) so
+# the export never lists — or contains — anything inside the LLM folder.
+$treeFiles = $gitFiles | Where-Object {
+    $rel = $_
+    $hide = $false
+    foreach ($d in $ExcludeDirectories) {
+        if ($rel -like "$d/*" -or $rel -like "$d\*") { $hide = $true; break }
+    }
+    -not $hide
+}
+$treeFiles | Sort-Object | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
 ""  | Out-File -FilePath $OutputPath -Append -Encoding UTF8
@@ -1661,8 +2183,8 @@ MODIFIED: 06/19/2026 08:36:12
 
 ================================================================================
 FILE: src/Weather.Api/appsettings.json
-SIZE: 0.57 KB
-MODIFIED: 06/23/2026 13:14:11
+SIZE: 0.61 KB
+MODIFIED: 06/24/2026 08:47:31
 ================================================================================
 
 {
@@ -1679,6 +2201,7 @@ MODIFIED: 06/23/2026 13:14:11
     "PointMetadataTtl": "30.00:00:00",
     "MaxForecastTtl": "06:00:00",
     "AlertsTtl": "00:05:00",
+    "NotFoundForecastTtl": "06:00:00",
     "RequestTimeout": "00:00:15"
   },
   "Cache": {
@@ -2366,6 +2889,65 @@ public interface IForecastCache
 
 
 ================================================================================
+FILE: src/Weather.Core/Abstractions/IForecastNegativeCache.cs
+SIZE: 2.32 KB
+MODIFIED: 06/24/2026 08:51:14
+================================================================================
+
+using Weather.Core.Models;
+
+namespace Weather.Core.Abstractions;
+
+/// <summary>
+/// Negative ("not-found") cache for the headline daily forecast, keyed by grid
+/// cell. When NWS answers <c>/gridpoints/.../forecast</c> with a 404 — for a
+/// marine/coastal cell this is <c>MarineForecastNotSupported</c> — that answer
+/// is structurally stable: the cell simply has no land forecast. Remembering it
+/// for a TTL is what stops the area fan-out (and the background warmer) from
+/// re-requesting the same uncovered cells on every view.
+///
+/// <para>
+/// Kept separate from <see cref="IForecastCache"/> on purpose. The positive
+/// cache stores a payload with conditional-GET/ETag bookkeeping; this stores
+/// only the <em>absence</em> of a forecast plus the captured
+/// <see cref="NwsProblem"/>. Mixing the two would force the positive cache's
+/// record to model "no forecast", weakening it. The TTL (see
+/// <c>NwsClientOptions.NotFoundForecastTtl</c>) is deliberately longer than the
+/// forecast TTL but finite, so a misrouted or transient 404 self-heals on the
+/// next check and a cell that NWS later starts supporting is picked up.
+/// </para>
+/// </summary>
+public interface IForecastNegativeCache
+{
+    /// <summary>The remembered 404 for a cell, or <c>null</c> if none is stored.</summary>
+    Task<CachedForecastNotFound?> GetAsync(GridPoint grid, CancellationToken cancellationToken = default);
+
+    /// <summary>Remember that a cell currently has no forecast, with TTL bookkeeping.</summary>
+    Task UpsertAsync(GridPoint grid, CachedForecastNotFound entry, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Forget a cell's remembered 404. Called when a later fetch succeeds, so a
+    /// cell that flips from uncovered to covered does not keep a dead row.
+    /// </summary>
+    Task RemoveAsync(GridPoint grid, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// A remembered forecast 404 for a grid cell: the captured problem detail (may
+/// be <c>null</c> when NWS sent no body) plus the TTL window during which the
+/// cell is treated as having no forecast without asking NWS again.
+/// </summary>
+public sealed record CachedForecastNotFound(
+    NwsProblem? Problem,
+    DateTimeOffset RetrievedAtUtc,
+    DateTimeOffset ExpiresAtUtc)
+{
+    public bool IsFresh(DateTimeOffset now) => ExpiresAtUtc > now;
+}
+
+
+
+================================================================================
 FILE: src/Weather.Core/Abstractions/INeighborhoodWarmer.cs
 SIZE: 0.64 KB
 MODIFIED: 06/19/2026 08:36:12
@@ -2753,8 +3335,8 @@ public sealed record Forecast(
 
 ================================================================================
 FILE: src/Weather.Core/Models/ForecastFetchResult.cs
-SIZE: 1.95 KB
-MODIFIED: 06/19/2026 08:52:56
+SIZE: 2.68 KB
+MODIFIED: 06/24/2026 08:45:04
 ================================================================================
 
 namespace Weather.Core.Models;
@@ -2794,6 +3376,14 @@ public sealed record ForecastFetchResult
     /// </summary>
     public GeoCoordinate? Center { get; init; }
 
+    /// <summary>
+    /// The RFC 7807 problem detail accompanying a <see cref="NwsFetchOutcome.NotFound"/>
+    /// (e.g. <c>MarineForecastNotSupported</c>). Lets the caller remember and
+    /// surface <em>why</em> a cell is uncovered. Null for every other outcome,
+    /// and for a 404 with no parseable body.
+    /// </summary>
+    public NwsProblem? Problem { get; init; }
+
     public static ForecastFetchResult Success(
         Forecast forecast, string? etag, TimeSpan? maxAge, GeoCoordinate? center = null) =>
         new() { Outcome = NwsFetchOutcome.Success, Forecast = forecast, ETag = etag, MaxAge = maxAge, Center = center };
@@ -2801,7 +3391,15 @@ public sealed record ForecastFetchResult
     public static ForecastFetchResult NotModified(string? etag, TimeSpan? maxAge) =>
         new() { Outcome = NwsFetchOutcome.NotModified, ETag = etag, MaxAge = maxAge };
 
-    public static readonly ForecastFetchResult NotFound = new() { Outcome = NwsFetchOutcome.NotFound };
+    /// <summary>
+    /// A 404 from NWS, optionally carrying the parsed problem detail. This is a
+    /// factory (not a shared static) because each 404 can carry a different
+    /// <see cref="NwsProblem"/>; the negative cache persists it so the area
+    /// fan-out stops re-requesting uncovered cells.
+    /// </summary>
+    public static ForecastFetchResult NotFound(NwsProblem? problem = null) =>
+        new() { Outcome = NwsFetchOutcome.NotFound, Problem = problem };
+
     public static readonly ForecastFetchResult Unavailable = new() { Outcome = NwsFetchOutcome.Unavailable };
 }
 
@@ -3008,6 +3606,61 @@ public sealed record NeighborhoodForecast(
 
 
 ================================================================================
+FILE: src/Weather.Core/Models/NwsProblem.cs
+SIZE: 1.54 KB
+MODIFIED: 06/24/2026 08:51:14
+================================================================================
+
+namespace Weather.Core.Models;
+
+/// <summary>
+/// The RFC 7807 <c>application/problem+json</c> document the National Weather
+/// Service returns on a 4xx. The forecast endpoint uses it to explain a 404 —
+/// most notably <c>MarineForecastNotSupported</c> for coastal/marine grid cells
+/// that have no land forecast. Capturing the reason lets the negative cache log
+/// and surface <em>why</em> a cell is uncovered rather than just that it is.
+///
+/// <para>
+/// Every field is nullable because the body is outside our control: a defensive
+/// parse that tolerates a missing field (or a non-JSON error page) is safer
+/// than one that throws.
+/// </para>
+/// </summary>
+public sealed record NwsProblem(
+    string? Type,
+    string? Title,
+    int? Status,
+    string? Detail,
+    string? CorrelationId)
+{
+    /// <summary>
+    /// The short, human-meaningful problem name: the last path segment of
+    /// <see cref="Type"/>. For
+    /// <c>https://api.weather.gov/problems/MarineForecastNotSupported</c> this is
+    /// <c>MarineForecastNotSupported</c>. Used as a low-cardinality metric tag.
+    /// Returns <c>null</c> when no type URI was supplied.
+    /// </summary>
+    public string? TypeName
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Type))
+            {
+                return null;
+            }
+
+            var trimmed = Type.TrimEnd('/');
+            var slash = trimmed.LastIndexOf('/');
+            return slash >= 0 && slash < trimmed.Length - 1
+                ? trimmed[(slash + 1)..]
+                : trimmed;
+        }
+    }
+}
+
+
+
+================================================================================
 FILE: src/Weather.Core/Models/Observation.cs
 SIZE: 0.71 KB
 MODIFIED: 06/19/2026 08:52:56
@@ -3095,8 +3748,8 @@ public sealed record WeatherAlert(
 
 ================================================================================
 FILE: src/Weather.Core/Telemetry/WeatherTelemetry.cs
-SIZE: 4.72 KB
-MODIFIED: 06/22/2026 15:03:24
+SIZE: 5.55 KB
+MODIFIED: 06/24/2026 08:47:05
 ================================================================================
 
 using System.Diagnostics;
@@ -3125,6 +3778,7 @@ public sealed class WeatherTelemetry : IDisposable
     private readonly Counter<long> _nwsThrottled;
     private readonly Counter<long> _nwsErrors;
     private readonly Counter<long> _neighborhoodWarmed;
+    private readonly Counter<long> _nwsNotFoundCached;
 
     public ActivitySource ActivitySource { get; }
 
@@ -3162,6 +3816,11 @@ public sealed class WeatherTelemetry : IDisposable
             "weather.neighborhood.warmed",
             unit: "{cell}",
             description: "Neighbouring grid cells warmed by the background service.");
+
+        _nwsNotFoundCached = _meter.CreateCounter<long>(
+            "weather.nws.notfound",
+            unit: "{cell}",
+            description: "NWS forecast 404s remembered as negative cache entries (e.g. MarineForecastNotSupported for marine cells) so the area fan-out and warmer stop re-requesting uncovered cells. Tagged by problem type.");
     }
 
     public void RecordCacheHit(string cache) => _cacheRequests.Add(
@@ -3204,6 +3863,15 @@ public sealed class WeatherTelemetry : IDisposable
     public void RecordNeighborWarmed(string gridId) =>
         _neighborhoodWarmed.Add(1, new KeyValuePair<string, object?>("grid_id", gridId));
 
+    /// <summary>
+    /// A forecast 404 was just remembered in the negative cache. The
+    /// <paramref name="problemType"/> (e.g. <c>MarineForecastNotSupported</c>)
+    /// is the low-cardinality reason; <c>"unknown"</c> when NWS sent no type.
+    /// </summary>
+    public void RecordForecastNotFoundCached(string? problemType) => _nwsNotFoundCached.Add(
+        1,
+        new KeyValuePair<string, object?>("type", problemType ?? "unknown"));
+
     public void Dispose()
     {
         _meter.Dispose();
@@ -3240,8 +3908,8 @@ MODIFIED: 06/19/2026 08:36:12
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Caching/DatabaseInitializer.cs
-SIZE: 3.78 KB
-MODIFIED: 06/23/2026 13:13:25
+SIZE: 4.96 KB
+MODIFIED: 06/24/2026 08:46:51
 ================================================================================
 
 using Dapper;
@@ -3326,6 +3994,30 @@ public sealed class DatabaseInitializer(
 
         CREATE INDEX IF NOT EXISTS IX_Alerts_ExpiresAtUtc
             ON Alerts (ExpiresAtUtc);
+
+        -- Negative ("not-found") cache for the daily forecast, keyed by grid
+        -- cell. A 404 from /gridpoints/.../forecast (e.g. MarineForecastNotSupported
+        -- for a marine cell) is structurally stable, so it is remembered for a
+        -- TTL to stop the area fan-out and warmer re-requesting uncovered cells.
+        -- The RFC 7807 problem is flat, so its fields live in columns (not JSON)
+        -- and are directly queryable. Every problem column is nullable: a 404
+        -- with no body is recorded with them all null.
+        CREATE TABLE IF NOT EXISTS ForecastNotFound (
+            GridId         TEXT    NOT NULL,
+            GridX          INTEGER NOT NULL,
+            GridY          INTEGER NOT NULL,
+            ProblemType    TEXT    NULL,
+            ProblemTitle   TEXT    NULL,
+            ProblemStatus  INTEGER NULL,
+            ProblemDetail  TEXT    NULL,
+            CorrelationId  TEXT    NULL,
+            RetrievedAtUtc TEXT    NOT NULL,
+            ExpiresAtUtc   TEXT    NOT NULL,
+            PRIMARY KEY (GridId, GridX, GridY)
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_ForecastNotFound_ExpiresAtUtc
+            ON ForecastNotFound (ExpiresAtUtc);
         """;
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -3695,6 +4387,141 @@ internal sealed class SqliteForecastCache(ISqliteConnectionFactory connectionFac
 
 
 ================================================================================
+FILE: src/Weather.Infrastructure/Caching/SqliteForecastNegativeCache.cs
+SIZE: 5.35 KB
+MODIFIED: 06/24/2026 08:51:14
+================================================================================
+
+using Dapper;
+using Weather.Core.Abstractions;
+using Weather.Core.Models;
+
+namespace Weather.Infrastructure.Caching;
+
+/// <summary>
+/// SQLite-backed negative cache for forecast 404s, keyed by grid cell. Unlike
+/// the forecast/extras/alert caches (which serialise a nested payload to a JSON
+/// column), the RFC 7807 problem is flat, so its fields are stored in dedicated
+/// columns — cheap to inspect and queryable, e.g. to count how many marine
+/// cells have been discovered (<c>SELECT COUNT(*) FROM ForecastNotFound WHERE
+/// ProblemType LIKE '%MarineForecastNotSupported'</c>). This is what stops the
+/// area fan-out and background warmer from re-requesting cells NWS does not
+/// cover: a fresh row is served straight from SQLite, exactly like the positive
+/// caches.
+/// </summary>
+internal sealed class SqliteForecastNegativeCache(ISqliteConnectionFactory connectionFactory) : IForecastNegativeCache
+{
+    private const string SelectSql =
+        """
+        SELECT ProblemType, ProblemTitle, ProblemStatus, ProblemDetail, CorrelationId,
+               RetrievedAtUtc, ExpiresAtUtc
+        FROM ForecastNotFound
+        WHERE GridId = @GridId AND GridX = @GridX AND GridY = @GridY;
+        """;
+
+    private const string UpsertSql =
+        """
+        INSERT INTO ForecastNotFound
+            (GridId, GridX, GridY, ProblemType, ProblemTitle, ProblemStatus, ProblemDetail,
+             CorrelationId, RetrievedAtUtc, ExpiresAtUtc)
+        VALUES
+            (@GridId, @GridX, @GridY, @ProblemType, @ProblemTitle, @ProblemStatus, @ProblemDetail,
+             @CorrelationId, @RetrievedAtUtc, @ExpiresAtUtc)
+        ON CONFLICT(GridId, GridX, GridY) DO UPDATE SET
+            ProblemType    = excluded.ProblemType,
+            ProblemTitle   = excluded.ProblemTitle,
+            ProblemStatus  = excluded.ProblemStatus,
+            ProblemDetail  = excluded.ProblemDetail,
+            CorrelationId  = excluded.CorrelationId,
+            RetrievedAtUtc = excluded.RetrievedAtUtc,
+            ExpiresAtUtc   = excluded.ExpiresAtUtc;
+        """;
+
+    private const string DeleteSql =
+        """
+        DELETE FROM ForecastNotFound
+        WHERE GridId = @GridId AND GridX = @GridX AND GridY = @GridY;
+        """;
+
+    public async Task<CachedForecastNotFound?> GetAsync(GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        var row = await connection.QuerySingleOrDefaultAsync<NotFoundRow>(
+            new CommandDefinition(SelectSql, new { grid.GridId, grid.GridX, grid.GridY },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        // A row with every problem column null means "404 with no body".
+        var problem =
+            row.ProblemType is null && row.ProblemTitle is null && row.ProblemStatus is null &&
+            row.ProblemDetail is null && row.CorrelationId is null
+                ? null
+                : new NwsProblem(
+                    row.ProblemType,
+                    row.ProblemTitle,
+                    row.ProblemStatus is { } status ? (int)status : null,
+                    row.ProblemDetail,
+                    row.CorrelationId);
+
+        return new CachedForecastNotFound(
+            problem,
+            TimestampText.Parse(row.RetrievedAtUtc),
+            TimestampText.Parse(row.ExpiresAtUtc));
+    }
+
+    public async Task UpsertAsync(GridPoint grid, CachedForecastNotFound entry, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        await connection.ExecuteAsync(new CommandDefinition(UpsertSql, new
+        {
+            grid.GridId,
+            grid.GridX,
+            grid.GridY,
+            ProblemType = entry.Problem?.Type,
+            ProblemTitle = entry.Problem?.Title,
+            ProblemStatus = entry.Problem?.Status,
+            ProblemDetail = entry.Problem?.Detail,
+            CorrelationId = entry.Problem?.CorrelationId,
+            RetrievedAtUtc = TimestampText.ToText(entry.RetrievedAtUtc),
+            ExpiresAtUtc = TimestampText.ToText(entry.ExpiresAtUtc),
+        }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    public async Task RemoveAsync(GridPoint grid, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory
+            .CreateOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+
+        await connection.ExecuteAsync(new CommandDefinition(DeleteSql,
+            new { grid.GridId, grid.GridX, grid.GridY },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    // SQLite stores ProblemStatus in an INTEGER column, which Microsoft.Data.Sqlite
+    // surfaces as Int64. Dapper's constructor-based record materialization is strict
+    // about width, so this MUST be `long?` (not `int?`) or it throws "no matching
+    // constructor". It is narrowed back to the domain's int? in GetAsync.
+    private sealed record NotFoundRow(
+        string? ProblemType,
+        string? ProblemTitle,
+        long? ProblemStatus,
+        string? ProblemDetail,
+        string? CorrelationId,
+        string RetrievedAtUtc,
+        string ExpiresAtUtc);
+}
+
+
+
+================================================================================
 FILE: src/Weather.Infrastructure/Caching/SqlitePointMetadataCache.cs
 SIZE: 4.99 KB
 MODIFIED: 06/19/2026 08:36:12
@@ -3855,8 +4682,8 @@ internal static class TimestampText
 
 ================================================================================
 FILE: src/Weather.Infrastructure/DependencyInjection.cs
-SIZE: 8.11 KB
-MODIFIED: 06/23/2026 18:20:02
+SIZE: 8.2 KB
+MODIFIED: 06/24/2026 08:47:16
 ================================================================================
 
 using System.Threading.RateLimiting;
@@ -3904,6 +4731,7 @@ public static class DependencyInjection
         services.TryAddSingleton<IPointMetadataCache, SqlitePointMetadataCache>();
         services.TryAddSingleton<ICellExtrasCache, SqliteCellExtrasCache>();
         services.TryAddSingleton<IAlertCache, SqliteAlertCache>();
+        services.TryAddSingleton<IForecastNegativeCache, SqliteForecastNegativeCache>();
         services.AddHostedService<DatabaseInitializer>();
 
         // ---------------------------------------------------------------------
@@ -4025,12 +4853,13 @@ public static class DependencyInjection
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Nws/NwsApiClient.cs
-SIZE: 19.72 KB
-MODIFIED: 06/23/2026 18:20:14
+SIZE: 21.69 KB
+MODIFIED: 06/24/2026 08:51:14
 ================================================================================
 
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -4155,12 +4984,21 @@ internal sealed class NwsApiClient(
                         response.Headers.CacheControl?.MaxAge);
 
                 case HttpStatusCode.NotFound:
-                    if (logger.IsEnabled(LogLevel.Information))
                     {
-                        logger.LogInformation("NWS has no forecast for grid {Grid}.", grid);
-                    }
+                        // Capture the RFC 7807 reason (e.g. MarineForecastNotSupported)
+                        // so the caller can remember and surface WHY this cell is
+                        // uncovered. Best-effort: a missing/non-JSON body yields null.
+                        var problem = await TryReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
 
-                    return ForecastFetchResult.NotFound;
+                        if (logger.IsEnabled(LogLevel.Information))
+                        {
+                            logger.LogInformation(
+                                "NWS has no forecast for grid {Grid} ({Problem}).",
+                                grid, problem?.Title ?? problem?.TypeName ?? "404");
+                        }
+
+                        return ForecastFetchResult.NotFound(problem);
+                    }
 
                 case HttpStatusCode.TooManyRequests:
                     telemetry.RecordThrottled(ForecastEndpoint);
@@ -4533,6 +5371,44 @@ internal sealed class NwsApiClient(
         }
     }
 
+    /// <summary>
+    /// Best-effort parse of the RFC 7807 problem document NWS returns on a 404
+    /// (e.g. <c>MarineForecastNotSupported</c>). Returns <c>null</c> when the
+    /// body is absent, empty or not parseable — a malformed or non-JSON error
+    /// body must never turn a 404 into a throw. Cancellation propagates.
+    /// </summary>
+    private static async Task<NwsProblem?> TryReadProblemAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.Content is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return null;
+            }
+
+            var dto = JsonSerializer.Deserialize<NwsProblemResponse>(body, WeatherJson.Options);
+            if (dto is null ||
+                (dto.Type is null && dto.Title is null && dto.Status is null &&
+                 dto.Detail is null && dto.CorrelationId is null))
+            {
+                return null;
+            }
+
+            return new NwsProblem(dto.Type, dto.Title, dto.Status, dto.Detail, dto.CorrelationId);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or HttpRequestException or IOException)
+        {
+            return null;
+        }
+    }
+
     private void RecordDuration(string endpoint, int statusCode, long startTimestamp, bool conditional) =>
         telemetry.RecordNwsRequest(
             endpoint,
@@ -4548,8 +5424,8 @@ internal sealed class NwsApiClient(
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Nws/NwsClientOptions.cs
-SIZE: 3.16 KB
-MODIFIED: 06/23/2026 18:20:24
+SIZE: 3.88 KB
+MODIFIED: 06/24/2026 08:46:41
 ================================================================================
 
 namespace Weather.Infrastructure.Nws;
@@ -4591,6 +5467,18 @@ public sealed class NwsClientOptions
     public TimeSpan AlertsTtl { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
+    /// How long a forecast 404 is remembered as a negative cache entry before
+    /// NWS is asked again. A 404 from <c>/gridpoints/.../forecast</c> — for a
+    /// marine cell this is <c>MarineForecastNotSupported</c> — is structurally
+    /// stable, so this is deliberately longer than <see cref="DefaultForecastTtl"/>
+    /// to keep the area fan-out and warmer from re-requesting uncovered cells.
+    /// It is still finite so a misrouted/transient 404 self-heals and a cell
+    /// NWS later starts covering is picked up. Set to <see cref="TimeSpan.Zero"/>
+    /// (or negative) to disable negative caching entirely.
+    /// </summary>
+    public TimeSpan NotFoundForecastTtl { get; set; } = TimeSpan.FromHours(6);
+
+    /// <summary>
     /// Timeout for a SINGLE upstream attempt. Wired into the resilience
     /// pipeline's per-attempt timeout (see <c>DependencyInjection</c>). Kept
     /// modest so one slow/hung NWS response is abandoned quickly and retried
@@ -4625,8 +5513,8 @@ public sealed class NwsClientOptions
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Nws/NwsJsonModels.cs
-SIZE: 5.35 KB
-MODIFIED: 06/19/2026 08:53:52
+SIZE: 6.1 KB
+MODIFIED: 06/24/2026 08:46:32
 ================================================================================
 
 using System.Text.Json;
@@ -4788,6 +5676,29 @@ internal sealed record NwsAlertProperties
     public DateTimeOffset? Onset { get; init; }
     public DateTimeOffset? Expires { get; init; }
     public DateTimeOffset? Ends { get; init; }
+}
+
+/// <summary>
+/// The RFC 7807 <c>application/problem+json</c> body NWS returns on a 4xx, e.g.
+/// a 404 for a marine cell:
+/// <code>
+/// {
+///   "correlationId": "1d604a85",
+///   "title": "Marine Forecast Not Supported",
+///   "type": "https://api.weather.gov/problems/MarineForecastNotSupported",
+///   "status": 404,
+///   "detail": "Forecasts for marine areas are not yet supported by this API."
+/// }
+/// </code>
+/// Parsed best-effort so a missing field (or a non-JSON error page) never throws.
+/// </summary>
+internal sealed record NwsProblemResponse
+{
+    public string? Type { get; init; }
+    public string? Title { get; init; }
+    public int? Status { get; init; }
+    public string? Detail { get; init; }
+    public string? CorrelationId { get; init; }
 }
 
 
@@ -5414,8 +6325,8 @@ internal sealed class RequestCoalescer<TKey> : IRequestCoalescer<TKey>
 
 ================================================================================
 FILE: src/Weather.Infrastructure/Services/WeatherService.cs
-SIZE: 23.52 KB
-MODIFIED: 06/23/2026 19:00:00
+SIZE: 25.89 KB
+MODIFIED: 06/24/2026 08:43:04
 ================================================================================
 
 using System.Collections.Concurrent;
@@ -5462,10 +6373,11 @@ internal sealed class WeatherService(
     IForecastCache forecastCache,
     ICellExtrasCache extrasCache,
     IAlertCache alertCache,
+    IForecastNegativeCache negativeCache,
     INwsApiClient nwsClient,
     INeighborhoodWarmer warmer,
     IRequestCoalescer<GridPoint> forecastCoalescer,
-    [FromKeyedServices(WeatherService.ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
+    [FromKeyedServices(ExtrasCoalescerKey)] IRequestCoalescer<GridPoint> extrasCoalescer,
     IRequestCoalescer<GeoCoordinate> metadataCoalescer,
     IRequestCoalescer<string> alertCoalescer,
     WeatherTelemetry telemetry,
@@ -5480,6 +6392,7 @@ internal sealed class WeatherService(
     private const string ForecastCacheName = "forecast";
     private const string ExtrasCacheName = "extras";
     private const string AlertsCacheName = "alerts";
+    private const string ForecastNotFoundCacheName = "forecast.notfound";
 
     // Coordinates are rounded to this many decimals before being used as a
     // cache key. ~1.1 km of resolution: coarse enough that GPS jitter between
@@ -5921,6 +6834,17 @@ internal sealed class WeatherService(
             return (cached.Forecast, null);
         }
 
+        // Negative cache: if we recently learned this cell has no forecast — a
+        // marine cell answering 404 MarineForecastNotSupported is the canonical
+        // case — don't ask NWS again until the tombstone expires. This is what
+        // stops the area fan-out and the warmer re-requesting uncovered cells.
+        var notFound = await negativeCache.GetAsync(grid, cancellationToken).ConfigureAwait(false);
+        if (notFound is not null && notFound.IsFresh(now))
+        {
+            telemetry.RecordCacheHit(ForecastNotFoundCacheName);
+            return (null, null);
+        }
+
         telemetry.RecordCacheMiss(ForecastCacheName);
 
         var result = await nwsClient
@@ -5933,6 +6857,10 @@ internal sealed class WeatherService(
                 var fresh = new CachedForecast(
                     result.Forecast, result.ETag, now, ComputeExpiry(now, result.MaxAge));
                 await forecastCache.UpsertAsync(fresh, cancellationToken).ConfigureAwait(false);
+
+                // A cell that was previously uncovered may now be covered;
+                // forget any (now-stale) negative entry so it doesn't linger.
+                await negativeCache.RemoveAsync(grid, cancellationToken).ConfigureAwait(false);
                 return (result.Forecast, result.Center);
 
             case NwsFetchOutcome.NotModified when cached is not null:
@@ -5951,10 +6879,44 @@ internal sealed class WeatherService(
                 return (cached.Forecast, null);
 
             case NwsFetchOutcome.NotFound:
+                // Remember the 404 (with its reason) so repeat views skip NWS.
+                await CacheForecastNotFoundAsync(grid, result.Problem, now, cancellationToken).ConfigureAwait(false);
+                return (null, null);
+
             case NwsFetchOutcome.Unavailable:
             case NwsFetchOutcome.NotModified:
             default:
                 return (null, null);
+        }
+    }
+
+    /// <summary>
+    /// Persist a forecast 404 as a negative cache entry (unless negative caching
+    /// is disabled via <c>NotFoundForecastTtl &lt;= 0</c>), capturing the RFC 7807
+    /// problem so the reason — e.g. <c>MarineForecastNotSupported</c> — is logged
+    /// and surfaced in metrics. The TTL is the longer, structurally-stable window
+    /// from <see cref="NwsClientOptions.NotFoundForecastTtl"/>.
+    /// </summary>
+    private async Task CacheForecastNotFoundAsync(
+        GridPoint grid, NwsProblem? problem, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var ttl = _options.NotFoundForecastTtl;
+        if (ttl <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        await negativeCache
+            .UpsertAsync(grid, new CachedForecastNotFound(problem, now, now + ttl), cancellationToken)
+            .ConfigureAwait(false);
+
+        telemetry.RecordForecastNotFoundCached(problem?.TypeName);
+
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Cached NWS not-found for grid {Grid} for {Ttl} ({Problem}).",
+                grid, ttl, problem?.Title ?? problem?.TypeName ?? "no problem detail");
         }
     }
 
@@ -9073,8 +10035,8 @@ internal sealed class WeatherApiFactory : WebApplicationFactory<Program>
 
 ================================================================================
 FILE: tests/Weather.Core.Tests/ForecastFetchResultTests.cs
-SIZE: 2.23 KB
-MODIFIED: 06/19/2026 08:36:12
+SIZE: 3.63 KB
+MODIFIED: 06/24/2026 08:49:11
 ================================================================================
 
 namespace Weather.Core.Tests;
@@ -9114,9 +10076,29 @@ public sealed class ForecastFetchResultTests
     [Test]
     public void NotFoundIsATerminalOutcomeWithNoPayload()
     {
-        ForecastFetchResult.NotFound.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
-        ForecastFetchResult.NotFound.Forecast.ShouldBeNull();
-        ForecastFetchResult.NotFound.ETag.ShouldBeNull();
+        var result = ForecastFetchResult.NotFound();
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        result.Forecast.ShouldBeNull();
+        result.ETag.ShouldBeNull();
+        result.Problem.ShouldBeNull();
+    }
+
+    [Test]
+    public void NotFoundCarriesTheProblemDetailWhenSupplied()
+    {
+        var problem = new NwsProblem(
+            "https://api.weather.gov/problems/MarineForecastNotSupported",
+            "Marine Forecast Not Supported",
+            404,
+            "Forecasts for marine areas are not yet supported by this API.",
+            "1d604a85");
+
+        var result = ForecastFetchResult.NotFound(problem);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        result.Problem.ShouldBe(problem);
+        result.Problem!.TypeName.ShouldBe("MarineForecastNotSupported");
     }
 
     [Test]
@@ -9149,6 +10131,27 @@ public sealed class GridPointTests
 
         (origin with { GridX = 84 }).ShouldBe(new GridPoint("AKQ", 84, 61));
     }
+}
+
+public sealed class NwsProblemTests
+{
+    [Test]
+    public void TypeNameIsTheLastPathSegmentOfTheTypeUri() =>
+        new NwsProblem("https://api.weather.gov/problems/MarineForecastNotSupported", null, null, null, null)
+            .TypeName.ShouldBe("MarineForecastNotSupported");
+
+    [Test]
+    public void TypeNameIgnoresATrailingSlash() =>
+        new NwsProblem("https://api.weather.gov/problems/InvalidPoint/", null, null, null, null)
+            .TypeName.ShouldBe("InvalidPoint");
+
+    [Test]
+    public void TypeNameReturnsTheWholeValueWhenThereIsNoSlash() =>
+        new NwsProblem("BareType", null, null, null, null).TypeName.ShouldBe("BareType");
+
+    [Test]
+    public void TypeNameIsNullWhenTypeIsMissing() =>
+        new NwsProblem(null, "Some title", 404, null, null).TypeName.ShouldBeNull();
 }
 
 
@@ -9478,8 +10481,8 @@ MODIFIED: 06/19/2026 08:36:12
 
 ================================================================================
 FILE: tests/Weather.Core.Tests/WeatherTelemetryTests.cs
-SIZE: 2.84 KB
-MODIFIED: 06/19/2026 08:36:12
+SIZE: 3.94 KB
+MODIFIED: 06/24/2026 08:49:23
 ================================================================================
 
 using System.Diagnostics.Metrics;
@@ -9568,6 +10571,41 @@ public sealed class WeatherTelemetryTests
         telemetry.RecordNwsRequest("forecast", statusCode: 200, elapsedMs: 42.5, conditional: false);
 
         recorded.ShouldHaveSingleItem().ShouldBe(42.5);
+    }
+
+    [Test]
+    public void ForecastNotFoundCachedIsRecordedWithTheProblemType()
+    {
+        using var telemetry = new WeatherTelemetry();
+        var types = new List<string?>();
+
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, l) =>
+        {
+            if (instrument.Meter.Name == WeatherTelemetry.MeterName &&
+                instrument.Name == "weather.nws.notfound")
+            {
+                l.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, state) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == "type")
+                {
+                    types.Add(tag.Value as string);
+                }
+            }
+        });
+        listener.Start();
+
+        telemetry.RecordForecastNotFoundCached("MarineForecastNotSupported");
+        telemetry.RecordForecastNotFoundCached(null);
+
+        types.Count.ShouldBe(2);
+        types.ShouldContain("MarineForecastNotSupported");
+        types.ShouldContain("unknown");
     }
 }
 
@@ -9949,6 +10987,145 @@ public sealed class SqliteForecastCacheTests
         loaded!.ETag.ShouldBe("\"v2\"");
         loaded.Forecast.Periods[0].ShortForecast.ShouldBe("Cloudy");
         loaded.Forecast.Periods[0].Temperature.ShouldBe(70);
+    }
+}
+
+
+
+================================================================================
+FILE: tests/Weather.Infrastructure.Tests/Caching/SqliteForecastNegativeCacheTests.cs
+SIZE: 4.78 KB
+MODIFIED: 06/24/2026 08:51:14
+================================================================================
+
+using Weather.Core.Abstractions;
+using Weather.Infrastructure.Caching;
+
+namespace Weather.Infrastructure.Tests.Caching;
+
+public sealed class SqliteForecastNegativeCacheTests
+{
+    private static readonly GridPoint Grid = new("AKQ", 83, 61);
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 18, 0, 0, TimeSpan.Zero);
+
+    private static NwsProblem MarineProblem() => new(
+        "https://api.weather.gov/problems/MarineForecastNotSupported",
+        "Marine Forecast Not Supported",
+        404,
+        "Forecasts for marine areas are not yet supported by this API.",
+        "1d604a85");
+
+    [Test]
+    public async Task UpsertThenGetRoundTripsEveryProblemField()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteForecastNegativeCache(harness.Factory);
+        var entry = new CachedForecastNotFound(MarineProblem(), Now, Now.AddHours(6));
+
+        await cache.UpsertAsync(Grid, entry);
+        var read = await cache.GetAsync(Grid);
+
+        read.ShouldNotBeNull();
+        read!.RetrievedAtUtc.ShouldBe(Now);
+        read.ExpiresAtUtc.ShouldBe(Now.AddHours(6));
+        read.Problem.ShouldNotBeNull();
+        read.Problem!.Type.ShouldBe("https://api.weather.gov/problems/MarineForecastNotSupported");
+        read.Problem.Title.ShouldBe("Marine Forecast Not Supported");
+        read.Problem.Status.ShouldBe(404);
+        read.Problem.Detail.ShouldBe("Forecasts for marine areas are not yet supported by this API.");
+        read.Problem.CorrelationId.ShouldBe("1d604a85");
+        read.Problem.TypeName.ShouldBe("MarineForecastNotSupported");
+    }
+
+    [Test]
+    public async Task GetReturnsNullWhenAbsent()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteForecastNegativeCache(harness.Factory);
+
+        (await cache.GetAsync(Grid)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task NullProblemRoundTripsAsNull()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteForecastNegativeCache(harness.Factory);
+
+        // A 404 with no body is a valid negative entry with no problem detail.
+        await cache.UpsertAsync(Grid, new CachedForecastNotFound(null, Now, Now.AddHours(6)));
+        var read = await cache.GetAsync(Grid);
+
+        read.ShouldNotBeNull();
+        read!.Problem.ShouldBeNull();
+        read.ExpiresAtUtc.ShouldBe(Now.AddHours(6));
+    }
+
+    [Test]
+    public async Task UpsertOverwritesTheExistingEntry()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteForecastNegativeCache(harness.Factory);
+
+        await cache.UpsertAsync(Grid, new CachedForecastNotFound(MarineProblem(), Now, Now.AddHours(6)));
+        await cache.UpsertAsync(Grid, new CachedForecastNotFound(null, Now.AddMinutes(1), Now.AddHours(7)));
+
+        var read = await cache.GetAsync(Grid);
+
+        read.ShouldNotBeNull();
+        read!.Problem.ShouldBeNull();
+        read.RetrievedAtUtc.ShouldBe(Now.AddMinutes(1));
+        read.ExpiresAtUtc.ShouldBe(Now.AddHours(7));
+    }
+
+    [Test]
+    public async Task RemoveDeletesTheEntry()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteForecastNegativeCache(harness.Factory);
+        await cache.UpsertAsync(Grid, new CachedForecastNotFound(MarineProblem(), Now, Now.AddHours(6)));
+
+        await cache.RemoveAsync(Grid);
+
+        (await cache.GetAsync(Grid)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task RemoveIsANoOpWhenAbsent()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteForecastNegativeCache(harness.Factory);
+
+        // Must not throw when there is nothing to delete.
+        await cache.RemoveAsync(Grid);
+
+        (await cache.GetAsync(Grid)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task EntriesAreKeyedPerCell()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteForecastNegativeCache(harness.Factory);
+        var other = Grid with { GridX = 84 };
+
+        await cache.UpsertAsync(Grid, new CachedForecastNotFound(MarineProblem(), Now, Now.AddHours(6)));
+
+        (await cache.GetAsync(Grid)).ShouldNotBeNull();
+        (await cache.GetAsync(other)).ShouldBeNull();
+    }
+
+    [Test]
+    public async Task FreshnessTracksTheExpiryInstant()
+    {
+        await using var harness = await SqliteCacheHarness.CreateAsync();
+        var cache = new SqliteForecastNegativeCache(harness.Factory);
+        await cache.UpsertAsync(Grid, new CachedForecastNotFound(MarineProblem(), Now, Now.AddHours(6)));
+
+        var read = await cache.GetAsync(Grid);
+
+        read!.IsFresh(Now.AddHours(3)).ShouldBeTrue();
+        read.IsFresh(Now.AddHours(7)).ShouldBeFalse();
     }
 }
 
@@ -10567,8 +11744,8 @@ public sealed class NwsApiClientExtraTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs
-SIZE: 7.82 KB
-MODIFIED: 06/19/2026 08:36:12
+SIZE: 10.15 KB
+MODIFIED: 06/24/2026 08:48:56
 ================================================================================
 
 using System.Net;
@@ -10744,7 +11921,66 @@ public sealed class NwsApiClientTests
         using var telemetry = new WeatherTelemetry();
         var client = CreateClient(handler, telemetry);
 
-        (await client.GetForecastAsync(SampleGrid)).Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        // A bodyless 404 still maps to NotFound, with no problem detail.
+        result.Problem.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task GetForecastParsesTheMarineForecastNotSupportedProblem()
+    {
+        const string problemBody =
+            """
+            {
+              "correlationId": "1d604a85",
+              "title": "Marine Forecast Not Supported",
+              "type": "https://api.weather.gov/problems/MarineForecastNotSupported",
+              "status": 404,
+              "detail": "Forecasts for marine areas are not yet supported by this API.",
+              "instance": "https://api.weather.gov/requests/1d604a85"
+            }
+            """;
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent(problemBody),
+            };
+            response.Content.Headers.ContentType =
+                new MediaTypeHeaderValue("application/problem+json");
+            return response;
+        });
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        result.Problem.ShouldNotBeNull();
+        result.Problem!.Title.ShouldBe("Marine Forecast Not Supported");
+        result.Problem.Type.ShouldBe("https://api.weather.gov/problems/MarineForecastNotSupported");
+        result.Problem.Status.ShouldBe(404);
+        result.Problem.CorrelationId.ShouldBe("1d604a85");
+        result.Problem.TypeName.ShouldBe("MarineForecastNotSupported");
+    }
+
+    [Test]
+    public async Task GetForecastTreatsAMalformed404BodyAsNotFoundWithoutProblem()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound)
+        {
+            Content = new StringContent("<html>not json</html>"),
+        });
+        using var telemetry = new WeatherTelemetry();
+        var client = CreateClient(handler, telemetry);
+
+        var result = await client.GetForecastAsync(SampleGrid);
+
+        // A non-JSON error body must never throw; it is just NotFound with no detail.
+        result.Outcome.ShouldBe(NwsFetchOutcome.NotFound);
+        result.Problem.ShouldBeNull();
     }
 
     [Test]
@@ -11101,8 +12337,8 @@ public sealed class RequestCoalescerTests
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs
-SIZE: 14.15 KB
-MODIFIED: 06/23/2026 18:21:06
+SIZE: 18.41 KB
+MODIFIED: 06/24/2026 08:48:06
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11164,6 +12400,7 @@ public sealed class WeatherServiceAreaTests
         public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
         public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
+        public IForecastNegativeCache NegativeCache { get; } = Substitute.For<IForecastNegativeCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
 
@@ -11181,7 +12418,7 @@ public sealed class WeatherServiceAreaTests
         public Harness()
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, NegativeCache, Nws, Warmer,
                 ForecastCoalescer, ExtrasCoalescer, MetadataCoalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
                 Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
@@ -11217,6 +12454,32 @@ public sealed class WeatherServiceAreaTests
             HourlyAndObservationAvailable();
             Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
                 .Returns(new[] { AlertSample() });
+        }
+
+        public static NwsProblem MarineProblem() => new(
+            "https://api.weather.gov/problems/MarineForecastNotSupported",
+            "Marine Forecast Not Supported", 404,
+            "Forecasts for marine areas are not yet supported by this API.", "1d604a85");
+
+        // The primary cell has a forecast; every neighbour is a "marine" cell
+        // that answers 404. The Grid-specific stub is registered AFTER the
+        // catch-all so it wins for the primary (NSubstitute uses the last match).
+        public void OnlyPrimaryHasForecastNeighboursAre404()
+        {
+            Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                .Returns(ForecastFetchResult.NotFound(MarineProblem()));
+            Nws.GetForecastAsync(Grid, Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30), CenterFor(Grid)));
+        }
+
+        // Every neighbour already has a fresh negative entry; the primary does
+        // not (so it is fetched). Used to prove neighbours are skipped entirely.
+        public void NeighboursHaveFreshNotFoundTombstones()
+        {
+            NegativeCache.GetAsync(Arg.Any<GridPoint>(), Arg.Any<CancellationToken>())
+                .Returns(new CachedForecastNotFound(MarineProblem(), Now, Now.AddHours(6)));
+            NegativeCache.GetAsync(Grid, Arg.Any<CancellationToken>())
+                .Returns((CachedForecastNotFound?)null);
         }
     }
 
@@ -11430,14 +12693,73 @@ public sealed class WeatherServiceAreaTests
         await h.AlertCache.Received(1).UpsertAsync(
             Arg.Any<GeoCoordinate>(), Arg.Any<CachedAlerts>(), Arg.Any<CancellationToken>());
     }
+
+    [Test]
+    public async Task GetAreaCachesNotFoundNeighboursAndDropsThemFromTheResult()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        h.OnlyPrimaryHasForecastNeighboursAre404();
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAvailable();
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Grid.ShouldBe(Grid);
+
+        // Marine neighbours have no forecast, so the area shows none of them.
+        area.Neighbors.Count.ShouldBe(0);
+
+        // Every one of the eight 404 neighbours was remembered (and the primary
+        // success cleared its own negative entry).
+        await h.NegativeCache.Received(8).UpsertAsync(
+            Arg.Is<GridPoint>(g => g != Grid),
+            Arg.Any<CachedForecastNotFound>(),
+            Arg.Any<CancellationToken>());
+        await h.NegativeCache.Received(1).RemoveAsync(Grid, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetAreaSkipsNeighboursWithAFreshNotFoundTombstone()
+    {
+        var h = new Harness();
+        h.ResolvesMetadata();
+        // Catch-all returns Unavailable; only the primary succeeds. If a
+        // neighbour were (incorrectly) fetched it would be dropped, but the
+        // DidNotReceive assertion below is what actually proves the skip.
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Unavailable);
+        h.Nws.GetForecastAsync(Grid, Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30), CenterFor(Grid)));
+        h.ExtrasAlwaysMiss();
+        h.HourlyAndObservationAvailable();
+        h.Nws.GetActiveAlertsAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<WeatherAlert>());
+        h.NeighboursHaveFreshNotFoundTombstones();
+
+        var area = await h.Service.GetAreaForecastAsync(Coord);
+
+        area.ShouldNotBeNull();
+        area!.Primary.Grid.ShouldBe(Grid);
+        area.Neighbors.Count.ShouldBe(0);
+
+        // The known-marine neighbours are never re-requested; only the primary
+        // (which has no tombstone) hits /forecast.
+        await h.Nws.Received(1).GetForecastAsync(Grid, Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        await h.Nws.DidNotReceive().GetForecastAsync(
+            Arg.Is<GridPoint>(g => g != Grid), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
 }
 
 
 
 ================================================================================
 FILE: tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs
-SIZE: 10.43 KB
-MODIFIED: 06/23/2026 18:21:20
+SIZE: 14.78 KB
+MODIFIED: 06/24/2026 08:47:54
 ================================================================================
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11482,6 +12804,7 @@ public sealed class WeatherServiceTests
         public IForecastCache ForecastCache { get; } = Substitute.For<IForecastCache>();
         public ICellExtrasCache ExtrasCache { get; } = Substitute.For<ICellExtrasCache>();
         public IAlertCache AlertCache { get; } = Substitute.For<IAlertCache>();
+        public IForecastNegativeCache NegativeCache { get; } = Substitute.For<IForecastNegativeCache>();
         public INwsApiClient Nws { get; } = Substitute.For<INwsApiClient>();
         public INeighborhoodWarmer Warmer { get; } = Substitute.For<INeighborhoodWarmer>();
         public WeatherService Service { get; }
@@ -11495,13 +12818,13 @@ public sealed class WeatherServiceTests
         public IRequestCoalescer<GeoCoordinate> MetadataCoalescer { get; } = new RequestCoalescer<GeoCoordinate>();
         public IRequestCoalescer<string> AlertCoalescer { get; } = new RequestCoalescer<string>();
 
-        public Harness()
+        public Harness(NwsClientOptions? options = null)
         {
             Service = new WeatherService(
-                MetadataCache, ForecastCache, ExtrasCache, AlertCache, Nws, Warmer,
+                MetadataCache, ForecastCache, ExtrasCache, AlertCache, NegativeCache, Nws, Warmer,
                 ForecastCoalescer, ExtrasCoalescer, MetadataCoalescer, AlertCoalescer,
                 new WeatherTelemetry(), new MutableTimeProvider(Now),
-                Options.Create(new NwsClientOptions()), NullLogger<WeatherService>.Instance);
+                Options.Create(options ?? new NwsClientOptions()), NullLogger<WeatherService>.Instance);
         }
     }
 
@@ -11590,9 +12913,98 @@ public sealed class WeatherServiceTests
         var h = new Harness();
         h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
         h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
-            .Returns(ForecastFetchResult.NotFound);
+            .Returns(ForecastFetchResult.NotFound());
 
         (await h.Service.GetForecastAsync(Coord)).ShouldBeNull();
+
+        // The 404 is remembered so the next request skips NWS.
+        await h.NegativeCache.Received(1).UpsertAsync(
+            Grid, Arg.Any<CachedForecastNotFound>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastNotFoundCachesTheProblemDetail()
+    {
+        var h = new Harness();
+        var problem = new NwsProblem(
+            "https://api.weather.gov/problems/MarineForecastNotSupported",
+            "Marine Forecast Not Supported", 404,
+            "Forecasts for marine areas are not yet supported by this API.", "1d604a85");
+
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.NotFound(problem));
+
+        (await h.Service.GetForecastAsync(Coord)).ShouldBeNull();
+
+        await h.NegativeCache.Received(1).UpsertAsync(
+            Grid,
+            Arg.Is<CachedForecastNotFound>(e => e.Problem != null && e.Problem.TypeName == "MarineForecastNotSupported"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastWithFreshNotFoundTombstoneSkipsNws()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        // A fresh negative entry: the cell is known to have no forecast.
+        h.NegativeCache.GetAsync(Grid, Arg.Any<CancellationToken>())
+            .Returns(new CachedForecastNotFound(null, Now, Now.AddHours(6)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldBeNull();
+        // The whole point: a fresh tombstone means ZERO calls to /forecast.
+        await h.Nws.DidNotReceive().GetForecastAsync(
+            Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastWithExpiredNotFoundTombstoneRefetches()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        // An EXPIRED tombstone must not suppress a re-check.
+        h.NegativeCache.GetAsync(Grid, Arg.Any<CancellationToken>())
+            .Returns(new CachedForecastNotFound(null, Now.AddHours(-12), Now.AddHours(-6)));
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        var result = await h.Service.GetForecastAsync(Coord);
+
+        result.ShouldNotBeNull();
+        await h.Nws.Received(1).GetForecastAsync(Grid, Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        // A now-covered cell has its stale negative entry cleared.
+        await h.NegativeCache.Received(1).RemoveAsync(Grid, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastSuccessClearsAnyNegativeTombstone()
+    {
+        var h = new Harness();
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.Success(ForecastFor(Grid), "\"e\"", TimeSpan.FromMinutes(30)));
+
+        await h.Service.GetForecastAsync(Coord);
+
+        await h.NegativeCache.Received(1).RemoveAsync(Grid, Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task GetForecastNotFoundCachingCanBeDisabledByZeroTtl()
+    {
+        var h = new Harness(new NwsClientOptions { NotFoundForecastTtl = TimeSpan.Zero });
+        h.MetadataCache.GetAsync(Arg.Any<GeoCoordinate>(), Arg.Any<CancellationToken>()).Returns(FreshMeta());
+        h.Nws.GetForecastAsync(Arg.Any<GridPoint>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(ForecastFetchResult.NotFound());
+
+        (await h.Service.GetForecastAsync(Coord)).ShouldBeNull();
+
+        // With negative caching off, nothing is written.
+        await h.NegativeCache.DidNotReceive().UpsertAsync(
+            Arg.Any<GridPoint>(), Arg.Any<CachedForecastNotFound>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -12177,7 +13589,7 @@ MODIFIED: 06/19/2026 12:34:36
 
 
 ===============================================================================
-EXPORT COMPLETED: 06/24/2026 08:39:11
-Total Files Exported: 137
+EXPORT COMPLETED: 06/24/2026 08:51:15
+Total Files Exported: 146
 Output File: D:\DEV\personal\weather\docs\llm\dump.txt
 ===============================================================================

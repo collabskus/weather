@@ -125,21 +125,21 @@ internal sealed class NwsApiClient(
                         response.Headers.CacheControl?.MaxAge);
 
                 case HttpStatusCode.NotFound:
-                {
-                    // Capture the RFC 7807 reason (e.g. MarineForecastNotSupported)
-                    // so the caller can remember and surface WHY this cell is
-                    // uncovered. Best-effort: a missing/non-JSON body yields null.
-                    var problem = await TryReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
-
-                    if (logger.IsEnabled(LogLevel.Information))
                     {
-                        logger.LogInformation(
-                            "NWS has no forecast for grid {Grid} ({Problem}).",
-                            grid, problem?.Title ?? problem?.TypeName ?? "404");
-                    }
+                        // Capture the RFC 7807 reason (e.g. MarineForecastNotSupported)
+                        // so the caller can remember and surface WHY this cell is
+                        // uncovered. Best-effort: a missing/non-JSON body yields null.
+                        var problem = await TryReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
 
-                    return ForecastFetchResult.NotFound(problem);
-                }
+                        if (logger.IsEnabled(LogLevel.Information))
+                        {
+                            logger.LogInformation(
+                                "NWS has no forecast for grid {Grid} ({Problem}).",
+                                grid, problem?.Title ?? problem?.TypeName ?? "404");
+                        }
+
+                        return ForecastFetchResult.NotFound(problem);
+                    }
 
                 case HttpStatusCode.TooManyRequests:
                     telemetry.RecordThrottled(ForecastEndpoint);
