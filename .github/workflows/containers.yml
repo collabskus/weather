@@ -28,6 +28,9 @@ on:
       - 'global.json'
       - 'nuget.config'
       - '.github/workflows/containers.yml'
+  schedule:
+    # Runs daily at 03:42 UTC
+    - cron: '42 3 * * *'
 
 permissions:
   contents: read
