@@ -8,9 +8,8 @@ individual files in /usr/share/doc/*/copyright.
 
 Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
 permitted by applicable law.
-Last login: Tue Jun 23 13:20:10 2026 from 192.168.0.73
-kushal@virginia:~$ cd ~/src/dotnet/weather; time git status; time git remote show origin; time git pull origin main --verbose; cd ~/src/dotnet/weather/deploy; time podman compose -f compose.yaml down; time podman pull mcr.microsoft.com/dotnet/sdk:10.0; time podman pull mcr.microsoft.com/dotnet/aspnet:10.0; time podman compose -f compose.yaml up --build --detach; podman compose -f compose.yaml ps; date; sleep 30; da
-te; podman logs weather_tunnel-web_1 2>&1 | grep trycloudflare.com;
+Last login: Tue Jun 23 19:05:13 2026 from 192.168.0.73
+kushal@virginia:~$ cd ~/src/dotnet/weather; time git status; time git remote show origin; time git pull origin main --verbose; cd ~/src/dotnet/weather/deploy; time podman compose -f compose.yaml down; time podman pull mcr.microsoft.com/dotnet/sdk:10.0; time podman pull mcr.microsoft.com/dotnet/aspnet:10.0; time podman compose -f compose.yaml up --build --detach; podman compose -f compose.yaml ps; date; sleep 30; date; podman logs weather_tunnel-web_1 2>&1 | grep trycloudflare.com;
 On branch main
 Your branch is up to date with 'origin/main'.
 
@@ -20,8 +19,8 @@ Untracked files:
 
 nothing added to commit but untracked files present (use "git add" to track)
 
-real    0m0.019s
-user    0m0.014s
+real    0m0.020s
+user    0m0.015s
 sys     0m0.006s
 * remote origin
   Fetch URL: https://github.com/collabskus/weather.git
@@ -34,89 +33,101 @@ sys     0m0.006s
   Local ref configured for 'git push':
     main pushes to main (local out of date)
 
-real    0m0.315s
-user    0m0.109s
-sys     0m0.036s
+real    0m0.271s
+user    0m0.106s
+sys     0m0.033s
 POST git-upload-pack (305 bytes)
 POST git-upload-pack (943 bytes)
-remote: Enumerating objects: 144, done.
-remote: Counting objects: 100% (144/144), done.
-remote: Compressing objects: 100% (48/48), done.
-remote: Total 113 (delta 74), reused 103 (delta 64), pack-reused 0 (from 0)
-Receiving objects: 100% (113/113), 257.52 KiB | 4.15 MiB/s, done.
-Resolving deltas: 100% (74/74), completed with 21 local objects.
+remote: Enumerating objects: 111, done.
+remote: Counting objects: 100% (111/111), done.
+remote: Compressing objects: 100% (21/21), done.
+remote: Total 72 (delta 52), reused 70 (delta 50), pack-reused 0 (from 0)
+Unpacking objects: 100% (72/72), 68.66 KiB | 772.00 KiB/s, done.
 From https://github.com/collabskus/weather
  * branch            main       -> FETCH_HEAD
-   1016b15..1010b30  main       -> origin/main
-Updating 1016b15..1010b30
+   1010b30..30fec2e  main       -> origin/main
+Updating 1010b30..30fec2e
 Fast-forward
- docs/llm/dump.txt                                                        |  717 ++++++++++++++++++++-------
- docs/llm/output.txt                                                      |  424 ++++++++--------
- docs/llm/vendor/claude-conversations.md                                  | 3382 ++++++++++++++++++++++---------------------------------------------------------------------------------------------------------
- docs/llm/vendor/virginia.md                                              |    2 +
- src/Weather.Core/Abstractions/INwsApiClient.cs                           |   38 +-
- src/Weather.Core/Models/CellExtras.cs                                    |   18 +-
- src/Weather.Infrastructure/DependencyInjection.cs                        |   92 +++-
- src/Weather.Infrastructure/Nws/NwsApiClient.cs                           |  120 ++---
- src/Weather.Infrastructure/Nws/NwsClientOptions.cs                       |   31 +-
- src/Weather.Infrastructure/Services/WeatherService.cs                    |  196 ++++++--
- tests/Weather.Api.Tests/Fakes/FakeNwsApiClient.cs                        |   30 +-
- tests/Weather.Infrastructure.Tests/Caching/SqliteCellExtrasCacheTests.cs |    7 +-
- tests/Weather.Infrastructure.Tests/Nws/NwsApiClientExtraTests.cs         |   41 ++
- tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs   |   81 +++-
- tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs       |   14 +-
- 15 files changed, 1856 insertions(+), 3337 deletions(-)
- create mode 100644 docs/llm/vendor/virginia.md
+ README.md                                                                      |  114 ++++-----
+ docs/llm/dump.txt                                                              | 1529 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-----
+ docs/llm/output.txt                                                            |  495 +++++++++++++++++++++------------------
+ docs/llm/vendor/claude-conversations.md                                        | 1400 ++++++++++++++++++++++++++++++++++++++++++++++++++++----------------------------------------------------------
+ docs/llm/vendor/virginia-output.txt                                            |  256 +++++++++++++++++++++
+ export.ps1                                                                     |   36 ++-
+ src/Weather.Api/appsettings.json                                               |    1 +
+ src/Weather.Core/Abstractions/IForecastNegativeCache.cs                        |   50 ++++
+ src/Weather.Core/Models/ForecastFetchResult.cs                                 |   18 +-
+ src/Weather.Core/Models/NwsProblem.cs                                          |   46 ++++
+ src/Weather.Core/Telemetry/WeatherTelemetry.cs                                 |   15 ++
+ src/Weather.Infrastructure/Caching/DatabaseInitializer.cs                      |   24 ++
+ src/Weather.Infrastructure/Caching/SqliteForecastNegativeCache.cs              |  126 ++++++++++
+ src/Weather.Infrastructure/DependencyInjection.cs                              |    1 +
+ src/Weather.Infrastructure/Nws/NwsApiClient.cs                                 |   56 ++++-
+ src/Weather.Infrastructure/Nws/NwsClientOptions.cs                             |   12 +
+ src/Weather.Infrastructure/Nws/NwsJsonModels.cs                                |   23 ++
+ src/Weather.Infrastructure/Services/WeatherService.cs                          |   51 +++++
+ tests/Weather.Core.Tests/ForecastFetchResultTests.cs                           |   47 +++-
+ tests/Weather.Core.Tests/WeatherTelemetryTests.cs                              |   35 +++
+ tests/Weather.Infrastructure.Tests/Caching/SqliteForecastNegativeCacheTests.cs |  130 +++++++++++
+ tests/Weather.Infrastructure.Tests/Nws/NwsApiClientTests.cs                    |   61 ++++-
+ tests/Weather.Infrastructure.Tests/Services/WeatherServiceAreaTests.cs         |   88 ++++++-
+ tests/Weather.Infrastructure.Tests/Services/WeatherServiceTests.cs             |   98 +++++++-
+ 24 files changed, 3603 insertions(+), 1109 deletions(-)
+ create mode 100644 docs/llm/vendor/virginia-output.txt
+ create mode 100644 src/Weather.Core/Abstractions/IForecastNegativeCache.cs
+ create mode 100644 src/Weather.Core/Models/NwsProblem.cs
+ create mode 100644 src/Weather.Infrastructure/Caching/SqliteForecastNegativeCache.cs
+ create mode 100644 tests/Weather.Infrastructure.Tests/Caching/SqliteForecastNegativeCacheTests.cs
 
-real    0m0.528s
-user    0m0.241s
-sys     0m0.098s
+real    0m0.527s
+user    0m0.221s
+sys     0m0.075s
 >>>> Executing external compose provider "/usr/bin/podman-compose". Please see podman-compose(1) for how to disable this message. <<<<
 
-weather_tunnel-api_1
-weather_tunnel-aspire_1
-weather_aspire-dashboard_1
-weather_api_1
-weather_tunnel-web_1
-weather_web_1
-weather_otelcol_1
-weather_tunnel-web_1
-weather_tunnel-api_1
-weather_web_1
-weather_api_1
 weather_tunnel-aspire_1
 weather_otelcol_1
 weather_aspire-dashboard_1
-3ba090917a4ab355b8198fcdd67790c04dd5f2e7f5d320a99c6bc178916188c7
+weather_api_1
+weather_tunnel-api_1
+weather_tunnel-web_1
+weather_web_1
+weather_tunnel-web_1
+weather_tunnel-api_1
+weather_web_1
+weather_api_1
+weather_tunnel-aspire_1
+weather_otelcol_1
+weather_aspire-dashboard_1
+8e1afdf8cd22153f8ad81fe5d8ea18559824f56af55adf8b6601e5cfb6bc1b5b
 weather_default
 
-real    0m2.724s
-user    0m1.739s
-sys     0m0.835s
+real    0m2.733s
+user    0m1.732s
+sys     0m0.853s
 Trying to pull mcr.microsoft.com/dotnet/sdk:10.0...
 Getting image source signatures
 Copying blob e46b7fd4cb80 skipped: already exists
 Copying blob 995fee283d28 skipped: already exists
-Copying blob a0489bf764ea skipped: already exists
 Copying blob 01a6e70bac15 skipped: already exists
 Copying blob e811eee7b15b skipped: already exists
+Copying blob a0489bf764ea skipped: already exists
 Copying blob 0e9914cbc886 skipped: already exists
-Copying blob 5f8bd1ac25dc skipped: already exists
-Copying blob afe634a74685 skipped: already exists
 Copying blob ff73fa535b6d skipped: already exists
+Copying blob afe634a74685 skipped: already exists
+Copying blob 5f8bd1ac25dc skipped: already exists
 Copying blob cb259a83ac3d skipped: already exists
 Copying config 2588552431 done   |
 Writing manifest to image destination
 2588552431551649d5503c5553b6a6300586f25310697ad2bdc6cb702f18bbb9
 
-real    0m0.947s
-user    0m0.284s
-sys     0m0.046s
+real    0m0.958s
+user    0m0.258s
+sys     0m0.071s
 Trying to pull mcr.microsoft.com/dotnet/aspnet:10.0...
 Getting image source signatures
 Copying blob e46b7fd4cb80 skipped: already exists
-Copying blob 01a6e70bac15 skipped: already exists
 Copying blob e811eee7b15b skipped: already exists
+Copying blob 01a6e70bac15 skipped: already exists
 Copying blob 995fee283d28 skipped: already exists
 Copying blob a0489bf764ea skipped: already exists
 Copying blob cb259a83ac3d skipped: already exists
@@ -124,9 +135,9 @@ Copying config 4bb9bff6c9 done   |
 Writing manifest to image destination
 4bb9bff6c9b0acb6875a8d5ea4b4ee22369834f4109a2ab0849d2d7fe02d1ea3
 
-real    0m0.974s
-user    0m0.271s
-sys     0m0.043s
+real    0m0.956s
+user    0m0.235s
+sys     0m0.079s
 >>>> Executing external compose provider "/usr/bin/podman-compose". Please see podman-compose(1) for how to disable this message. <<<<
 
 [1/2] STEP 1/5: FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
@@ -137,9 +148,9 @@ STEP 2/3: COPY deploy/otelcol-config.yaml /etc/otel/config.yaml
 [1/2] STEP 2/5: WORKDIR /src
 --> Using cache 76c7cbbbc44ab0d7fb035b1b7b1a06c9a64b73b1791314a3ac7bce92e2bd64e8
 --> 76c7cbbbc44a
-[1/2] STEP 3/5: COPY . .
 --> Using cache 76c7cbbbc44ab0d7fb035b1b7b1a06c9a64b73b1791314a3ac7bce92e2bd64e8
 --> 76c7cbbbc44a
+[1/2] STEP 3/5: COPY . .
 [1/2] STEP 3/5: COPY . .
 --> Using cache 42701beb75a0cdfe17009f779c37a3f24ed50229d92f6a97033b72564557f608
 --> 42701beb75a0
@@ -149,26 +160,26 @@ COMMIT weather_otelcol
 --> 5b64fc0f670f
 Successfully tagged localhost/weather_otelcol:latest
 5b64fc0f670f5b215f806bde4d51f5842a92854f192e4ec1a9a41abf37760e78
---> 855ddbdeab56
---> 7ed4617d8655
-[1/2] STEP 4/5: RUN dotnet restore src/Weather.Api/Weather.Api.csproj
+--> f6a37ccff25d
+--> e7f6d37fcdcb
 [1/2] STEP 4/5: RUN dotnet restore src/Weather.Web/Weather.Web.csproj
+[1/2] STEP 4/5: RUN dotnet restore src/Weather.Api/Weather.Api.csproj
   Determining projects to restore...
   Determining projects to restore...
-  Restored /src/src/Weather.Core/Weather.Core.csproj (in 265 ms).
-  Restored /src/src/Weather.Web/Weather.Web.csproj (in 2.8 sec).
-  Restored /src/src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj (in 2.8 sec).
-  Restored /src/src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj (in 3.76 sec).
---> 08be00851dcf
+  Restored /src/src/Weather.Core/Weather.Core.csproj (in 286 ms).
+  Restored /src/src/Weather.Web/Weather.Web.csproj (in 2.76 sec).
+  Restored /src/src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj (in 2.76 sec).
+  Restored /src/src/Weather.ServiceDefaults/Weather.ServiceDefaults.csproj (in 3.72 sec).
+--> 37e075234d3e
 [1/2] STEP 5/5: RUN dotnet publish src/Weather.Web/Weather.Web.csproj     -c Release     --no-restore     -o /app/publish     -p:UseAppHost=false
-  Restored /src/src/Weather.Api/Weather.Api.csproj (in 4.58 sec).
-  Restored /src/src/Weather.Infrastructure/Weather.Infrastructure.csproj (in 4.61 sec).
+  Restored /src/src/Weather.Api/Weather.Api.csproj (in 4.5 sec).
+  Restored /src/src/Weather.Infrastructure/Weather.Infrastructure.csproj (in 4.53 sec).
   Weather.ServiceDefaults -> /src/src/Weather.ServiceDefaults/bin/Release/net10.0/Weather.ServiceDefaults.dll
---> e1233cf9529e
+--> 8735a367429d
 [1/2] STEP 5/5: RUN dotnet publish src/Weather.Api/Weather.Api.csproj     -c Release     --no-restore     -o /app/publish     -p:UseAppHost=false
   Weather.Web -> /src/src/Weather.Web/bin/Release/net10.0/Weather.Web.dll
   Weather.Web -> /app/publish/
---> f29509d8ac56
+--> 1bdbc341f6c5
 [2/2] STEP 1/7: FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 [2/2] STEP 2/7: WORKDIR /app
 --> Using cache da0d34d18da830f8a107ebea77a212c5b6a0c70675f9de39ea28e07e2dff0fa8
@@ -177,22 +188,22 @@ Successfully tagged localhost/weather_otelcol:latest
 --> Using cache 507fa7861c232911dfdb8af12006c50d99097fab9455551ad4ce38cf3b93be6f
 --> 507fa7861c23
 [2/2] STEP 4/7: COPY --from=build --chown=1654:1654 /app/publish .
---> c767f4048207
+--> ddcddbac95d7
 [2/2] STEP 5/7: USER 1654
-  Weather.Core -> /src/src/Weather.Core/bin/Release/net10.0/Weather.Core.dll
-  Weather.ServiceDefaults -> /src/src/Weather.ServiceDefaults/bin/Release/net10.0/Weather.ServiceDefaults.dll
---> cbf9254ff7ae
+--> 5669d7898587
 [2/2] STEP 6/7: EXPOSE 8080
---> c926f945284a
+--> f201947729f7
 [2/2] STEP 7/7: ENTRYPOINT ["dotnet", "Weather.Web.dll"]
 [2/2] COMMIT weather_web
---> 22ff3dbf481d
+--> ffc1dda414ef
 Successfully tagged localhost/weather_web:latest
-22ff3dbf481df7b8b46a50be19a6e84a15a6f1bb768a2f8f74fdc243edf9bdd0
+ffc1dda414efd251aa92a24f272a25cc6b084cfeb33d4ec53e6397e3417fc484
+  Weather.Core -> /src/src/Weather.Core/bin/Release/net10.0/Weather.Core.dll
+  Weather.ServiceDefaults -> /src/src/Weather.ServiceDefaults/bin/Release/net10.0/Weather.ServiceDefaults.dll
   Weather.Infrastructure -> /src/src/Weather.Infrastructure/bin/Release/net10.0/Weather.Infrastructure.dll
   Weather.Api -> /src/src/Weather.Api/bin/Release/net10.0/Weather.Api.dll
   Weather.Api -> /app/publish/
---> 6417b357aa79
+--> a12ab5f945ab
 [2/2] STEP 1/9: FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 [2/2] STEP 2/9: WORKDIR /app
 --> Using cache da0d34d18da830f8a107ebea77a212c5b6a0c70675f9de39ea28e07e2dff0fa8
@@ -207,49 +218,49 @@ Successfully tagged localhost/weather_web:latest
 --> Using cache 261561cdff683eddc7c8acbee3a4551c6760fe408e1e75c83e8706d3b8e1dadc
 --> 261561cdff68
 [2/2] STEP 6/9: COPY --from=build --chown=1654:1654 /app/publish .
---> 3f9d867e85ca
+--> 1221ec20874a
 [2/2] STEP 7/9: USER 1654
---> 4a8a9632ab76
+--> f55d268411aa
 [2/2] STEP 8/9: EXPOSE 8080
---> 48352228e6c9
+--> a7487b43298e
 [2/2] STEP 9/9: ENTRYPOINT ["dotnet", "Weather.Api.dll"]
 [2/2] COMMIT weather_api
---> 9106e01e8488
+--> 07fe303ea45e
 Successfully tagged localhost/weather_api:latest
-9106e01e848800eb3b8c32e6ccc83c210d398eda422e887e1789407e2705a48a
-8e1afdf8cd22153f8ad81fe5d8ea18559824f56af55adf8b6601e5cfb6bc1b5b
-80f87618e39c2541c638e7fd417fa41b0ef2692c3f118f93092a10709a5e8b89
+07fe303ea45ec5bdc5cda7000c6c89e5521a6803a5d112730c87b56474b9e1f5
+698849eaa216e272a0ca323c933c1ca79beae7fa4a71270885c35f4d6775fd34
+bd211afec4dd85a27427ef052f13d66c10d99996862481e4deb49384ba385a07
 weather_aspire-dashboard_1
-a67e699efb0ec765149e3d42fd06ecb353fd0170adba78533e363eb3bc06d000
+c8c1426c67a1eeb0f52aefe30f99118c76c379e8f26c878d3e22a2d875dca73c
 weather_otelcol_1
-eb221b4513519002b9fd559448ef9fb9f6674ad80be5b9902cdb8e15d22c6ab3
+4f1eb6cf871d4208fda5d99b2d3595376cde548334a9b654d57daa7fb13c6a37
 weather_tunnel-aspire_1
-fe0778ef72fa3a46457af1e1881c330d0cb1d1b4d1a0e2e281335c13621898b7
+7b79251f64c73dd5f4ad6b019a0f11dd87489d2aa9a6d498ab417ff03ada4aeb
 weather_api_1
-f0e4d1c8b484380efb0d13964591f6118626a9918b65ce57381b453c6b876484
+572ccbf00d43a022ddb29c5f2715e3219b88fba32c00695c89fb958b17119373
 weather_web_1
-f34f947e3756e6222e8e6a05489afaade8d8fb151d2e2325a9ef9fef5903a2f2
+2bf99791ff03e327ceb07a778f9c767b597408ef4d45f6a53c1bbbc85be7f786
 weather_tunnel-api_1
-ff3cffc5daa815a836f4a5067f3ea2b999bbb433ff005ab63e42f85d77283ecd
+744aab8753b776873ba7c8bcf838aa7f6893b6d02838b358ab91eb89c9a0397b
 weather_tunnel-web_1
 
-real    0m53.116s
-user    1m18.420s
-sys     0m16.077s
+real    0m49.403s
+user    1m18.285s
+sys     0m15.949s
 >>>> Executing external compose provider "/usr/bin/podman-compose". Please see podman-compose(1) for how to disable this message. <<<<
 
-CONTAINER ID  IMAGE                                          COMMAND               CREATED                 STATUS                 PORTS                           NAMES
-80f87618e39c  mcr.microsoft.com/dotnet/aspire-dashboard:9.0                        4 seconds ago           Up 4 seconds           0.0.0.0:18888->18888/tcp        weather_aspire-dashboard_1
-a67e699efb0e  localhost/weather_otelcol:latest               --config=/etc/ote...  4 seconds ago           Up 4 seconds           4317-4318/tcp, 55678-55679/tcp  weather_otelcol_1
-eb221b451351  docker.io/cloudflare/cloudflared:latest        tunnel --no-autou...  3 seconds ago           Up 3 seconds                                           weather_tunnel-aspire_1
-fe0778ef72fa  localhost/weather_api:latest                                         2 seconds ago           Up 2 seconds           0.0.0.0:8080->8080/tcp          weather_api_1
-f0e4d1c8b484  localhost/weather_web:latest                                         2 seconds ago           Up 2 seconds           0.0.0.0:8081->8080/tcp          weather_web_1
-f34f947e3756  docker.io/cloudflare/cloudflared:latest        tunnel --no-autou...  1 second ago            Up 1 second                                            weather_tunnel-api_1
-ff3cffc5daa8  docker.io/cloudflare/cloudflared:latest        tunnel --no-autou...  Less than a second ago  Up Less than a second                                  weather_tunnel-web_1
-Tue Jun 23 07:06:57 PM EDT 2026
-Tue Jun 23 07:07:27 PM EDT 2026
-2026-06-23T23:06:57Z INF Requesting new quick Tunnel on trycloudflare.com...
-2026-06-23T23:07:01Z INF |  https://variation-carpet-bios-minutes.trycloudflare.com                                   |
+CONTAINER ID  IMAGE                                          COMMAND               CREATED                 STATUS        PORTS                           NAMES
+bd211afec4dd  mcr.microsoft.com/dotnet/aspire-dashboard:9.0                        4 seconds ago           Up 5 seconds  0.0.0.0:18888->18888/tcp        weather_aspire-dashboard_1
+c8c1426c67a1  localhost/weather_otelcol:latest               --config=/etc/ote...  3 seconds ago           Up 4 seconds  4317-4318/tcp, 55678-55679/tcp  weather_otelcol_1
+4f1eb6cf871d  docker.io/cloudflare/cloudflared:latest        tunnel --no-autou...  3 seconds ago           Up 3 seconds                                  weather_tunnel-aspire_1
+7b79251f64c7  localhost/weather_api:latest                                         2 seconds ago           Up 3 seconds  0.0.0.0:8080->8080/tcp          weather_api_1
+572ccbf00d43  localhost/weather_web:latest                                         2 seconds ago           Up 2 seconds  0.0.0.0:8081->8080/tcp          weather_web_1
+2bf99791ff03  docker.io/cloudflare/cloudflared:latest        tunnel --no-autou...  1 second ago            Up 2 seconds                                  weather_tunnel-api_1
+744aab8753b7  docker.io/cloudflare/cloudflared:latest        tunnel --no-autou...  Less than a second ago  Up 1 second                                   weather_tunnel-web_1
+Wed Jun 24 08:59:43 AM EDT 2026
+Wed Jun 24 09:00:13 AM EDT 2026
+2026-06-24T12:59:43Z INF Requesting new quick Tunnel on trycloudflare.com...
+2026-06-24T12:59:46Z INF |  https://compensation-salad-rendered-innocent.trycloudflare.com                            |
 kushal@virginia:~/src/dotnet/weather/deploy$ exit
 logout
 Connection to 192.168.0.76 closed.
