@@ -27,10 +27,10 @@
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.16.0" />
   </ItemGroup>
   <ItemGroup Label="Testing (TUnit runner + Shouldly + bUnit + NSubstitute)">
-    <PackageVersion Include="TUnit" Version="1.57.0" />
+    <PackageVersion Include="TUnit" Version="1.59.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="bunit.web" Version="1.40.0" />
