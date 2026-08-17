@@ -32,7 +32,7 @@
   <ItemGroup Label="Testing (TUnit runner + Shouldly + bUnit + NSubstitute)">
     <PackageVersion Include="TUnit" Version="1.57.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
-    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="bunit.web" Version="1.40.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.9" />
   </ItemGroup>
