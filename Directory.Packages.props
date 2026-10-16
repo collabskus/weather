@@ -7,6 +7,7 @@
     <OpenTelemetryVersion>1.10.0</OpenTelemetryVersion>
   </PropertyGroup>
   <ItemGroup Label="Data access (SQLite + Dapper)">
+    <PackageVersion Include="AngleSharp" Version="1.5.0" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Dapper" Version="2.1.89" />
   </ItemGroup>
